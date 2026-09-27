@@ -112,6 +112,8 @@ h2 { font-size: 1.3em; margin: 1.5em 0 0.5em 0; page-break-before: always; }
 .note { font-size: 80%; margin: 0.3em 0 0.3em 1em; }
 sup { font-size: 70%; line-height: 0; }
 sup a, p.note a { text-decoration: none; }
+ul.table-imprimee, ul.index { list-style: none; margin: 0.5em 0 1em 0; padding: 0; }
+ul.table-imprimee li, ul.index li { margin: 0.15em 0; padding-left: 1.5em; text-indent: -1.5em; }
 """ + CSS_MARK_END + "\n"
 
 
@@ -660,6 +662,37 @@ class Structurer:
                 note.insert(0, back)
             self.st["notes reliées à leur appel"] += 1
 
+    def group_lists(self, doc):
+        """Lignes de table des matières (p.tdm) et entrées d'index (p.index) consécutives
+        regroupées en liste <ul> : une entrée par élément."""
+        body = doc.body
+        i = 0
+        while i < len(body):
+            kind = next((k for k in ("tdm", "index") if k in classes(body[i]) and lname(body[i]) == "p"), None)
+            if kind is None:
+                i += 1
+                continue
+            j = i
+            while j < len(body) and lname(body[j]) == "p" and kind in classes(body[j]):
+                j += 1
+            if j - i >= 2:
+                ul = ET.Element(X("ul"))
+                ul.set("class", "table-imprimee" if kind == "tdm" else "index")
+                items = list(body)[i:j]
+                for p in items:
+                    li = ET.SubElement(ul, X("li"))
+                    if p.get("id"):
+                        li.set("id", p.get("id"))
+                    li.text = p.text
+                    for ch in list(p):
+                        p.remove(ch)
+                        li.append(ch)
+                    li.tail = "\n"
+                    body.remove(p)
+                body.insert(i, ul)
+                self.st["listes (table imprimée, index)"] += 1
+            i += 1
+
     @staticmethod
     def text_slots(el):
         """Nœuds de texte d'un paragraphe, hors liens et exposants existants."""
@@ -812,6 +845,7 @@ class Structurer:
             self.merge_pages(doc)
         if self.opts.link_notes:
             self.link_notes(doc)
+        self.group_lists(doc)
         if not any(lname(k) in BLOCK for k in doc.body):
             # fichier vidé (avertissement Google seul, restes de mise en page) : XHTML 1.1
             # exige au moins un bloc dans <body>

@@ -73,6 +73,10 @@ h1, h2, h3, h4 { text-align: center; margin: 1em 0 0.6em 0; }
 .droite { text-align: right; }
 .image { text-align: center; margin: 1em 0; }
 p.vers { text-align: left; margin: 0 0 1em 2em; }
+table.tableau { border-collapse: collapse; margin: 1em 0; font-size: 90%; }
+table.tableau td { border: 1px solid #aaa; padding: 0.2em 0.4em; vertical-align: top; }
+ol.liste, ul.liste { list-style: none; margin: 0.5em 0 1em 1em; padding: 0; }
+ol.liste li, ul.liste li { margin: 0.2em 0; text-indent: -1em; padding-left: 1em; }
 img { max-width: 100%; max-height: 100%; }
 """
 
@@ -409,9 +413,21 @@ class Builder:
         self.open_p = None
         self.flush_margins()
 
+    def text_target(self):
+        """Où ajouter du texte dans le bloc ouvert (dernier élément de liste, dernière cellule)."""
+        b = self.open_p
+        if b is None:
+            return None
+        if b["type"] == "list":
+            return b["items"][-1] if b.get("items") else None
+        if b["type"] == "table":
+            return b["rows"][-1][-1] if b.get("rows") else None
+        return b
+
     def flush_hyphen(self):
-        if self.hyphen and self.hyphen != "\x00" and self.open_p is not None:
-            self.add_words(self.open_p, [(self.hyphen + "-", 1.0)])
+        tgt = self.text_target()
+        if self.hyphen and self.hyphen != "\x00" and tgt is not None:
+            self.add_words(tgt, [(self.hyphen + "-", 1.0)])
         self.hyphen = None
 
     @staticmethod
@@ -493,6 +509,103 @@ class Builder:
             run = [l] if l is not None and short(l) else []
         return found
 
+    @staticmethod
+    def cells_of(line, colw, h):
+        """Découpe une ligne en cellules aux grands blancs (bien plus larges qu'une espace)."""
+        gap_min = max(0.06 * colw, 1.6 * h)
+        cells, cur = [], [line.words[0]]
+        for a, b in zip(line.words, line.words[1:]):
+            if b.x0 - a.x1 > gap_min:
+                cells.append(cur)
+                cur = [b]
+            else:
+                cur.append(b)
+        cells.append(cur)
+        return cells
+
+    def table_lines(self, body, colw, h):
+        """Tableaux : au moins 3 lignes voisines coupées en 2 cellules ou plus par de grands
+        blancs, dont les colonnes s'alignent. Renvoie {id(ligne): (n° du tableau, cellules)}."""
+        out, runs, run = {}, [], []
+        for l in body:
+            cells = self.cells_of(l, colw, h)
+            near = run and l.y0 - run[-1][0].y1 < 2.2 * h
+            if len(cells) >= 2:
+                if not near and run:
+                    runs.append(run)
+                    run = []
+                run.append((l, cells))
+            elif near and run and len(run) >= 2:
+                run.append((l, cells))          # ligne d'une seule cellule au milieu d'un tableau
+            else:
+                if run:
+                    runs.append(run)
+                run = []
+        if run:
+            runs.append(run)
+        tid = 0
+        for run in runs:
+            while run and len(run[-1][1]) < 2:
+                run.pop()
+            if sum(1 for _, c in run if len(c) >= 2) < 3:
+                continue
+            # colonnes : débuts de cellules regroupés (tolérance 5 % de la justification)
+            starts = sorted(c[0].x0 for _, cells in run for c in cells)
+            cols = []
+            for x in starts:
+                if not cols or x - cols[-1][-1] > 0.05 * colw:
+                    cols.append([x])
+                else:
+                    cols[-1].append(x)
+            cols = [min(c) for c in cols if len(c) >= 2] or [min(c) for c in cols]
+            if len(cols) < 2:
+                continue
+            tid += 1
+            for l, cells in run:
+                row = [None] * len(cols)
+                for c in cells:
+                    k = max((i for i, x in enumerate(cols) if x <= c[0].x0 + 0.05 * colw), default=0)
+                    row[k] = (row[k] or []) + c
+                out[id(l)] = (tid, row)
+        return out
+
+    @staticmethod
+    def list_lines(body, left, colw, h):
+        """Listes : au moins 3 lignes de suite qui commencent par une marque (« 1. », « a) »,
+        « — », « • ») au même retrait ; les lignes entre deux marques, plus en retrait, sont
+        la suite de l'élément. Renvoie {id(ligne): ("item"|"cont", n° de liste, numérotée)}."""
+        mark = re.compile(r"^(?:(\d{1,3})[.)°]|[a-z][.)]|[•·–—*-])\s")
+        out, lid = {}, 0
+        i = 0
+        while i < len(body):
+            l = body[i]
+            m = mark.match(l.text)
+            if not m or l.x0 > left + 0.15 * colw:
+                i += 1
+                continue
+            x_mark = l.x0
+            items, j = [], i
+            while j < len(body):
+                lj = body[j]
+                mj = mark.match(lj.text)
+                if mj and abs(lj.x0 - x_mark) < 0.03 * colw:
+                    items.append((j, "item"))
+                elif items and not mj and lj.x0 > x_mark + 0.01 * colw and \
+                        lj.y0 - body[j - 1].y1 < 1.2 * h:
+                    items.append((j, "cont"))
+                else:
+                    break
+                j += 1
+            if sum(1 for _, k in items if k == "item") >= 3:
+                lid += 1
+                ordered = bool(m.group(1))
+                for k, kind in items:
+                    out[id(body[k])] = (kind, lid, ordered)
+                i = j
+            else:
+                i += 1
+        return out
+
     def margin_notes(self, page):
         """Lignes de manchette voisines regroupées en une seule note (césures recollées)."""
         notes, cur, last = [], [], None
@@ -528,6 +641,9 @@ class Builder:
         body = sorted([l for l in page.lines if l.zone == "body"], key=lambda l: (l.y0, l.x0))
         body = self.attach_lettrines(body, h)
         verse = self.verse_lines(body, getattr(page, "typical", colw), h)
+        tables = self.table_lines([l for l in body if id(l) not in verse], colw, h)
+        lists = self.list_lines([l for l in body if id(l) not in verse and id(l) not in tables],
+                                left, colw, h)
         for l in page.lines:
             if l.zone in ("top", "bottom"):
                 self.dropped[l.text] += 1
@@ -537,6 +653,46 @@ class Builder:
             text = line.text.strip()
             if not text:
                 continue
+            if id(line) in tables:
+                tid, cells = tables[id(line)]
+                blk = self.open_p
+                if blk is None or blk["type"] != "table" or blk.get("tid") != (page.index, tid):
+                    blk = self.new_block("table")
+                    blk["tid"], blk["rows"] = (page.index, tid), []
+                row = []
+                for cell in cells:
+                    c = {"parts": []}
+                    if cell is not None:
+                        self.add_words(c, [(w.text, w.conf) for w in cell])
+                    row.append(c)
+                if not anchor_done:
+                    row[0]["parts"].insert(0, self.anchor(page))
+                    anchor_done = True
+                blk["rows"].append(row)
+                self.hyphen = None
+                prev = line
+                continue
+            if id(line) in lists:
+                kind, lid, ordered = lists[id(line)]
+                blk = self.open_p
+                if blk is None or blk["type"] != "list" or blk.get("lid") != (page.index, lid):
+                    if kind == "cont" and blk is not None and blk["type"] == "list":
+                        pass                     # suite d'élément sur la page suivante
+                    else:
+                        blk = self.new_block("list")
+                        blk["lid"], blk["items"], blk["ordered"] = (page.index, lid), [], ordered
+                if kind == "item" or not blk["items"]:
+                    self.flush_hyphen()          # mot coupé en fin d'élément : on le garde tel quel
+                    blk["items"].append({"parts": []})
+                item = blk["items"][-1]
+                if not anchor_done:
+                    item["parts"].append(self.anchor(page))
+                    anchor_done = True
+                self.add_words(item, self.words_of(line))
+                prev = line
+                continue
+            if self.open_p is not None and self.open_p["type"] in ("table", "list"):
+                self.close()
             if id(line) in verse:
                 # vers : une ligne = un vers ; nouvelle strophe si retrait ou blanc
                 gap = (line.y0 - prev.y1) if prev is not None else 0
@@ -611,6 +767,32 @@ def esc(s):
     return html.escape(s, quote=False)
 
 
+def block_parts(b):
+    """Toutes les parties d'un bloc, y compris celles des cellules et des éléments de liste."""
+    out = list(b.get("parts", []))
+    for row in b.get("rows", []):
+        for c in row:
+            out += c["parts"]
+    for it in b.get("items", []):
+        out += it["parts"]
+    return out
+
+
+def render_parts(parts):
+    out = []
+    for p in parts:
+        if p[0] == "text":
+            out.append(esc(p[1]))
+        elif p[0] == "doubt":
+            out.append('<span class="a-verifier" title="OCR peu sûr (%d %%)">%s</span>'
+                       % (round(p[2] * 100), esc(p[1])))
+        elif p[0] == "anchor":
+            out.append('<a id="%s"></a>' % p[1])
+        elif p[0] == "br":
+            out.append("<br />")
+    return re.sub(r" {2,}", " ", "".join(out)).strip()
+
+
 def render_block(b, img_names):
     parts = []
     for p in b["parts"]:
@@ -625,6 +807,16 @@ def render_block(b, img_names):
             parts.append('<a id="%s"></a>' % p[1])
     inner = "".join(parts).strip()
     inner = re.sub(r" {2,}", " ", inner)
+    if b["type"] == "table":
+        rows = []
+        for row in b["rows"]:
+            tds = "".join("<td>%s</td>" % render_parts(c["parts"]) for c in row)
+            rows.append("<tr>%s</tr>" % tds)
+        return '<table class="tableau">\n%s\n</table>' % "\n".join(rows)
+    if b["type"] == "list":
+        tag = "ol" if b.get("ordered") else "ul"
+        lis = "\n".join("<li>%s</li>" % render_parts(it["parts"]) for it in b["items"])
+        return '<%s class="liste">\n%s\n</%s>' % (tag, lis, tag)
     if b["type"] == "image":
         name = img_names.get(id(b))
         return '<div class="image">%s<img src="../Images/%s" alt="" /></div>' % (inner, name)
@@ -672,7 +864,7 @@ def write_epub(out_path, blocks, pages, meta, per_file):
         body = "\n".join(x for x in (render_block(b, img_names) for b in group) if x)
         xhtml.append((name, XHTML_HEAD % esc(title) + body + "\n</body>\n</html>\n"))
         for b in group:
-            for p in b["parts"]:
+            for p in block_parts(b):
                 if p[0] == "anchor":
                     page_targets.append((name, p[1]))
     labels = {"page-%s" % (p.view or p.index + 1): p.label for p in pages}

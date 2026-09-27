@@ -49,3 +49,23 @@ pages de reliure sont ignorées. Sans OCR disponible, Tesseract est utilisé
 (`apt install tesseract-ocr tesseract-ocr-fra` ; modèle `frm` pour le moyen français, qui lit le ſ).
 La position des lignes sert à retirer titres courants, folios, signatures et réclames, à placer les
 manchettes, à recoller césures, lettrines et paragraphes coupés par les pages.
+
+## Tableaux et listes
+
+- Import PDF : les lignes coupées en colonnes par de grands blancs, alignées sur au moins trois
+  lignes, deviennent un tableau (`<table class="tableau">`) ; les lignes qui commencent par une
+  marque (« 1. », « a) », « — ») au même retrait deviennent une liste (`<ol class="liste">`),
+  la marque d'origine restant dans le texte.
+- EPUB de Google : les lignes de table des matières imprimée et les entrées d'index que Google
+  a repérées deviennent des listes (`<ul class="table-imprimee">`, `<ul class="index">`).
+
+## Licence
+
+Prescel est distribué sous licence MIT (fichier `LICENSE`).
+
+Outils et données utilisés, qui ont leur propre licence :
+- PyMuPDF (import PDF, facultatif) : AGPL-3.0 ou licence commerciale d'Artifex ;
+- Tesseract (OCR, facultatif) : Apache 2.0 ;
+- epubcheck (contrôle, facultatif) : BSD-3-Clause ;
+- liste de mots « an-array-of-french-words » (téléchargée par `epub_longs.py --wordlist auto`) : MIT ;
+- OCR et images de Gallica : conditions de réutilisation de la BnF (usage non commercial libre).

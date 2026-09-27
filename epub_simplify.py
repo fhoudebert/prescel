@@ -255,7 +255,11 @@ class Cleaner:
                 if c in HEADINGS and name == "p":
                     el.tag = X(HEADINGS[c])
                     self.st["titres"] += 1
-            if any(c in MARGIN_CLASSES for c in classes):
+            if "gtxt_toc_entry" in classes:
+                new_classes.append("tdm")          # ligne de la table des matières imprimée
+            elif "gtxt_index_entry" in classes:
+                new_classes.append("index")        # entrée d'index
+            elif any(c in MARGIN_CLASSES for c in classes):
                 new_classes.append("marge")
             else:
                 align = decls.get("text-align", "")
@@ -603,6 +607,11 @@ def process_doc(path, text, keep_ids, css_table, css_path, old_css, opts, st, lo
     head = root.find(X("head"))
     body = root.find(X("body"))
     if body is None or not any(lname(e) == "p" for e in body.iter()):
+        # rien à nettoyer (page d'image seule) ; on corrige quand même le DOCTYPE
+        if opts.epub2 and re.search(r"<!DOCTYPE[^>]*XHTML 1\.0", text[:m.start() if m else 0]):
+            st["DOCTYPE mis en XHTML 1.1"] += 1
+            return re.sub(r"<!DOCTYPE[^>]*>", '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"\n'
+                          '  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">', text, count=1)
         return None
 
     # Classes définies dans les <style> embarqués (sélecteurs simples)
