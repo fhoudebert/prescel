@@ -93,10 +93,14 @@ CATEGORIES = collections.OrderedDict([
     ("chiffres", "Chiffres dans un mot"),
     ("isolees", "Lettres isolées"),
     ("ponctuation", "Ponctuation collée ou mal placée"),
+    ("lettrines", "Lettrine perdue ?"),
     ("courts", "Paragraphes très courts"),
     ("coupures", "Paragraphe qui semble coupé"),
 ])
 HELP = {
+    "lettrines": "Le paragraphe commence par un mot incomplet : la grande lettre du début (lettrine) "
+                 "n'a pas été lue par l'OCR (« Ous avons » pour « NOus avons »). La lettre proposée "
+                 "est celle qui donne un mot fréquent du livre ; vérifiez sur la page scannée.",
     "cesures": "Trait d'union suivi d'une espace au milieu d'une phrase : reste d'une coupure de fin "
                "de ligne de l'imprimé (« estran- ges »). Recollez le mot ; la correction proposée est "
                "suivie de « ? » quand ce mot n'existe pas ailleurs dans le livre.",
@@ -355,6 +359,29 @@ class Reviewer:
                 last_end = it[1]
         return cleaned
 
+    def lost_lettrine(self, text):
+        """Paragraphe dont la lettrine a disparu à l'OCR : « Ous avons » (nous), « E vent »
+        (le), « N vient » (on). Renvoie (longueur du premier mot, suggestion) ou None."""
+        m = re.match(r"([%s]+)" % LETTERS, text)
+        if not m:
+            return None
+        w = m.group(1)
+        lw = w.lower()
+        if len(w) > 1 and (self.vocab.get(lw, 0) > 1 or not w[:1].isupper()):
+            return None
+        if len(w) == 1 and w in "AÀYOÔ":
+            return None
+        best = []
+        for L in "abcdefghijlmnopqrstuvy":
+            n = self.vocab.get(L + lw, 0)
+            if n >= 5:
+                best.append((n, (L + lw).upper() if w.isupper() else L.upper() + lw))
+        if not best:
+            return None
+        best.sort(reverse=True)
+        sugg = " ou ".join(x[1] for x in best[:3])
+        return len(w), "→ " + sugg + (" ?" if len(best) > 1 else "")
+
     def add(self, cat, doc, page, context, start, end, detail):
         lo = max(0, start - 45)
         hi = min(len(context), end + 45)
@@ -406,6 +433,12 @@ class Reviewer:
             cls = classes(el)
             normal = n == "p" and not (cls & {"marge", "note", "centre", "droite", "sommaire",
                                               "numero", "image"})
+            if normal and full and len(full) >= 25:
+                lost = self.lost_lettrine(full)
+                if lost:
+                    self.add("lettrines", doc, first_page, full, 0, lost[0], lost[1])
+                    if mark:
+                        el.set("class", " ".join(sorted(cls | {MARK_CLASS})))
             if normal and full and len(full) < 25 and not re.search(r"[.!?:»)]$", full):
                 self.add("courts", doc, first_page, full, 0, len(full), "%d caractères" % len(full))
                 if mark:
@@ -563,6 +596,9 @@ ol.cas li { display:grid; grid-template-columns: 9.5rem 1fr 5.5rem; gap:.8rem; p
 a { color:var(--vert); }
 .scan { font-size:.85rem; text-align:right; }
 code { background:#e4e9e5; padding:.05em .3em; border-radius:3px; }
+button.copie { font: .75rem system-ui, sans-serif; margin-left:.5rem; padding:.05rem .45rem; cursor:pointer;
+  border:1px solid var(--trait); border-radius:3px; background:#fff; color:var(--vert); }
+button.copie:hover { border-color: var(--vert); }
 .glob td { padding:.3rem .6rem; border-bottom:1px solid var(--trait); }
 @media (max-width:40rem) { ol.cas li { grid-template-columns:1fr; gap:.1rem; } .scan { text-align:left; } }
 """
@@ -621,14 +657,25 @@ def build_report(title, rv, docs_count, marked_path, scan_template, max_items):
             scan = ('<a href="%s" target="_blank" rel="noopener">page %s</a>' % (e(it["url"]), e(it["page"]))
                     if it["url"] else (e(it["page"]) if it["page"] else ""))
             out.append('<li><span class="fic">%s</span><span class="ctx">%s<mark>%s</mark>%s'
-                       '<span class="det">%s</span></span><span class="scan">%s</span></li>'
+                       '<span class="det">%s <button class="copie" type="button" data-t="%s" '
+                       'title="Copier l\'extrait pour la recherche de Sigil">copier</button></span></span>'
+                       '<span class="scan">%s</span></li>'
                        % (e(it["file"]), e(it["before"]), e(it["hit"]), e(it["after"]),
-                          e(it["detail"]), scan))
+                          e(it["detail"]), html.escape(it["hit"].strip(), quote=True), scan))
         if len(lst) > max_items:
             out.append("<li><span></span><span class='aide'>… et %d autres (voir --max-items)</span>"
                        "<span></span></li>" % (len(lst) - max_items))
         out.append("</ol></details>")
-    out.append("</main></body></html>")
+    out.append("""</main><script>
+document.addEventListener("click", function (ev) {
+  var b = ev.target.closest("button.copie"); if (!b) return;
+  var t = b.getAttribute("data-t");
+  function done() { var o = b.textContent; b.textContent = "copié"; setTimeout(function () { b.textContent = o; }, 1200); }
+  if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(t).then(done); return; }
+  var ta = document.createElement("textarea"); ta.value = t; ta.style.position = "fixed"; ta.style.opacity = "0";
+  document.body.appendChild(ta); ta.select(); try { document.execCommand("copy"); done(); } catch (e) {} ta.remove();
+});
+</script></body></html>""")
     return "\n".join(out)
 
 

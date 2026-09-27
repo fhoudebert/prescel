@@ -72,6 +72,7 @@ h1, h2, h3, h4 { text-align: center; margin: 1em 0 0.6em 0; }
 .centre { text-align: center; }
 .droite { text-align: right; }
 .image { text-align: center; margin: 1em 0; }
+p.vers { text-align: left; margin: 0 0 1em 2em; }
 img { max-width: 100%; max-height: 100%; }
 """
 
@@ -419,7 +420,7 @@ class Builder:
 
     def add_words(self, block, words):
         for t, conf in words:
-            if any(p[0] in ("text", "doubt") for p in block["parts"]):
+            if any(p[0] in ("text", "doubt") for p in block["parts"]) and block["parts"][-1][0] != "br":
                 block["parts"].append(("text", " "))
             if self.mark_conf and conf < self.mark_conf and len(t) > 1:
                 block["parts"].append(("doubt", t, conf))
@@ -475,6 +476,23 @@ class Builder:
             out.append(l)
         return out
 
+    @staticmethod
+    def verse_lines(body, typical, h):
+        """Vers : au moins 3 lignes de suite nettement plus courtes que la justification
+        habituelle du livre, commençant par une capitale, à interligne régulier."""
+        def short(l):
+            t = l.text.strip()
+            return (l.x1 - l.x0) < 0.72 * typical and len(t) >= 8 and (t[:1].isupper() or t[:1] in "«“\"'")
+        found, run = set(), []
+        for l in body + [None]:
+            if l is not None and short(l) and (not run or l.y0 - run[-1].y1 < 1.3 * h):
+                run.append(l)
+                continue
+            if len(run) >= 3:
+                found.update(id(x) for x in run)
+            run = [l] if l is not None and short(l) else []
+        return found
+
     def margin_notes(self, page):
         """Lignes de manchette voisines regroupées en une seule note (césures recollées)."""
         notes, cur, last = [], [], None
@@ -509,6 +527,7 @@ class Builder:
         cw = colw / 60.0                       # largeur approximative d'un caractère
         body = sorted([l for l in page.lines if l.zone == "body"], key=lambda l: (l.y0, l.x0))
         body = self.attach_lettrines(body, h)
+        verse = self.verse_lines(body, getattr(page, "typical", colw), h)
         for l in page.lines:
             if l.zone in ("top", "bottom"):
                 self.dropped[l.text] += 1
@@ -518,6 +537,25 @@ class Builder:
             text = line.text.strip()
             if not text:
                 continue
+            if id(line) in verse:
+                # vers : une ligne = un vers ; nouvelle strophe si retrait ou blanc
+                gap = (line.y0 - prev.y1) if prev is not None else 0
+                new_stanza = (self.open_p is None or self.open_p["type"] != "vers" or
+                              gap > 1.2 * h or (prev is not None and line.x0 - prev.x0 > 1.5 * cw
+                                                and id(prev) in verse and prev.x0 < line.x0))
+                if new_stanza:
+                    self.new_block("vers")
+                else:
+                    self.open_p["parts"].append(("br",))
+                if not anchor_done:
+                    self.open_p["parts"].append(self.anchor(page))
+                    anchor_done = True
+                self.hyphen = None
+                self.add_words(self.open_p, [(w.text, w.conf) for w in line.words])
+                prev = line
+                continue
+            if self.open_p is not None and self.open_p["type"] == "vers":
+                self.close()
             tall = line.height > 1.9 * h
             if tall and len(text) == 1 and text.isalpha():
                 self.close()
@@ -581,6 +619,8 @@ def render_block(b, img_names):
         elif p[0] == "doubt":
             parts.append('<span class="a-verifier" title="OCR peu sûr (%d %%)">%s</span>'
                          % (round(p[2] * 100), esc(p[1])))
+        elif p[0] == "br":
+            parts.append("<br />")
         elif p[0] == "anchor":
             parts.append('<a id="%s"></a>' % p[1])
     inner = "".join(parts).strip()
@@ -590,7 +630,7 @@ def render_block(b, img_names):
         return '<div class="image">%s<img src="../Images/%s" alt="" /></div>' % (inner, name)
     if not re.sub(r"<[^>]+>", "", inner).strip():
         return '<div>%s</div>' % inner if inner else ""
-    cls = {"marge": ' class="marge"', "centre": ' class="centre"'}.get(b["type"], "")
+    cls = {"marge": ' class="marge"', "centre": ' class="centre"', "vers": ' class="vers"'}.get(b["type"], "")
     return "<p%s>%s</p>" % (cls, inner)
 
 
@@ -902,6 +942,11 @@ def main():
                         l.zone = "margin"
 
     mark = opts.mark_conf if opts.mark_conf is not None else (0.4 if source == "ocr" else 0.5)
+    widths = sorted(p.col[3] for p in pages if p.kind == "text" and hasattr(p, "col"))
+    typical = widths[len(widths) * 3 // 4] if widths else None
+    for p in pages:
+        if typical and hasattr(p, "col"):
+            p.typical = typical
     b = Builder(mark)
     for p in pages:
         if p.kind in ("text", "image"):

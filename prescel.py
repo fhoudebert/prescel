@@ -1781,7 +1781,8 @@ function renderSigilHelp() {
       « Tous les fichiers HTML », mode <i>Regex</i> quand c'est indiqué. Vérifiez sur trois ou quatre cas avant « Tout remplacer ».</li>
     <li><b>Puis les cas un par un.</b> Ouvrez la version « à relire » : chaque cas est surligné en jaune.
       Cherchez <code>a-verifier</code> (mode Normal) et utilisez « Suivant » ; le rapport, ouvert à côté,
-      donne pour chaque cas le lien vers la page scannée.</li>
+      donne pour chaque cas le lien vers la page scannée, et son bouton « copier » met l'extrait
+      dans le presse-papiers pour le coller dans la recherche de Sigil.</li>
     <li><b>Titres manquants.</b> La section « Numérotation des chapitres » du rapport indique où un titre manque.
       Ajoutez-le en <code>&lt;h2&gt;</code>, enregistrez, puis utilisez « Relance ciblée » : les étapes 3 à 5
       sont rejouées sur le fichier enregistré et la table des matières est régénérée.</li>
