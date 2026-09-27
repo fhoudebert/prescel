@@ -63,7 +63,7 @@ p.a-verifier, h1.a-verifier, h2.a-verifier { background: none; outline: 2px dash
 LETTERS = "A-Za-zÀ-ÖØ-öø-ÿŒœÆæß"
 WORD_RE = re.compile(r"[%s]+" % LETTERS)
 ALLOWED_SINGLE = set("aàyoôAÀYOÔ&")
-CHAPTER_RE = re.compile(r"^(?:CHAPITRE|Chapitre|CHAP|Chap)\b\s*\.?\s*(.+?)[\s.]*$")
+CHAPTER_RE = re.compile(r"^(?:[^a-zà-ÿ]{0,30}?\s)?(?:CHA)?(?:CHAPITRE|Chapitre|CHAP|Chap)\b\s*\.?\s*(.+?)[\s.]*$")
 ORDINALS = [("premi", 1), ("secon", 2), ("deux", 2), ("tier", 3), ("trois", 3), ("quatr", 4),
             ("cinq", 5), ("sixi", 6), ("sept", 7), ("huit", 8), ("neuf", 9), ("dixi", 10)]
 GLOBAL_FIXES = [
@@ -86,6 +86,7 @@ CATEGORIES = collections.OrderedDict([
     ("slong", "S long lu « f » ? (mot laissé tel quel)"),
     ("ocr", "Mots peu sûrs pour l'OCR"),
     ("notes", "Notes sans appel dans le texte"),
+    ("cesures", "Mots coupés par un trait d'union"),
     ("colles", "Mots collés ?"),
     ("coupes", "Mots coupés ?"),
     ("casse", "Casse mélangée dans un mot"),
@@ -96,6 +97,9 @@ CATEGORIES = collections.OrderedDict([
     ("coupures", "Paragraphe qui semble coupé"),
 ])
 HELP = {
+    "cesures": "Trait d'union suivi d'une espace au milieu d'une phrase : reste d'une coupure de fin "
+               "de ligne de l'imprimé (« estran- ges »). Recollez le mot ; la correction proposée est "
+               "suivie de « ? » quand ce mot n'existe pas ailleurs dans le livre.",
     "notes": "Note de bas de page dont l'appel n'a pas été retrouvé (chiffre perdu ou mal lu par "
              "l'OCR). Retrouvez le mot sur la page scannée et ajoutez l'appel en exposant : "
              "<sup><a href=\"#note-N\" id=\"appel-N\">1</a></sup>, et id=\"note-N\" sur la note.",
@@ -208,6 +212,31 @@ def roman_to_int(s):
     return total if total > 0 else None
 
 
+ORD_UNITS = [("premi", 1), ("second", 2), ("tier", 3), ("onz", 11), ("douz", 12), ("treiz", 13),
+             ("quatorz", 14), ("quinz", 15), ("seiz", 16), ("dix", 10), ("vingt", 20), ("trent", 30),
+             ("quarant", 40), ("cinquant", 50), ("soixant", 60), ("cent", 100), ("un", 1), ("deux", 2),
+             ("trois", 3), ("quatr", 4), ("cinq", 5), ("six", 6), ("sept", 7), ("huit", 8), ("neu", 9)]
+
+
+def french_ordinal(raw):
+    """« vingt-quatrie me » → 24, « onziesme » → 11, « trentieme » → 30 (0 si illisible)."""
+    t = raw.lower().translate(str.maketrans("αβεζηικμνορτυχéèêàâęė", "abezhikmnoptyxeeeaaee"))
+    t = re.sub(r"[^a-z\- ]", "", t).replace(" ", "")
+    t = re.sub(r"-(?=[a-z]{1,2}$)", "", t)          # « dix-huitiem-e »
+    total = 0
+    for part in re.split(r"-|\bet\b", t):
+        part = re.sub(r"(?:iesme|ieme|ime|me)$", "", part)
+        if not part:
+            continue
+        for pref, val in ORD_UNITS:
+            if part.startswith(pref):
+                total = total * val if val == 100 and total else total + val
+                break
+        else:
+            return 0
+    return total
+
+
 def chapter_number(label):
     m = CHAPTER_RE.match(label)
     if not m:
@@ -218,11 +247,7 @@ def chapter_number(label):
     if n is None and raw.isdigit():
         n = int(raw)
     if n is None:
-        low = raw.lower()
-        for pref, val in ORDINALS:
-            if low.startswith(pref):
-                n = val
-                break
+        n = french_ordinal(raw) or None
     return n, raw
 
 
@@ -257,8 +282,10 @@ class Reviewer:
                 out.append((a, b, "slong", "→ %s ?" % self.longs[lw]))
                 continue
             elided = b < len(s) and s[b] in "'’"
-            # « a-t-il », « va-t-on », « y a-t-il » : le t euphonique n'est pas une lettre isolée
-            hyphenated = (a > 0 and s[a - 1] in "-‑") or (b < len(s) and s[b] in "-‑")
+            # « a-t-il », « va-t-on » : seul le t euphonique, entre deux traits d'union, est admis.
+            # Toute autre lettre collée à un trait reste signalée : c'est souvent un reste de
+            # coupure de fin de ligne (« e- stant »).
+            hyphenated = w in "tT" and a > 0 and s[a - 1] in "-‑" and b < len(s) and s[b] in "-‑"
             # casse mélangée : « AVtres », « DaEtylus » (sauf mots tout en capitales)
             if len(w) > 2 and not w.isupper() and not re.fullmatch(r"[ivxlcIVXLC]+", w) and \
                     re.search(r"[a-zà-ÿ][A-ZÀ-Þ]|^[A-ZÀ-Þ]{2,}[a-zà-ÿ]", w):
@@ -299,6 +326,11 @@ class Reviewer:
                     glued = (w + w2).lower()
                     if v.get(glued, 0) >= 2 and (v.get(lw, 0) <= 1 or v.get(w2.lower(), 0) <= 1):
                         out.append((a, b2, "coupes", "→ " + w + w2))
+        # coupure de fin de ligne restée dans le texte : « estran- ges », « e- stant »
+        for m in re.finditer(r"([%s]+)[-‑¬]\s+([a-zà-öø-ÿœæſ]+)" % LETTERS, s):
+            glued = (m.group(1) + m.group(2)).lower()
+            detail = "→ " + m.group(1) + m.group(2) + ("" if self.vocab.get(glued, 0) else " ?")
+            out.append((m.start(), m.end(), "cesures", detail))
         # chiffres dans un mot : « x1111 », « c0mme » (pas « 1er », « 2e »)
         for m in re.finditer(r"\b(?=\w*[%s])(?=\w*\d)\w+\b" % LETTERS, s):
             tok = m.group(0)
@@ -315,7 +347,7 @@ class Reviewer:
         for m in re.finditer(r"[%s] [,.](?!\.)" % LETTERS, s):
             out.append((m.start(), m.end(), "ponctuation", m.group(0)))
         # retirer les chevauchements (on garde le premier)
-        out.sort()
+        out.sort(key=lambda x: (x[0], x[2] != "cesures", -x[1]))   # la coupure l'emporte
         cleaned, last_end = [], -1
         for it in out:
             if it[0] >= last_end:

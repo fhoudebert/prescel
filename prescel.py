@@ -180,6 +180,10 @@ STEPS = [
              "label": "Retirer l'avertissement de Google",
              "help": "Les pages en anglais ajoutées par Google Livres (« This is a digital copy of a "
                      "book… », « Usage guidelines »). Le nombre de caractères retirés est indiqué."},
+            {"flag": "--date-titles", "type": "bool",
+             "label": "Dates du journal comme titres",
+             "help": "Pour un journal de voyage : une date seule sur sa ligne (« 6. Mars. », « Le 17. "
+                     "d'Octobre 1619. ») devient un titre, qui apparaît dans la table des matières."},
             {"flag": "--caps-titles", "type": "bool",
              "label": "Titres composés en capitales",
              "help": "« VOYAGE / DE MONSIEUR LE / CHEVALIER CHARDIN / DE PARIS A ISPAHAN. » ou « PREFACE. » "
@@ -455,6 +459,11 @@ LONG_S_HINTS = re.compile(r"\b(?:eft|auffi|ainfi|chofes?|plufieurs|fes|fon|fans|
                           r"prefque|jufqu|efprit|meffieurs|monfieur|lefquels|laiffer|puiffance)\b")
 
 
+DATE_LINE = re.compile(r"(?i)^(?:le\s+)?\d{1,2}(?:er)?\s*\.?\s*(?:de\s+|d['’]\s*)?(?:janvier|ianvier|"
+                       r"f[eé]vrier|febvrier|feurier|mars|avril|auril|may|mai|juin|iuin|juillet|iuillet|"
+                       r"ao[uû]st|aoust|septembre|octobre|novembre|nouembre|d[eé]cembre)\b\s*(?:\d{4})?\s*\.?$")
+
+
 def strip_tags(s):
     return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", s)).split())
 
@@ -566,7 +575,7 @@ def analyse(path):
         stats = dict(docs=len(docs), images=sum(n.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".svg"))
                                                 for n in names),
                      styles=0, gtxt=0, gbs=0, h1=0, h2=0, chap_lines=0, chap_title_before=0,
-                     book_lines=0, markers=0, paragraphs=0, chars=0, divs=0, longs=0, caps_blocks=0)
+                     book_lines=0, markers=0, paragraphs=0, chars=0, divs=0, longs=0, caps_blocks=0, date_lines=0)
         for n in docs:
             t = z.read(n).decode("utf-8", "replace")
             stats["styles"] += len(re.findall(r"\sstyle\s*=", t))
@@ -590,6 +599,7 @@ def analyse(path):
                 else:
                     stats["caps_blocks"] += run >= 2
                     run = 0
+            stats["date_lines"] += sum(1 for ptxt in paras if DATE_LINE.match(ptxt))
             for i, ptxt in enumerate(paras):
                 if CHAP_LINE.match(ptxt):
                     stats["chap_lines"] += 1
@@ -630,6 +640,13 @@ def analyse(path):
         rec["longs"]["enabled"] = True
         notes.append("Le s long est souvent lu « f » (%d mots typiques : « eft », « auffi »…) : "
                      "étape « S long » cochée." % stats["longs"])
+    if stats["date_lines"] >= 8:
+        rec["structure"]["options"]["--date-titles"] = True
+        notes.append("Journal daté : %d dates seules sur leur ligne (« 6. Mars. ») deviendront des titres."
+                     % stats["date_lines"])
+        if stats["chap_lines"] < 3:
+            rec["split"]["enabled"] = False
+            notes.append("Pas de chapitres : pas de découpage (un fichier par date serait trop fin).")
     if stats["caps_blocks"] >= 2:
         rec["structure"]["options"]["--caps-titles"] = True
         notes.append("%d titres composés en capitales sur plusieurs lignes : réglage « titres en "

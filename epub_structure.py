@@ -67,8 +67,15 @@ LOWER = "a-zà-öø-ÿœæ"
 ROMAN = r"[IVXLCDMivxl1]+(?:\s?[IVXLCDMivxl1]+)*"
 ORDINAL = r"[A-Za-zÀ-ÿ]{4,14}"   # premier, second, tiers, quatriesme (et ses fautes d'OCR)
 
-CHAPTER_RE = r"^(?:CHA)?(?:CHAPITRE|Chapitre|CHAP|Chap)\b\s*\.?\s*(?:" + ROMAN + \
-    r"|" + ORDINAL + r"|[Ii]er|\d+)[\s.]*$"
+# Un bandeau d'ornement lu par l'OCR peut précéder le mot (« * ZX IX FX $ CHAPITRE ONZIΕ'ΜΕ. ») :
+# jusqu'à 30 signes sans minuscule sont admis devant ; après le mot, un ordinal en
+# capitales abîmé (« VINGT-QUATRIE ME.. ») est admis s'il ne contient pas de chiffre.
+CHAPTER_RE = r"^(?:[^a-zà-ÿ]{0,30}?\s)?(?:CHA)?(?:CHAPITRE|Chapitre|CHAP|Chap)\b\s*\.?\s*(?:" + ROMAN + \
+    r"|" + ORDINAL + r"|[Ii]er|\d+|[^a-zà-ÿ0-9.]{2,30}?)[\s.]*$"
+# Journal daté : « 6. Mars. », « Le 17. d'Octobre 1619. », « 3 Juin » (graphies anciennes admises)
+MONTHS = (r"(?:janvier|ianvier|f[eé]vrier|febvrier|feurier|fevrier|mars|avril|auril|may|mai|juin|iuin|"
+          r"juillet|iuillet|ao[uû]st|aoust|septembre|octobre|novembre|nouembre|d[eé]cembre)")
+DATE_RE = r"(?i)^(?:le\s+)?\d{1,2}(?:er)?\s*\.?\s*(?:de\s+|d['’]\s*)?" + MONTHS + r"\b\s*(?:\d{4})?\s*\.?$"
 BOOK_RE = (r"^(?:(?:LIVRE|Livre|PARTIE|Partie)\s+[\wÀ-ÿ]+\s*\.?"
            r"|(?:LE\s+|Le\s+)?(?:PREMIER|SECOND|TIERS|TROISI[EÈ]ME|QUATRI[EÈ]ME|CINQUI[EÈ]ME"
            r"|[Pp]remier|[Ss]econd|[Tt]iers|[Tt]roisi[eè]me|[Qq]uatri[eè]me|[Cc]inqui[eè]me)"
@@ -256,6 +263,9 @@ class Structurer:
         self.opts, self.vocab, self.names = opts, vocab, names
         self.st, self.log = stats, log
         self.chapter_re = re.compile(opts.chapter_regex)
+        self.date_re = re.compile(DATE_RE)
+        self.caps_count = collections.Counter()   # lignes en capitales répétées (titres courants)
+        self.caps_seen = set()
         self.book_re = re.compile(opts.book_regex)
         self.table_re = re.compile(opts.table_regex)
         self.in_table = False
@@ -366,6 +376,15 @@ class Structurer:
                 level = "h1"
             elif self.chapter_re.match(t):
                 level = "h2"
+            elif self.opts.date_titles and self.date_re.match(t) and lname(el) == "p" \
+                    and not (classes(el) & {"marge", "note"}):
+                el.tag = X("h2")
+                if "class" in el.attrib:
+                    del el.attrib["class"]
+                if not el.get("id"):
+                    el.set("id", self.new_id())
+                self.st["titres datés (h2)"] += 1
+                continue
             if level == "h2" and self.opts.title_before and not self.table_re.match(t):
                 title = self.title_before(kids, idx)
                 if title is not None:
@@ -398,7 +417,9 @@ class Structurer:
                             break
                         if lname(nxt) not in ("div",) and not self.is_furniture(nxt):
                             break
-            elif "marge" in classes(el) and NOTE_RE.match(t):
+            elif "marge" in classes(el) and NOTE_RE.match(t) and \
+                    not re.match(r"(?i)\d{1,2}\s*\.?\s*(?:de\s+|d['’]\s*)?" + MONTHS, t):
+                # (« 13. Mars. » en manchette est une date, pas une note)
                 el.set("class", "note")
                 self.st["notes"] += 1
 
@@ -518,6 +539,27 @@ class Structurer:
             if not ((len(block) >= 2 and letters >= 12) or FRONT_WORDS.match(texts[0])):
                 i = j
                 continue
+            key = caps_key(" ".join(texts))
+            if len(block) == 1 and self.caps_count[key] >= 3:
+                # « PREFACE » en tête de chaque page de la préface : titre courant
+                if key in self.caps_seen:
+                    if self.opts.drop_furniture:
+                        el = block[0]
+                        ids = [x.get("id") for x in el.iter() if x.get("id")]
+                        for c in text_of(el):
+                            if not c.isspace():
+                                self.removed_chars[c] += 1
+                        self.removed[text_of(el)] += 1
+                        k = list(body).index(el)
+                        remove_keep_tail(body, el)
+                        for id_ in ids:
+                            give_id_to_next_block(body, k, id_)
+                        self.st["titres courants répétés"] += 1
+                        i = k
+                    else:
+                        i = j
+                    continue
+                self.caps_seen.add(key)
             head = block[0]
             head.tag = X("h1")
             if "class" in head.attrib:
@@ -770,6 +812,10 @@ class Structurer:
             self.merge_pages(doc)
         if self.opts.link_notes:
             self.link_notes(doc)
+        if not any(lname(k) in BLOCK for k in doc.body):
+            # fichier vidé (avertissement Google seul, restes de mise en page) : XHTML 1.1
+            # exige au moins un bloc dans <body>
+            doc.body.append(ET.Element(X("div")))
         after = compact("".join(doc.body.itertext()))
         expected = collections.Counter(before) - self.removed_chars
         expected["-"] -= self.hyphens
@@ -794,9 +840,15 @@ def layout(body):
 # Table des matières
 # --------------------------------------------------------------------------
 
+def caps_key(t):
+    return re.sub(r"[^A-ZÀ-Þ]", "", t.upper())
+
+
 def clean_number(label):
     """« Chapitre. X V. » → « Chapitre XV » ; « Chap.v11 » → « Chap. VII »."""
-    m = re.match(r"^(?:CHA)?(CHAPITRE|Chapitre|CHAP|Chap)\s*\.?\s*(.*?)[\s.]*$", label)
+    # lettres grecques prises pour des capitales latines par l'OCR (« ONZIΕ'ΜΕ »)
+    label = label.translate(str.maketrans("ΑΒΕΖΗΙΚΜΝΟΡΤΥΧαεικνορτυχ", "ABEZHIKMNOPTYXaeiknoptyx"))
+    m = re.match(r"^(?:[^a-zà-ÿ]{0,30}?\s)?(?:CHA)?(CHAPITRE|Chapitre|CHAP|Chap)\s*\.?\s*(.*?)[\s.]*$", label)
     if not m:
         return label
     word, num = m.group(1), m.group(2)
@@ -809,7 +861,7 @@ def clean_number(label):
     return "%s %s" % (word, num)
 
 
-def toc_entries(docs_in_order, chapter_re, book_re, table_re, used_ids=frozenset()):
+def toc_entries(docs_in_order, chapter_re, book_re, table_re, used_ids=frozenset(), date_re=None):
     """Titres retenus : h1 (tous), h2 de chapitre. Niveau 1 = livre/partie."""
     entries, seq = [], 0
     for doc in docs_in_order:
@@ -819,7 +871,8 @@ def toc_entries(docs_in_order, chapter_re, book_re, table_re, used_ids=frozenset
             label = text_of(el)
             numbered = any("numero" in classes(x) for x in kids[idx + 1:idx + 2])
             if not label or n not in ("h1", "h2") or \
-                    (n == "h2" and not (chapter_re.match(label) or table_re.match(label) or numbered)):
+                    (n == "h2" and not (chapter_re.match(label) or table_re.match(label) or numbered
+                                        or (date_re is not None and date_re.match(label)))):
                 continue
             if not el.get("id"):
                 seq += 1
@@ -1024,6 +1077,8 @@ def main():
                          "leur note (« 1. Saluer en ôtant le bonnet ») ; aller-retour par liens")
     ap.add_argument("--drop-google-notice", action="store_true",
                     help="retirer l'avertissement de Google Livres (pages en anglais)")
+    ap.add_argument("--date-titles", action="store_true",
+                    help="journal : les dates seules sur leur ligne (« 6. Mars. ») deviennent des titres h2")
     ap.add_argument("--caps-titles", action="store_true",
                     help="titres composés en capitales (« VOYAGE / DE MONSIEUR LE / … », « PREFACE. ») → h1")
     ap.add_argument("--drop-furniture", action="store_true",
@@ -1093,6 +1148,14 @@ def main():
         stats, log = collections.Counter(), []
         s = Structurer(opts, vocab, names, stats, log)
         for d in docs:
+            for el in d.body.iter():
+                if lname(el) in ("p", "h1", "h2"):
+                    t = text_of(el)
+                    letters = [c for c in t if c.isalpha()]
+                    if 3 <= len(letters) and len(t) <= 70 and \
+                            sum(c.isupper() for c in letters) / len(letters) >= 0.8:
+                        s.caps_count[caps_key(t)] += 1
+        for d in docs:
             s.used_ids.update(x.get("id") for x in d.root.iter() if x.get("id"))
         removed_all = collections.Counter()
         for d in docs:
@@ -1104,7 +1167,7 @@ def main():
             s.removed = collections.Counter()
 
         # Table des matières (avant sérialisation : des id peuvent être ajoutés)
-        entries = toc_entries(docs, s.chapter_re, s.book_re, s.table_re, s.used_ids)
+        entries = toc_entries(docs, s.chapter_re, s.book_re, s.table_re, s.used_ids, s.date_re)
         new_data = {d.path: d.serialize() for d in docs}
         if entries and not opts.no_toc:
             if ncx_path and ncx_path in names:
