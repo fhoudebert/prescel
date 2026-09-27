@@ -21,6 +21,7 @@ Variables d'environnement équivalentes : PRESCEL_EPUBCHECK, PRESCEL_SIGIL.
 """
 
 import argparse
+import csv
 import html
 import json
 import os
@@ -89,6 +90,30 @@ STEPS = [
         ],
     },
     {
+        "id": "longs", "enabled": False, "script": "epub_longs.py", "suffix": "2b-s-long",
+        "title": "S long lu « f »",
+        "summary": "Dans les imprimés anciens, l'OCR lit souvent le s long (ſ) comme un « f » : « eft », "
+                   "« auffi », « chofes ». Le livre sert de dictionnaire : une correction n'est faite que si "
+                   "la forme en « s » existe ailleurs dans le livre. Les mots qui existent sous les deux "
+                   "formes (« font »/« sont ») sont laissés au choix, dans l'onglet « S long ».",
+        "options": [
+            {"key": "apply", "type": "bool", "default": True, "text": True,
+             "label": "Appliquer les corrections sûres",
+             "help": "Décoché : la liste est seulement établie, rien n'est corrigé."},
+            {"key": "use_tsv", "type": "bool", "default": True,
+             "label": "Respecter mes choix enregistrés",
+             "help": "Si vous avez coché ou décoché des mots dans l'onglet « S long », ces choix sont "
+                     "repris ; les mots nouveaux reçoivent le choix par défaut."},
+            {"flag": "--min-count", "type": "int", "default": 2, "advanced": True,
+             "label": "Occurrences minimales de la forme en « s »",
+             "help": "Une correction n'est proposée que si la forme corrigée figure au moins ce nombre "
+                     "de fois dans le livre."},
+            {"flag": "--wordlist", "type": "text", "advanced": True, "label": "Liste de mots de référence",
+             "help": "Fichier de mots (un par ligne, ou .dic Hunspell) : décide aussi quelles formes en "
+                     "« f » sont de vrais mots."},
+        ],
+    },
+    {
         "id": "structure", "enabled": True, "script": "epub_structure.py", "suffix": "3-structure",
         "title": "Structure du livre",
         "summary": "Reconnaît les livres et chapitres (h1, h2), les sommaires et les notes ; "
@@ -105,6 +130,15 @@ STEPS = [
              "help": "Supprime les restes sans mots : numéros de page (« 172 »), signatures de "
                      "cahier (« IV-1 »), titres courants (« MONTLUC REMPLACÉ EN GUYENNE 171 »). "
                      "La liste complète est affichée."},
+            {"flag": "--drop-google-notice", "type": "bool", "default": True, "text": True,
+             "label": "Retirer l'avertissement de Google",
+             "help": "Les pages en anglais ajoutées par Google Livres (« This is a digital copy of a "
+                     "book… », « Usage guidelines »). Le nombre de caractères retirés est indiqué."},
+            {"flag": "--caps-titles", "type": "bool",
+             "label": "Titres composés en capitales",
+             "help": "« VOYAGE / DE MONSIEUR LE / CHEVALIER CHARDIN / DE PARIS A ISPAHAN. » ou « PREFACE. » "
+                     "deviennent un seul titre h1, qui apparaît dans la table des matières. Les lignes "
+                     "d'adresse (« A AMSTERDAM, Chez… », « MDCCXI. ») n'en font pas partie."},
             {"flag": "--title-before", "type": "bool",
              "label": "Titre placé avant « Chapitre N »",
              "help": "Pour les éditions anciennes (Belon) où le titre en capitales précède le "
@@ -312,7 +346,7 @@ def file_role(slug, name):
             return role
     if "-retouche-" in name:
         return "version retouchée déposée"
-    if re.search(r"-\d-[\w-]+\.epub$", name):
+    if re.search(r"-\d\w?-[\w-]+\.epub$", name):
         return "étape intermédiaire"
     return ""
 
@@ -342,6 +376,11 @@ BOOK_LINE = re.compile(r"^(?:(?:LE|Le)\s+)?(?:PREMIER|SECOND|TIERS|premier|secon
                        r"(?:LI[UV]RE|li[uv]re|$)")
 
 
+# Formes où le s long a été lu « f » : très fréquentes dans les imprimés anciens
+LONG_S_HINTS = re.compile(r"\b(?:eft|auffi|ainfi|chofes?|plufieurs|fes|fon|fans|fur|affez|"
+                          r"prefque|jufqu|efprit|meffieurs|monfieur|lefquels|laiffer|puiffance)\b")
+
+
 def strip_tags(s):
     return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", s)).split())
 
@@ -369,12 +408,20 @@ def analyse(path):
             "author": html.unescape(author.group(1).strip()) if author else "",
             "page_map": bool(re.search(r"page-map\s*=", opf)),
         })
-        docs = [n for n in names if n.lower().endswith((".xhtml", ".html", ".htm")) or
-                ("/Text/" in n and n.endswith(".xml"))]
+        base = posixpath.dirname(opf_path)
+        docs = []
+        for m in re.finditer(r"<(?:\w+:)?item\b[^>]*>", opf):
+            tag = m.group(0)
+            if "application/xhtml+xml" in tag:
+                href = re.search(r"""href\s*=\s*["']([^"']+)""", tag)
+                if href:
+                    p = posixpath.normpath(posixpath.join(base, unquote(href.group(1))))
+                    if p in names:
+                        docs.append(p)
         stats = dict(docs=len(docs), images=sum(n.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".svg"))
                                                 for n in names),
                      styles=0, gtxt=0, gbs=0, h1=0, h2=0, chap_lines=0, chap_title_before=0,
-                     book_lines=0, markers=0, paragraphs=0, chars=0, divs=0)
+                     book_lines=0, markers=0, paragraphs=0, chars=0, divs=0, longs=0, caps_blocks=0)
         for n in docs:
             t = z.read(n).decode("utf-8", "replace")
             stats["styles"] += len(re.findall(r"\sstyle\s*=", t))
@@ -387,6 +434,17 @@ def analyse(path):
             paras = [strip_tags(m) for m in re.findall(r"<(?:p|h[1-6])\b[^>]*>(.*?)</(?:p|h[1-6])>", t, re.S)]
             stats["paragraphs"] += len(paras)
             stats["chars"] += sum(len(p) for p in paras)
+            plain = " ".join(paras).lower()
+            stats["longs"] += len(LONG_S_HINTS.findall(plain))
+            run = 0
+            for ptxt in paras + [""]:
+                letters = [c for c in ptxt if c.isalpha()]
+                if 3 <= len(letters) and len(ptxt) <= 60 and not re.search(r"\d", ptxt) and \
+                        sum(c.isupper() for c in letters) / len(letters) >= 0.8:
+                    run += 1
+                else:
+                    stats["caps_blocks"] += run >= 2
+                    run = 0
             for i, ptxt in enumerate(paras):
                 if CHAP_LINE.match(ptxt):
                     stats["chap_lines"] += 1
@@ -420,7 +478,17 @@ def analyse(path):
         notes.append("%d attributs style=\"…\" : l'étape 1 peut les regrouper si vous voulez garder "
                      "la mise en forme." % stats["styles"])
     rec["structure"]["enabled"] = True
-    rec["structure"]["options"] = {"--merge-pages": info["google"], "--drop-furniture": info["google"]}
+    rec["structure"]["options"] = {"--merge-pages": info["google"], "--drop-furniture": info["google"],
+                                   "--drop-google-notice": info["google"]}
+    words = max(1, stats["chars"] // 6)
+    if stats["longs"] >= 20 and stats["longs"] * 1000 >= words:
+        rec["longs"]["enabled"] = True
+        notes.append("Le s long est souvent lu « f » (%d mots typiques : « eft », « auffi »…) : "
+                     "étape « S long » cochée." % stats["longs"])
+    if stats["caps_blocks"] >= 2:
+        rec["structure"]["options"]["--caps-titles"] = True
+        notes.append("%d titres composés en capitales sur plusieurs lignes : réglage « titres en "
+                     "capitales » coché." % stats["caps_blocks"])
     if stats["chap_lines"] and stats["chap_title_before"] >= 0.4 * stats["chap_lines"]:
         rec["structure"]["options"]["--title-before"] = True
         notes.append("Dans %d cas sur %d, un titre en capitales précède « Chapitre N » : réglage "
@@ -580,9 +648,12 @@ def pipeline(job, plan, check_mode, start=None):
             job.log(step["id"], "Script introuvable : %s (à placer à côté de prescel.py)" % step["script"], "err")
             st["status"], ok = "error", False
             break
+        tsv = os.path.join(d, slug + "-s-long.tsv")
         if step["id"] == "review":
             report = os.path.join(d, slug + "-relecture.html")
             cmd = [py, "-u", script, current, "--report", report] + build_args(step, opts)
+            if os.path.exists(tsv):
+                cmd += ["--longs-tsv", tsv]
             marked = os.path.join(d, slug + "-a-relire.epub") if opts.get("mark", True) else None
             dico = os.path.join(d, slug + "-dictionnaire.txt") if opts.get("dict", True) else None
             if marked:
@@ -611,6 +682,12 @@ def pipeline(job, plan, check_mode, start=None):
         if os.path.exists(out):
             os.remove(out)
         cmd = [py, "-u", script, current, "-o", out] + build_args(step, opts)
+        if step["id"] == "longs":
+            cmd += ["--tsv", tsv]
+            if opts.get("use_tsv", True):
+                cmd.append("--use-tsv")
+            if not opts.get("apply", True):
+                cmd.append("--no-apply")
         rc = run_command(job, step["id"], cmd)
         st["seconds"] = round(time.time() - t0, 1)
         if rc != 0:
@@ -621,6 +698,8 @@ def pipeline(job, plan, check_mode, start=None):
             shutil.copy2(current, out)
             job.log(step["id"], "Rien à modifier : copie inchangée pour l'étape suivante.", "info")
         st["status"], st["output"] = "done", os.path.basename(out)
+        if step["id"] == "longs" and os.path.exists(tsv):
+            job.result["longs"] = os.path.basename(tsv)
         current = final_epub = out
         if check_mode == "each":
             st["epubcheck"] = epubcheck(job, step["id"], out)
@@ -738,6 +817,14 @@ class Handler(BaseHTTPRequestHandler):
                             "workdir": CONFIG["workdir"], "version": VERSION,
                             "missing": [s["script"] for s in STEPS
                                         if not os.path.exists(os.path.join(HERE, s["script"]))]})
+        elif path == "/api/longs":
+            slug = parse_qs(url.query).get("slug", [""])[0]
+            tsv = os.path.join(project_dir(slug), slug + "-s-long.tsv")
+            if not os.path.exists(tsv):
+                return self.send_json({"ok": True, "rows": []})
+            with open(tsv, encoding="utf-8", newline="") as f:
+                rows = [r for r in csv.DictReader(f, delimiter="\t") if r.get("forme_lue")]
+            self.send_json({"ok": True, "rows": rows})
         elif path == "/api/project":
             slug = parse_qs(url.query).get("slug", [""])[0]
             src = os.path.join(project_dir(slug), slug + ".epub")
@@ -792,6 +879,8 @@ class Handler(BaseHTTPRequestHandler):
                 job = start_job(slug, "pipeline", pipeline, plan, body.get("epubcheck", "end"),
                                 body.get("start") or None)
                 self.send_json({"ok": True, "job": job.id})
+            elif path == "/api/longs":
+                self.save_longs(body)
             elif path == "/api/unmark":
                 job = start_job(body["slug"], "unmark", unmark_job, body["file"])
                 self.send_json({"ok": True, "job": job.id})
@@ -836,6 +925,28 @@ class Handler(BaseHTTPRequestHandler):
         info = analyse(src)
         info.update({"slug": slug, "files": project_files(slug)})
         self.send_json(info)
+
+    def save_longs(self, body):
+        slug = body["slug"]
+        tsv = os.path.join(project_dir(slug), slug + "-s-long.tsv")
+        if not os.path.exists(tsv):
+            return self.send_json({"ok": False, "error": "Aucune liste du s long dans ce projet."}, 404)
+        choice = {c["forme_lue"]: "1" if c["appliquer"] else "0" for c in body.get("choices", [])}
+        with open(tsv, encoding="utf-8", newline="") as f:
+            reader = csv.DictReader(f, delimiter="\t")
+            fields, rows = reader.fieldnames, list(reader)
+        changed = 0
+        for r in rows:
+            v = choice.get(r.get("forme_lue"))
+            if v is not None and v != r.get("appliquer"):
+                r["appliquer"] = v
+                r["remarque"] = re.sub(r"^nouveau ; ?", "", r.get("remarque") or "")
+                changed += 1
+        with open(tsv, "w", encoding="utf-8", newline="") as f:
+            w = csv.DictWriter(f, fieldnames=fields, delimiter="\t")
+            w.writeheader()
+            w.writerows(rows)
+        self.send_json({"ok": True, "changed": changed})
 
     def open_in(self, body):
         what, slug = body.get("what"), body.get("slug")
@@ -993,6 +1104,18 @@ ul.tdm li.niv1 { font-weight: 600; margin-top: .6rem; }
 ul.tdm li.niv2 { padding-left: 2.4rem; }
 iframe.rapport { width: 100%; height: 36rem; border: none; }
 .vide { color: var(--gris); font-family: var(--serif); }
+.longs-outils { display: flex; gap: .8rem; flex-wrap: wrap; align-items: center; margin-bottom: .8rem; }
+.longs-outils input[type=search], .longs-outils select { padding: .3rem .5rem; border: 1px solid var(--trait);
+  border-radius: 3px; background: var(--papier); }
+.longs-outils .note { margin: 0; }
+.table-longs { max-height: 30rem; overflow: auto; border: 1px solid var(--trait); }
+.table-longs table { border-collapse: collapse; width: 100%; font-size: .9rem; }
+.table-longs th { position: sticky; top: 0; background: var(--papier); text-align: left; font-weight: 600;
+  padding: .35rem .6rem; border-bottom: 2px solid var(--encre); }
+.table-longs td { padding: .3rem .6rem; border-bottom: 1px solid var(--trait); }
+.table-longs td.mot { font-family: var(--serif); font-size: 1rem; }
+.table-longs td.n { text-align: right; font-variant-numeric: tabular-nums; }
+.table-longs td.rem { color: var(--gris); font-size: .85rem; }
 .conseils { font-family: var(--serif); max-width: 50rem; }
 .conseils h4 { font-size: 1.05rem; margin: 1.2rem 0 .3rem; }
 .conseils li { margin: .25rem 0; }
@@ -1067,12 +1190,14 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
     <div class="onglets" role="tablist" id="onglets">
       <button role="tab" aria-selected="true" data-vue="journal">Journal</button>
       <button role="tab" aria-selected="false" data-vue="tdm">Table des matières</button>
+      <button role="tab" aria-selected="false" data-vue="longs">S long</button>
       <button role="tab" aria-selected="false" data-vue="rapport">Rapport de relecture</button>
       <button role="tab" aria-selected="false" data-vue="sigil">Relire dans Sigil</button>
     </div>
     <div class="vue" id="vue-journal"><pre class="journal" id="journal"><span class="vide">Le journal d'exécution s'affichera ici.</span></pre></div>
     <div class="vue" id="vue-tdm" hidden><p class="vide">La table des matières du livre préparé s'affichera ici.</p></div>
     <div class="vue" id="vue-rapport" hidden><p class="vide">Le rapport de relecture s'affichera ici après l'étape « Préparer la relecture ».</p></div>
+    <div class="vue" id="vue-longs" hidden><p class="vide">La liste des corrections du s long apparaît après l'étape « S long lu f ».</p></div>
     <div class="vue conseils" id="vue-sigil" hidden></div>
 </section>
 
@@ -1116,7 +1241,8 @@ async function init() {
   renderSteps();
   renderSigilHelp();
   setupDrop();
-  document.querySelectorAll("#onglets button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.vue)));
+  document.querySelectorAll("#onglets button").forEach(b => b.addEventListener("click", () => {
+    showTab(b.dataset.vue); if (b.dataset.vue === "longs" && state.project) loadLongs(); }));
   $("#lancer").addEventListener("click", run);
   $("#depart").addEventListener("change", startChanged);
   $("#relance").addEventListener("click", prepareRelance);
@@ -1320,6 +1446,52 @@ function startChanged() {
     "Une copie est gardée dans archives/.";
   if (f && f.markers) note.className = "note attention";
 }
+/* ---------- liste du s long ---------- */
+async function loadLongs() {
+  const r = await api("/api/longs?slug=" + encodeURIComponent(state.project.slug));
+  state.longs = (r.rows || []).map(x => Object.assign(x, { _orig: x.appliquer }));
+  renderLongs();
+}
+function renderLongs() {
+  const v = $("#vue-longs"); v.innerHTML = "";
+  const rows = state.longs || [];
+  if (!rows.length) { v.append(el("p", { class: "vide" }, "La liste apparaît après l'étape « S long lu f »."));  return; }
+  const pending = rows.filter(r => r._orig !== "1").length;
+  const filtre = el("select", { "aria-label": "Filtrer" },
+    el("option", { value: "doute" }, "Laissés au choix (" + pending + ")"),
+    el("option", { value: "tous" }, "Toutes les formes (" + rows.length + ")"));
+  const cherche = el("input", { type: "search", placeholder: "Chercher un mot…", "aria-label": "Chercher un mot" });
+  const msg = el("p", { class: "note" }, "Cochez les mots à corriger partout, décochez ceux à laisser.");
+  const save = el("button", { class: "bouton", disabled: true }, "Enregistrer mes choix");
+  const tbody = el("tbody");
+  const draw = () => {
+    tbody.innerHTML = ""; const q = cherche.value.trim().toLowerCase(); let n = 0;
+    for (const r of rows) {
+      if (filtre.value === "doute" && r._orig === "1") continue;
+      if (q && !r.forme_lue.includes(q) && !r.correction.includes(q)) continue;
+      if (++n > 500) break;
+      const cb = el("input", { type: "checkbox", checked: r.appliquer === "1", "aria-label": "Corriger " + r.forme_lue + " en " + r.correction });
+      cb.addEventListener("change", () => { r.appliquer = cb.checked ? "1" : "0"; save.disabled = false;
+        msg.className = "note attention"; msg.textContent = "Choix modifiés, pas encore enregistrés."; });
+      tbody.append(el("tr", {}, el("td", {}, cb), el("td", { class: "mot" }, r.forme_lue), el("td", { class: "mot" }, r.correction),
+        el("td", { class: "n" }, r.occurrences), el("td", { class: "n" }, r.occ_correction), el("td", { class: "rem" }, r.remarque || "")));
+    }
+  };
+  filtre.addEventListener("change", draw); cherche.addEventListener("input", draw);
+  save.addEventListener("click", async () => {
+    const res = await api("/api/longs", { slug: state.project.slug, choices: rows.map(r => ({ forme_lue: r.forme_lue, appliquer: r.appliquer === "1" })) });
+    if (!res.ok) { msg.textContent = res.error; return; }
+    save.disabled = true; msg.className = "note";
+    msg.textContent = res.changed + " choix enregistré(s). Ils seront appliqués à la prochaine préparation, ou par « Relance ciblée ».";
+  });
+  v.append(el("p", { class: "note", style: "margin:0 0 .8rem" },
+      "Chaque ligne est une forme lue avec un « f » à la place d'un s long, et sa correction. Les mots qui existent sous les deux formes (« font »/« sont ») sont laissés au choix ; leurs occurrences sont aussi signalées une par une dans le rapport de relecture."),
+    el("div", { class: "longs-outils" }, filtre, cherche, save, msg),
+    el("div", { class: "table-longs" }, el("table", {},
+      el("thead", {}, el("tr", {}, ["Corriger", "Forme lue", "Correction", "Occ.", "Occ. correction", "Remarque"].map(h => el("th", {}, h)))),
+      tbody)));
+  draw();
+}
 function prepareRelance() {
   const cands = (state.epubs || []).filter(f => f.role !== "original" && f.role !== "étape intermédiaire")
     .sort((a, b) => b.mtime - a.mtime);
@@ -1327,9 +1499,13 @@ function prepareRelance() {
   if (!cands.length) { note.textContent = "Aucune version relue ou retouchée dans ce projet : préparez d'abord le livre."; return; }
   const f = cands[0];
   $("#depart").value = f.name; startChanged();
-  for (const s of state.config.steps) setStep(s.id, ["structure", "split", "review"].includes(s.id));
+  const withLongs = (state.files || []).some(x => x.name.endsWith("-s-long.tsv"));
+  const ids = ["structure", "split", "review"].concat(withLongs ? ["longs"] : []);
+  for (const s of state.config.steps) setStep(s.id, ids.includes(s.id));
   $("#bloc-relance").classList.add("bloc-relance-actif");
-  note.textContent = "Départ : " + f.name + " (modifié " + fmtTime(f.mtime) + "). Étapes 3, 4 et 5 cochées, réglages conservés. Cliquez « Relancer depuis ce fichier ».";
+  note.textContent = "Départ : " + f.name + " (modifié " + fmtTime(f.mtime) + "). " +
+    (withLongs ? "S long (avec vos choix), structure, découpage et rapport" : "Structure, découpage et rapport") +
+    " cochés, réglages conservés. Cliquez « Relancer depuis ce fichier ».";
 }
 async function uploadRetouche(file) {
   const note = $("#relance-note"); note.textContent = "Envoi de « " + file.name + " »…";
@@ -1342,6 +1518,7 @@ async function uploadRetouche(file) {
 }
 function renderFiles(files, reset) {
   if (!files || !files.length) return;
+  state.files = files;
   renderStart(files, reset);
   $("#bloc-fichiers").hidden = false;
   const ul = $("#fichiers"); ul.innerHTML = "";
@@ -1365,6 +1542,7 @@ function finish(j) {
   if (r.epubcheck) act.append(el("p", { class: "check " + (r.epubcheck.errors + r.epubcheck.fatals ? "mauvais" : "bon") },
     "epubcheck (final) : " + (r.epubcheck.errors + r.epubcheck.fatals) + " erreur(s), " + r.epubcheck.warnings + " avertissement(s)"));
   if (r.toc) renderToc(r.toc);
+  if (r.longs) loadLongs();
   if (r.report) {
     const v = $("#vue-rapport"); v.innerHTML = "";
     v.append(el("p", {}, el("a", { href: "/files/" + slug + "/" + r.report, target: "_blank" }, "Ouvrir le rapport dans un nouvel onglet"),
@@ -1393,6 +1571,9 @@ function renderSigilHelp() {
   $("#vue-sigil").innerHTML = `
   <h4>Ordre de travail conseillé</h4>
   <ol>
+    <li><b>S long d'abord, s'il y a lieu.</b> Dans l'onglet « S long », décidez des mots laissés au choix
+      (« font »/« sont »…) quand un sens l'emporte nettement dans le livre, enregistrez, puis relancez :
+      c'est bien plus rapide que de corriger chaque occurrence dans Sigil.</li>
     <li><b>Remplacements globaux d'abord.</b> Le rapport propose ceux qui valent pour tout le livre
       (« ß » → « ss », virgules collées…). Dans Sigil : Édition › Rechercher et remplacer, étendue
       « Tous les fichiers HTML », mode <i>Regex</i> quand c'est indiqué. Vérifiez sur trois ou quatre cas avant « Tout remplacer ».</li>

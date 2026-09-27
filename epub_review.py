@@ -83,6 +83,7 @@ PREFIXES = {"entre", "contre", "quatre", "sur", "sous", "tres", "très", "mal", 
             "re", "dé", "pré", "anti", "demi"}
 CATEGORIES = collections.OrderedDict([
     ("chapitres", "Numérotation des chapitres"),
+    ("slong", "S long lu « f » ? (mot laissé tel quel)"),
     ("colles", "Mots collés ?"),
     ("coupes", "Mots coupés ?"),
     ("casse", "Casse mélangée dans un mot"),
@@ -93,6 +94,9 @@ CATEGORIES = collections.OrderedDict([
     ("coupures", "Paragraphe qui semble coupé"),
 ])
 HELP = {
+    "slong": "Mot qui existe sous les deux formes (« font »/« sont », « fait »/« sait ») : la "
+             "correction automatique l'a laissé tel quel. Comparez avec la page scannée ; pour trancher "
+             "une fois pour toutes, cochez-le dans la liste du s long et relancez.",
     "chapitres": "Numéros manquants, répétés ou illisibles. Un titre manquant est souvent sur une page "
                  "que l'OCR a traitée comme image : ajoutez-le en <h2> dans Sigil puis relancez "
                  "epub_structure.py pour régénérer la table.",
@@ -210,8 +214,9 @@ def chapter_number(label):
 # --------------------------------------------------------------------------
 
 class Reviewer:
-    def __init__(self, vocab, scan_template, wordlist=None, min_glued=11):
+    def __init__(self, vocab, scan_template, wordlist=None, min_glued=11, longs=None):
         self.vocab = vocab
+        self.longs = longs or {}
         self.wordlist = wordlist
         self.min_glued = min_glued
         self.scan_template = scan_template
@@ -231,6 +236,9 @@ class Reviewer:
         words = [(m.start(), m.end(), m.group(0)) for m in WORD_RE.finditer(s)]
         for i, (a, b, w) in enumerate(words):
             lw = w.lower()
+            if lw in self.longs:
+                out.append((a, b, "slong", "→ %s ?" % self.longs[lw]))
+                continue
             elided = b < len(s) and s[b] in "'’"
             # casse mélangée : « AVtres », « DaEtylus » (sauf mots tout en capitales)
             if len(w) > 2 and not w.isupper() and not re.fullmatch(r"[ivxlcIVXLC]+", w) and \
@@ -634,6 +642,9 @@ def main():
                          "un .dic Hunspell) : détection des mots collés plus fine")
     ap.add_argument("--min-glued", type=int, default=11,
                     help="longueur minimale d'un mot pour le soupçonner d'être collé (défaut 11)")
+    ap.add_argument("--longs-tsv", metavar="FICHIER",
+                    help="liste d'epub_longs.py : les formes laissées telles quelles (appliquer=0) "
+                         "sont signalées une par une")
     ap.add_argument("--max-items", type=int, default=400, help="cas affichés par catégorie")
     ap.add_argument("--css-path", default="Styles/livre.css")
     opts = ap.parse_args()
@@ -702,7 +713,14 @@ def main():
     if opts.wordlist:
         with open(opts.wordlist, encoding="utf-8", errors="replace") as f:
             wordlist = {line.split("/")[0].strip().lower() for line in f if line.strip()}
-    rv = Reviewer(vocab, scan, wordlist, opts.min_glued)
+    longs = {}
+    if opts.longs_tsv and os.path.exists(opts.longs_tsv):
+        import csv
+        with open(opts.longs_tsv, encoding="utf-8", newline="") as f:
+            for r in csv.DictReader(f, delimiter="\t"):
+                if r.get("forme_lue") and (r.get("appliquer") or "0").strip() != "1":
+                    longs[r["forme_lue"].lower()] = r.get("correction", "")
+    rv = Reviewer(vocab, scan, wordlist, opts.min_glued, longs)
     page_state = [None]
     mark = bool(opts.mark)
     before = {}

@@ -266,9 +266,11 @@ class Cleaner:
                     short = len("".join(el.itertext()).strip()) < 40
                     new_classes.append("marge" if short and name == "p" else "droite")
             if name == "p" and self.opts.lettrines and \
-                    font_size_ratio(decls.get("font-size")) >= 1.5 and \
                     LETTRINE_RE.match("".join(el.itertext()).strip()):
-                el.set("data-lettrine", "1")
+                # « 1 » : grande lettre (taille ≥ 150 %) ; « 2 » : lettre seule de
+                # taille ordinaire, recollée seulement si le mot obtenu existe.
+                big = font_size_ratio(decls.get("font-size")) >= 1.5
+                el.set("data-lettrine", "1" if big else "2")
         elif name == "span":
             if "gstxt_sup" in classes or decls.get("vertical-align") == "super":
                 el.tag = X("sup")
@@ -475,10 +477,45 @@ def fix_breaks(block, opts, st):
             br.tail = after.lstrip(" ") or None
 
 
+VOCAB = collections.Counter()      # mots du livre (minuscules), rempli par main()
+FIRST_WORD = re.compile(r"\s*([A-Za-zÀ-ÖØ-öø-ÿœŒæÆ]+)")
+
+
+def lettrine_word_ok(letter, text):
+    """La lettre + le premier mot du paragraphe forment-ils un mot du livre ?"""
+    m = FIRST_WORD.match(text)
+    if not m:
+        return False
+    glued = VOCAB.get((letter + m.group(1)).lower(), 0)
+    alone = VOCAB.get(m.group(1).lower(), 0)
+    # « Le Grand Vizir » : « le » est un mot très courant à lui seul, « ble » non
+    return glued >= 2 and glued * 20 >= alone
+
+
+def merge_inline_lettrines(body, st, log, doc):
+    """« C OMME les Colchéens » → « COMME les Colchéens » (lettrine séparée par une espace)."""
+    pat = re.compile(r"^(\s*)([A-ZÀ-Þ])\s+([A-ZÀ-Þ][A-ZÀ-Þa-zà-ÿ]*)(?=[\s,.;:!?'’]|$)")
+    for p in body.iter():
+        if lname(p) not in TEXT_BLOCKS or not p.text:
+            continue
+        m = pat.match(p.text)
+        if not m:
+            continue
+        letter, rest = m.group(2), m.group(3)
+        glued, alone = (letter + rest).lower(), rest.lower()
+        if VOCAB.get(glued, 0) >= 2 and VOCAB.get(alone, 0) <= 1 and \
+                not (letter in "AÀOY" and VOCAB.get(alone, 0) > 0):
+            p.text = m.group(1) + letter + rest + p.text[m.end():]
+            st["lettrines recollées"] += 1
+            log.append("  %s : « %s %s » → %s%s" % (doc, letter, rest, letter, rest))
+
+
 def merge_lettrines(body, st, log, doc):
+    merge_inline_lettrines(body, st, log, doc)
     paras = [p for p in body.iter() if lname(p) in TEXT_BLOCKS]
     for i, p in enumerate(paras):
-        if p.get("data-lettrine") != "1":
+        kind = p.get("data-lettrine")
+        if kind not in ("1", "2"):
             continue
         letter = "".join(p.itertext()).strip()
         target = None
@@ -490,6 +527,15 @@ def merge_lettrines(body, st, log, doc):
                 target = q
             break
         del p.attrib["data-lettrine"]
+        if target is not None:
+            ttext = "".join(target.itertext()).lstrip()
+            # La suite d'une lettrine est composée en capitales (« E partis », « OMME ») :
+            # la lettre + le premier mot doivent donner un mot connu du livre.
+            if not ttext[:1].isupper() or not lettrine_word_ok(letter, ttext):
+                if kind == "1":
+                    log.append("  %s : lettrine « %s » laissée seule (« %s%s… » inconnu)"
+                               % (doc, letter, letter, ttext[:12]))
+                continue
         if target is None:
             log.append("  %s : lettrine « %s » laissée seule (cible introuvable)" % (doc, letter))
             continue
@@ -548,6 +594,11 @@ def process_doc(path, text, keep_ids, css_table, css_path, old_css, opts, st, lo
     m = re.search(r"<(?:[\w-]+:)?html\b", text)
     prefix = text[:m.start()] if m else '<?xml version="1.0" encoding="utf-8"?>\n'
     prefix = re.sub(r"<!--.*?-->", "", prefix, flags=re.S)
+    if opts.epub2 and re.search(r"<!DOCTYPE[^>]*XHTML 1\.0", prefix):
+        # epubcheck exige le DOCTYPE XHTML 1.1 dans un EPUB 2 (Google met du 1.0 Strict)
+        prefix = re.sub(r"<!DOCTYPE[^>]*>", '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"\n'
+                        '  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">', prefix, count=1)
+        st["DOCTYPE mis en XHTML 1.1"] += 1
     root = ET.fromstring(replace_named_entities(text).encode("utf-8"))
     head = root.find(X("head"))
     body = root.find(X("body"))
@@ -669,6 +720,17 @@ def main():
                 parse_css_classes(zin.read(p).decode("utf-8", "replace"), css_table)
 
         stats = collections.Counter()
+        ver = re.search(r"""<(?:[\w-]+:)?package\b[^>]*\sversion\s*=\s*["']([^"']+)""", opf_text)
+        opts.epub2 = not (ver and ver.group(1).startswith("3"))
+        # Vocabulaire du livre, pour décider des lettrines de taille ordinaire
+        for d in docs:
+            try:
+                raw = decode_text(zin.read(d))[0]
+            except (UnicodeDecodeError, LookupError):
+                continue
+            plain = html.unescape(re.sub(r"<[^>]+>", " ", raw))
+            for w in re.findall(r"[A-Za-zÀ-ÖØ-öø-ÿœŒæÆ]+", plain):
+                VOCAB[w.lower()] += 1
         log, new_data = [], {}
         size_before = size_after = 0
         for d in docs:

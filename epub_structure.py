@@ -67,7 +67,7 @@ LOWER = "a-zà-öø-ÿœæ"
 ROMAN = r"[IVXLCDMivxl1]+(?:\s?[IVXLCDMivxl1]+)*"
 ORDINAL = r"[A-Za-zÀ-ÿ]{4,14}"   # premier, second, tiers, quatriesme (et ses fautes d'OCR)
 
-CHAPTER_RE = r"^(?:CHAPITRE|Chapitre|CHAP|Chap)\b\s*\.?\s*(?:" + ROMAN + \
+CHAPTER_RE = r"^(?:CHA)?(?:CHAPITRE|Chapitre|CHAP|Chap)\b\s*\.?\s*(?:" + ROMAN + \
     r"|" + ORDINAL + r"|[Ii]er|\d+)[\s.]*$"
 BOOK_RE = (r"^(?:(?:LIVRE|Livre|PARTIE|Partie)\s+[\wÀ-ÿ]+\s*\.?"
            r"|(?:LE\s+|Le\s+)?(?:PREMIER|SECOND|TIERS|TROISI[EÈ]ME|QUATRI[EÈ]ME|CINQUI[EÈ]ME"
@@ -75,7 +75,20 @@ BOOK_RE = (r"^(?:(?:LIVRE|Livre|PARTIE|Partie)\s+[\wÀ-ÿ]+\s*\.?"
            r"\s+(?:LI[UV]RE|li[uv]re)\b[^.]{0,60})$")
 TABLE_RE = r"^(?:TABLE|Table)(?:\s+(?:DES\s+MATI[ÈE]RES|des\s+mati[èe]res|ANALYTIQUE))?\s*\.?$"
 NOTE_RE = re.compile(r"^\(?\d{1,3}[.)]\s+\S|^[*†‡]\s*\S")
-FURNITURE_RE = re.compile(r"^(?:[^\w]|[\d_])*$|^[IVXLC]{1,5}[\s.\-]*\d{0,3}\s*[.,]?$")
+# Sans mots : ponctuation/chiffres seuls, ou signature de cahier AVEC chiffre (« IV-1 », « C3 »).
+# Une lettre seule (« L », « C ») n'en fait pas partie : c'est souvent une lettrine.
+FURNITURE_RE = re.compile(r"^(?:[^\w]|[\d_])*$|^[A-Z]{1,5}[\s.\-]*\d{1,3}\s*[.,]?$")
+# Adresse typographique d'une page de titre (lieu, libraire, date, devise)
+IMPRINT = re.compile(r"\bchez\b|^(?:A|À)\s+[A-ZÀ-Þ]+\s*[,.]?$|^M[DCLXVI]{2,}\s*[.,]?$|LI[E]?BERTAS|"
+                     r"AVEC PRIVIL|APPROBATION ET PRIVIL", re.I)
+FRONT_WORDS = re.compile(r"^(?:PR[EÉ]FACE|AVERTISSEMENT|AVIS(?: AU LECTEUR)?|AU LECTEUR|[EÉ]P[IÎ]TRE"
+                         r"(?: D[EÉ]DICATOIRE)?|D[EÉ]DICACE|INTRODUCTION|DISCOURS PR[EÉ]LIMINAIRE"
+                         r"|PROLOGUE|APPROBATION|PRIVIL[EÈ]GE(?: DU ROY)?)\s*[.,]?$")
+# Mots anglais qui n'existent pas en français (ni en latin) : « a », « on », « as »… sont exclus
+EN_STOP = set("the and of to is that it you this for be are with we our your by not or from "
+              "have has these its any can use they was which please us".split())
+GOOGLE_LINES = re.compile(r"^(?:usage guidelines|about google book search|about this book(?: - from google)?"
+                          r"|google book search)\s*$", re.I)
 TERMINAL = re.compile(r"[.!?:»)\]…]\s*$|\.\.\s*$")
 
 CSS_MARK_BEGIN = "/* --- epub_structure.py --- */"
@@ -243,6 +256,7 @@ class Structurer:
         self.table_re = re.compile(opts.table_regex)
         self.in_table = False
         self.removed = collections.Counter()
+        self.notice_chars = 0
         self.hyphens = 0
         self.heading_seq = 0
         self.used_ids = set()
@@ -427,6 +441,94 @@ class Structurer:
         letters = [c for c in t if c.isalpha()]
         return len(letters) >= 4 and sum(c.isupper() for c in letters) / len(letters) > 0.8
 
+    # -- avertissement de Google Livres (anglais, pas le texte du livre) ----
+    def is_google_notice(self, el):
+        if lname(el) not in ("p", "div", "h1", "h2", "h3"):
+            return False
+        t = text_of(el)
+        if not t:
+            return False
+        if GOOGLE_LINES.match(t):
+            return True
+        words = re.findall(r"[A-Za-z]+", t.lower())
+        if len(words) < 3:
+            return False
+        hits = [w for w in words if w in EN_STOP]
+        ratio = len(hits) / len(words)
+        if "google" in words:
+            return ratio >= 0.1 or len(words) <= 6
+        return len(words) >= 6 and len(set(hits)) >= 3 and ratio >= 0.22
+
+    def drop_google_notice(self, doc):
+        body = doc.body
+        i, n = 0, 0
+        while i < len(body):
+            el = body[i]
+            if self.is_google_notice(el) and not any(lname(x) in MEDIA for x in el.iter()):
+                ids = [x.get("id") for x in el.iter() if x.get("id")]
+                for c in text_of(el):
+                    if not c.isspace():
+                        self.removed_chars[c] += 1
+                self.notice_chars += len(text_of(el))
+                remove_keep_tail(body, el)
+                for id_ in ids:
+                    give_id_to_next_block(body, i, id_)
+                n += 1
+                continue
+            i += 1
+        if n:
+            self.st["avertissement Google (paragraphes)"] += n
+
+    # -- titres composés en capitales, sur une ou plusieurs lignes ----------
+    def caps_line(self, el):
+        if not is_normal_p(el) and "centre" not in classes(el):
+            return False
+        t = text_of(el)
+        letters = [c for c in t if c.isalpha()]
+        if len(t) > 70 or len(letters) < 3 or re.search(r"\bp\.\s*\d|\d{2,}", t):
+            return False
+        if self.chapter_re.match(t) or self.book_re.match(t) or self.table_re.match(t) \
+                or self.is_running_head(t) or IMPRINT.search(t):
+            return False
+        return sum(c.isupper() for c in letters) / len(letters) >= 0.8
+
+    def caps_titles(self, doc):
+        body = doc.body
+        i = 0
+        while i < len(body):
+            if self.in_table or not self.caps_line(body[i]):
+                if lname(body[i]) in ("p", "h2") and self.table_re.match(text_of(body[i])):
+                    break                       # table imprimée : on s'arrête
+                i += 1
+                continue
+            j = i
+            while j < len(body) and self.caps_line(body[j]):
+                j += 1
+            block = list(body)[i:j]
+            texts = [text_of(x) for x in block]
+            # « … MDCCXL / PREFACE. » : le dernier mot connu est le vrai titre
+            if len(block) > 1 and FRONT_WORDS.match(texts[-1]):
+                block, texts = block[-1:], texts[-1:]
+            letters = sum(c.isalpha() for c in "".join(texts))
+            if not ((len(block) >= 2 and letters >= 12) or FRONT_WORDS.match(texts[0])):
+                i = j
+                continue
+            head = block[0]
+            head.tag = X("h1")
+            if "class" in head.attrib:
+                del head.attrib["class"]
+            if not head.get("id"):
+                head.set("id", self.new_id())
+            for other in block[1:]:
+                ids = [x.get("id") for x in other.iter() if x.get("id")]
+                for id_ in ids:
+                    head.append(anchor(id_))
+                append_content(head, other, lambda s_: s_.rstrip() + " ")
+                body.remove(other)
+            self.st["titres en capitales (h1)"] += 1
+            self.log.append("  %s : titre « %s »" % (doc.path, text_of(head)[:80]))
+            i = list(body).index(head) + 1
+
     def drop_furniture(self, doc):
         body = doc.body
         i = 0
@@ -554,8 +656,12 @@ class Structurer:
         self.fix_missing_images(doc)
         self.unwrap_wrappers(doc)
         self.wrap_loose(doc)
+        if self.opts.drop_google_notice:
+            self.drop_google_notice(doc)
         if self.opts.drop_furniture:
             self.drop_furniture(doc)
+        if self.opts.caps_titles:
+            self.caps_titles(doc)
         self.mark_structure(doc)
         if self.opts.merge_pages:
             self.merge_pages(doc)
@@ -585,7 +691,7 @@ def layout(body):
 
 def clean_number(label):
     """« Chapitre. X V. » → « Chapitre XV » ; « Chap.v11 » → « Chap. VII »."""
-    m = re.match(r"^(CHAPITRE|Chapitre|CHAP|Chap)\s*\.?\s*(.*?)[\s.]*$", label)
+    m = re.match(r"^(?:CHA)?(CHAPITRE|Chapitre|CHAP|Chap)\s*\.?\s*(.*?)[\s.]*$", label)
     if not m:
         return label
     word, num = m.group(1), m.group(2)
@@ -808,6 +914,10 @@ def main():
     ap.add_argument("-o", "--output", help="EPUB de sortie (défaut : en place)")
     ap.add_argument("--merge-pages", action="store_true",
                     help="recoller les paragraphes coupés par un changement de page")
+    ap.add_argument("--drop-google-notice", action="store_true",
+                    help="retirer l'avertissement de Google Livres (pages en anglais)")
+    ap.add_argument("--caps-titles", action="store_true",
+                    help="titres composés en capitales (« VOYAGE / DE MONSIEUR LE / … », « PREFACE. ») → h1")
     ap.add_argument("--drop-furniture", action="store_true",
                     help="supprimer folios, signatures et signes isolés")
     ap.add_argument("--chapter-regex", default=CHAPTER_RE,
@@ -961,6 +1071,8 @@ def main():
                                     for k, v in removed_all.most_common()))
         if log:
             print("\n".join(log))
+        if s.notice_chars:
+            print("Avertissement de Google Livres retiré : %d caractères" % s.notice_chars)
         print("Texte vérifié : mêmes caractères qu'avant (espaces exclus%s%s)."
               % (", césures recollées exclues" if opts.merge_pages else "",
                  ", restes de mise en page retirés exclus" if opts.drop_furniture else ""))
