@@ -84,6 +84,8 @@ PREFIXES = {"entre", "contre", "quatre", "sur", "sous", "tres", "très", "mal", 
 CATEGORIES = collections.OrderedDict([
     ("chapitres", "Numérotation des chapitres"),
     ("slong", "S long lu « f » ? (mot laissé tel quel)"),
+    ("ocr", "Mots peu sûrs pour l'OCR"),
+    ("notes", "Notes sans appel dans le texte"),
     ("colles", "Mots collés ?"),
     ("coupes", "Mots coupés ?"),
     ("casse", "Casse mélangée dans un mot"),
@@ -94,6 +96,11 @@ CATEGORIES = collections.OrderedDict([
     ("coupures", "Paragraphe qui semble coupé"),
 ])
 HELP = {
+    "notes": "Note de bas de page dont l'appel n'a pas été retrouvé (chiffre perdu ou mal lu par "
+             "l'OCR). Retrouvez le mot sur la page scannée et ajoutez l'appel en exposant : "
+             "<sup><a href=\"#note-N\" id=\"appel-N\">1</a></sup>, et id=\"note-N\" sur la note.",
+    "ocr": "Mots dont l'OCR lui-même doutait (confiance faible), déjà surlignés à l'import du PDF. "
+           "Comparez avec la page scannée.",
     "slong": "Mot qui existe sous les deux formes (« font »/« sont », « fait »/« sait ») : la "
              "correction automatique l'a laissé tel quel. Comparez avec la page scannée ; pour trancher "
              "une fois pour toutes, cochez-le dans la liste du s long et relancez.",
@@ -179,6 +186,16 @@ class Doc:
         return self.bom + (self.prefix.rstrip() + "\n" + out + "\n").encode(self.enc, "xmlcharrefreplace")
 
 
+def page_of(pid):
+    """Page scannée désignée par une ancre : GBS.PA17 (Google), page-12 (pdf_to_epub)."""
+    if not pid:
+        return None
+    if pid.startswith("GBS."):
+        return pid[4:]
+    m = re.match(r"page-(\w+)$", pid)
+    return m.group(1) if m else None
+
+
 def roman_to_int(s):
     vals = {"I": 1, "V": 5, "X": 10, "L": 50, "C": 100, "D": 500, "M": 1000}
     s = s.upper()
@@ -240,13 +257,16 @@ class Reviewer:
                 out.append((a, b, "slong", "→ %s ?" % self.longs[lw]))
                 continue
             elided = b < len(s) and s[b] in "'’"
+            # « a-t-il », « va-t-on », « y a-t-il » : le t euphonique n'est pas une lettre isolée
+            hyphenated = (a > 0 and s[a - 1] in "-‑") or (b < len(s) and s[b] in "-‑")
             # casse mélangée : « AVtres », « DaEtylus » (sauf mots tout en capitales)
             if len(w) > 2 and not w.isupper() and not re.fullmatch(r"[ivxlcIVXLC]+", w) and \
                     re.search(r"[a-zà-ÿ][A-ZÀ-Þ]|^[A-ZÀ-Þ]{2,}[a-zà-ÿ]", w):
                 out.append((a, b, "casse", w))
                 continue
             # lettre isolée (les chiffres romains en minuscules sont admis)
-            if len(w) == 1 and w not in ALLOWED_SINGLE and not elided and not w.isupper() \
+            if len(w) == 1 and w not in ALLOWED_SINGLE and not elided and not hyphenated \
+                    and not w.isupper() \
                     and w not in "ivxlc":
                 out.append((a, b, "isolees", w))
                 continue
@@ -323,9 +343,18 @@ class Reviewer:
         for el in blocks:
             # pages : ancres GBS.* dans et avant le bloc
             first_page = page
-            if (el.get("id") or "").startswith("GBS."):
-                first_page = el.get("id")[4:]
+            if page_of(el.get("id")):
+                first_page = page_of(el.get("id"))
             full = " ".join("".join(el.itertext()).split())
+            if "note" in classes(el) and not any(lname(x) == "a" and x.get("href") for x in el.iter()):
+                self.add("notes", doc, first_page, full, 0, min(len(full), 60), "note non reliée")
+            # mots signalés par l'OCR à l'import (pdf_to_epub.py)
+            for sp in el.iter():
+                if lname(sp) == "span" and MARK_CLASS in classes(sp) and \
+                        (sp.get("title") or "").startswith("OCR") and sp.text:
+                    k = full.find(sp.text)
+                    self.add("ocr", doc, first_page, full, max(0, k), max(0, k) + len(sp.text),
+                             sp.get("title"))
             # suspects mot à mot, sur chaque nœud de texte
             for holder, attr, node_page in self.text_nodes(el, page):
                 s = getattr(holder, attr) or ""
@@ -338,8 +367,8 @@ class Reviewer:
                     self.wrap(holder, attr, hits)
             for d in el.iter():
                 pid = d.get("id") or ""
-                if pid.startswith("GBS."):
-                    page = pid[4:]
+                if page_of(pid):
+                    page = page_of(pid)
             # paragraphes courts / coupures douteuses
             n = lname(el)
             cls = classes(el)
@@ -372,15 +401,15 @@ class Reviewer:
             nonlocal cur
             for ch in node:
                 pid = ch.get("id") or ""
-                if pid.startswith("GBS."):
-                    cur = pid[4:]
+                if page_of(pid):
+                    cur = page_of(pid)
                 if lname(ch) != "span" or MARK_CLASS not in classes(ch):
                     out.append((ch, "text", cur))
                     walk(ch)
                 out.append((ch, "tail", cur))
         pid = el.get("id") or ""
-        if pid.startswith("GBS."):
-            cur = pid[4:]
+        if page_of(pid):
+            cur = page_of(pid)
             out[0] = (el, "text", cur)
         walk(el)
         return out
@@ -437,8 +466,8 @@ class Reviewer:
                 num, raw = chapter_number(num_label)
                 page = None
                 for d in el.iter():
-                    if (d.get("id") or "").startswith("GBS."):
-                        page = d.get("id")[4:]
+                    if page_of(d.get("id")):
+                        page = page_of(d.get("id"))
                 if page is None:
                     page = self.last_page_before(doc, el)
                 ctx = num_label if num_label == label else "%s — %s" % (num_label, label[:60])
@@ -466,8 +495,8 @@ class Reviewer:
         for d in doc.body.iter():
             if d is target:
                 break
-            if (d.get("id") or "").startswith("GBS."):
-                page = d.get("id")[4:]
+            if page_of(d.get("id")):
+                page = page_of(d.get("id"))
         return page
 
 
@@ -703,6 +732,9 @@ def main():
             vocab[w.lower()] += 1
 
     scan = opts.scan_url
+    m = re.search(r"""<meta\s+name=["']prescel:scan-url["']\s+content=["']([^"']+)["']""", opf)
+    if scan is None and m:
+        scan = html.unescape(m.group(1))       # posé par pdf_to_epub.py (Gallica…)
     if scan is None:
         google = next((i for i in ident if re.fullmatch(r"[A-Za-z0-9_-]{12}", i)), None)
         has_gbs = any((e.get("id") or "").startswith("GBS.") for d in docs for e in d.body.iter())

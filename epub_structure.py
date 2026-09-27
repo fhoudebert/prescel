@@ -77,6 +77,8 @@ TABLE_RE = r"^(?:TABLE|Table)(?:\s+(?:DES\s+MATI[ÈE]RES|des\s+mati[èe]res|ANAL
 NOTE_RE = re.compile(r"^\(?\d{1,3}[.)]\s+\S|^[*†‡]\s*\S")
 # Sans mots : ponctuation/chiffres seuls, ou signature de cahier AVEC chiffre (« IV-1 », « C3 »).
 # Une lettre seule (« L », « C ») n'en fait pas partie : c'est souvent une lettrine.
+# Appel de note collé au mot : « bonneter1 », « frère1, », « resul1. » (pas « 1er », « 2e »)
+CALL_RE = re.compile(r"([A-Za-zÀ-ÖØ-öø-ÿ»)])(\d{1,2})(?=[\s,.;:!?»)]|$|[a-zà-ÿ]{2,})")   # « brouillard1ne »
 FURNITURE_RE = re.compile(r"^(?:[^\w]|[\d_])*$|^[A-Z]{1,5}[\s.\-]*\d{1,3}\s*[.,]?$")
 # Adresse typographique d'une page de titre (lieu, libraire, date, devise)
 IMPRINT = re.compile(r"\bchez\b|^(?:A|À)\s+[A-ZÀ-Þ]+\s*[,.]?$|^M[DCLXVI]{2,}\s*[.,]?$|LI[E]?BERTAS|"
@@ -101,6 +103,8 @@ h1 { font-size: 1.6em; margin: 2em 0 1em 0; page-break-before: always; }
 h2 { font-size: 1.3em; margin: 1.5em 0 0.5em 0; page-break-before: always; }
 .sommaire { font-style: italic; font-size: 90%; margin: 0 2em 1.5em 2em; text-align: justify; }
 .note { font-size: 80%; margin: 0.3em 0 0.3em 1em; }
+sup { font-size: 70%; line-height: 0; }
+sup a, p.note a { text-decoration: none; }
 """ + CSS_MARK_END + "\n"
 
 
@@ -259,6 +263,7 @@ class Structurer:
         self.notice_chars = 0
         self.hyphens = 0
         self.heading_seq = 0
+        self.note_seq = 0
         self.used_ids = set()
 
     # -- validité ----------------------------------------------------------
@@ -529,6 +534,104 @@ class Structurer:
             self.log.append("  %s : titre « %s »" % (doc.path, text_of(head)[:80]))
             i = list(body).index(head) + 1
 
+    # -- appels de note : « bonneter1 » → « bonneter¹ » relié à « 1. Saluer… » --------
+    def link_notes(self, doc):
+        body = doc.body
+        kids = list(body)
+        calls, notes = [], []
+        for idx, el in enumerate(kids):
+            cls = classes(el)
+            if "note" in cls:
+                m = re.match(r"\s*\(?(\d{1,3})[.)]", el.text or "")
+                if m:
+                    notes.append((idx, el, m.group(1), m))
+                continue
+            if lname(el) not in ("p", "h1", "h2", "h3") or cls & {"marge", "numero"}:
+                continue
+            for holder, attr in self.text_slots(el):
+                txt = getattr(holder, attr) or ""
+                for m in CALL_RE.finditer(txt):
+                    calls.append({"idx": idx, "holder": holder, "attr": attr, "parent": el,
+                                  "start": m.start(2), "end": m.end(2), "num": m.group(2), "used": False})
+        links = []
+        for nidx, note, num, m in notes:
+            cands = [c for c in calls if not c["used"] and c["num"] == num and nidx - 15 <= c["idx"] <= nidx + 3]
+            if not cands:
+                self.st["notes sans appel retrouvé"] += 1
+                continue
+            before = [c for c in cands if c["idx"] <= nidx]
+            call = max(before, key=lambda c: (c["idx"], c["start"])) if before else \
+                min(cands, key=lambda c: (c["idx"], c["start"]))
+            call["used"] = True
+            self.note_seq += 1
+            while "note-%d" % self.note_seq in self.used_ids or "appel-%d" % self.note_seq in self.used_ids:
+                self.note_seq += 1
+            k = self.note_seq
+            self.used_ids.update(("note-%d" % k, "appel-%d" % k))
+            call["k"] = k
+            links.append((note, m, k))
+        # appels : on découpe les nœuds de texte, de la fin vers le début
+        by_slot = collections.defaultdict(list)
+        for c in calls:
+            if c["used"]:
+                by_slot[(id(c["holder"]), c["attr"])].append(c)
+        for slot in by_slot.values():
+            for c in sorted(slot, key=lambda c: -c["start"]):
+                holder, attr = c["holder"], c["attr"]
+                txt = getattr(holder, attr) or ""
+                sup = ET.Element(X("sup"))
+                a = ET.SubElement(sup, X("a"))
+                a.set("href", "#note-%d" % c["k"])
+                a.set("id", "appel-%d" % c["k"])
+                a.text = txt[c["start"]:c["end"]]
+                sup.tail = txt[c["end"]:]
+                setattr(holder, attr, txt[:c["start"]])
+                if attr == "text":
+                    holder.insert(0, sup)
+                else:
+                    parent = next(p for p in c["parent"].iter() if holder in list(p))
+                    parent.insert(list(parent).index(holder) + 1, sup)
+        # notes : numéro cliquable pour revenir au texte
+        for note, m, k in links:
+            if note.get("id"):
+                anc = anchor("note-%d" % k)
+                anc.tail, note.text = note.text, None
+                note.insert(0, anc)
+                holder = anc
+                txt = anc.tail or ""
+                back = ET.Element(X("a"))
+                back.set("href", "#appel-%d" % k)
+                mm = re.match(r"(\s*)(\(?\d{1,3}[.)])", txt)
+                anc.tail = mm.group(1)
+                back.text = mm.group(2)
+                back.tail = txt[mm.end():]
+                note.insert(1, back)
+            else:
+                note.set("id", "note-%d" % k)
+                txt = note.text or ""
+                mm = re.match(r"(\s*)(\(?\d{1,3}[.)])", txt)
+                back = ET.Element(X("a"))
+                back.set("href", "#appel-%d" % k)
+                back.text = mm.group(2)
+                back.tail = txt[mm.end():]
+                note.text = mm.group(1) or None
+                note.insert(0, back)
+            self.st["notes reliées à leur appel"] += 1
+
+    @staticmethod
+    def text_slots(el):
+        """Nœuds de texte d'un paragraphe, hors liens et exposants existants."""
+        out = [(el, "text")]
+
+        def walk(node):
+            for ch in node:
+                if lname(ch) not in ("a", "sup", "sub"):
+                    out.append((ch, "text"))
+                    walk(ch)
+                out.append((ch, "tail"))
+        walk(el)
+        return out
+
     def drop_furniture(self, doc):
         body = doc.body
         i = 0
@@ -665,6 +768,8 @@ class Structurer:
         self.mark_structure(doc)
         if self.opts.merge_pages:
             self.merge_pages(doc)
+        if self.opts.link_notes:
+            self.link_notes(doc)
         after = compact("".join(doc.body.itertext()))
         expected = collections.Counter(before) - self.removed_chars
         expected["-"] -= self.hyphens
@@ -914,6 +1019,9 @@ def main():
     ap.add_argument("-o", "--output", help="EPUB de sortie (défaut : en place)")
     ap.add_argument("--merge-pages", action="store_true",
                     help="recoller les paragraphes coupés par un changement de page")
+    ap.add_argument("--link-notes", action="store_true",
+                    help="appels de note collés au mot (« bonneter1 ») mis en exposant et reliés à "
+                         "leur note (« 1. Saluer en ôtant le bonnet ») ; aller-retour par liens")
     ap.add_argument("--drop-google-notice", action="store_true",
                     help="retirer l'avertissement de Google Livres (pages en anglais)")
     ap.add_argument("--caps-titles", action="store_true",

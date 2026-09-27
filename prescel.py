@@ -48,6 +48,42 @@ VERSION = "0.1"
 
 STEPS = [
     {
+        "id": "import", "enabled": False, "script": "pdf_to_epub.py", "suffix": "0-import",
+        "title": "Import du PDF",
+        "summary": "Transforme le PDF en EPUB brut. Pour Gallica, l'OCR de la BnF est récupéré en ALTO "
+                   "(bien meilleur que la couche texte du PDF, qui colle les mots) ; sinon la couche texte "
+                   "du PDF, ou un OCR Tesseract. La position des lignes sert à retirer titres courants, "
+                   "folios et signatures, à placer les manchettes, à recoller césures, lettrines et "
+                   "paragraphes coupés par les pages. Les numéros de page du livre papier sont gardés.",
+        "options": [
+            {"flag": "--source", "type": "select", "default": "auto",
+             "choices": [["auto", "automatique"], ["alto", "OCR de Gallica (ALTO)"],
+                         ["text", "couche texte du PDF"], ["ocr", "OCR Tesseract"]],
+             "label": "Source du texte",
+             "help": "Automatique : ALTO si Gallica a océrisé le livre, sinon la couche texte si elle est "
+                     "exploitable, sinon Tesseract."},
+            {"flag": "--ark", "type": "text", "label": "Identifiant Gallica",
+             "help": "bpt6k… ou btv1b…, dans l'adresse de la page Gallica. Rempli automatiquement quand "
+                     "le nom du PDF le contient ; donne accès à l'OCR de la BnF et à la pagination."},
+            {"flag": "--lang", "type": "select", "default": "fra",
+             "choices": [["fra", "français (fra)"], ["frm", "moyen français (frm)"], ["fra+frm", "les deux"]],
+             "label": "Langue de l'OCR Tesseract",
+             "help": "« frm » (moyen français) lit le s long « ſ » tel quel, ce qui évite toute confusion "
+                     "avec « f » ; « fra » reconnaît souvent mieux le reste. Essayez sur quelques pages."},
+            {"flag": "--iiif", "type": "bool", "label": "OCR sur les images pleine résolution de Gallica",
+             "help": "Les images du PDF sont réduites ; Gallica fournit l'original (téléchargé une fois, "
+                     "gardé dans le cache du projet)."},
+            {"flag": "--pages", "type": "text", "label": "Pages à traiter",
+             "help": "Par exemple 21-40 pour un essai rapide ; vide : tout le livre. Numéros de page du PDF."},
+            {"flag": "--mark-conf", "type": "text", "advanced": True, "label": "Seuil de confiance OCR",
+             "help": "De 0 à 1 : les mots en dessous sont surlignés pour la relecture (défaut 0,5 pour "
+                     "l'ALTO, 0,4 pour Tesseract ; 0 pour ne rien surligner)."},
+            {"flag": "--keep-furniture", "type": "bool", "advanced": True,
+             "label": "Garder titres courants et signatures",
+             "help": "Par défaut ils sont retirés (et listés dans le journal)."},
+        ],
+    },
+    {
         "id": "inline2css", "script": "epub_inline2css.py", "suffix": "1-styles", "enabled": False,
         "title": "Styles en ligne → classes",
         "summary": "Remplace chaque style=\"…\" répété par une classe CSS commune. À réserver aux EPUB "
@@ -104,6 +140,11 @@ STEPS = [
              "label": "Respecter mes choix enregistrés",
              "help": "Si vous avez coché ou décoché des mots dans l'onglet « S long », ces choix sont "
                      "repris ; les mots nouveaux reçoivent le choix par défaut."},
+            {"key": "french_list", "type": "bool", "default": True,
+             "label": "Liste de mots français en renfort",
+             "help": "Une liste libre de mots français (téléchargée une fois) repère les formes en « f » "
+                     "qui sont de vrais mots (« fleur », « force ») : elles ne sont jamais corrigées "
+                     "d'office."},
             {"flag": "--min-count", "type": "int", "default": 2, "advanced": True,
              "label": "Occurrences minimales de la forme en « s »",
              "help": "Une correction n'est proposée que si la forme corrigée figure au moins ce nombre "
@@ -130,6 +171,11 @@ STEPS = [
              "help": "Supprime les restes sans mots : numéros de page (« 172 »), signatures de "
                      "cahier (« IV-1 »), titres courants (« MONTLUC REMPLACÉ EN GUYENNE 171 »). "
                      "La liste complète est affichée."},
+            {"flag": "--link-notes", "type": "bool", "default": True,
+             "label": "Relier les appels de note",
+             "help": "« bonneter1 » devient « bonneter¹ » : l'appel passe en exposant et renvoie à sa note "
+                     "(« 1. Saluer en ôtant le bonnet »), qui renvoie au texte. Les notes dont l'appel est "
+                     "introuvable sont listées dans le rapport."},
             {"flag": "--drop-google-notice", "type": "bool", "default": True, "text": True,
              "label": "Retirer l'avertissement de Google",
              "help": "Les pages en anglais ajoutées par Google Livres (« This is a digital copy of a "
@@ -225,7 +271,32 @@ STEP_BY_ID = {s["id"]: s for s in STEPS}
 # Outils externes
 # --------------------------------------------------------------------------
 
-CONFIG = {"workdir": None, "epubcheck": None, "sigil": None}
+CONFIG = {"workdir": None, "epubcheck": None, "sigil": None, "tessdata": None, "tesseract": []}
+
+
+def find_tesseract(tessdata):
+    """Langues Tesseract disponibles ([] si Tesseract est absent)."""
+    if not shutil.which("tesseract"):
+        return []
+    env = dict(os.environ)
+    if tessdata:
+        env["TESSDATA_PREFIX"] = tessdata
+    try:
+        r = subprocess.run(["tesseract", "--list-langs"], capture_output=True, text=True, env=env, timeout=20)
+        return [l.strip() for l in (r.stdout + r.stderr).splitlines()[1:] if re.fullmatch(r"[\w_]+", l.strip())]
+    except Exception:
+        return []
+
+
+def pdf_module():
+    """Le module pdf_to_epub (None si PyMuPDF manque)."""
+    if HERE not in sys.path:
+        sys.path.insert(0, HERE)
+    try:
+        import pdf_to_epub
+    except Exception:
+        return None
+    return pdf_to_epub if pdf_to_epub.pymupdf is not None else None
 
 
 def find_epubcheck(explicit):
@@ -292,6 +363,7 @@ def open_folder(path):
 
 def slugify(name):
     base = re.sub(r"\.(epub|pdf)$", "", name, flags=re.I)
+    base = re.sub(r"\[\.\.\.\]|\.{2,}|…", "-", base)       # noms de Gallica : « curieux_[...]Beaulieu »
     base = re.sub(r"[^\w.-]+", "-", base, flags=re.U).strip("-")
     return base or "livre"
 
@@ -310,7 +382,7 @@ def list_projects():
         return out
     for slug in sorted(os.listdir(root)):
         src = os.path.join(root, slug, slug + ".epub")
-        if os.path.exists(src):
+        if os.path.exists(src) or os.path.exists(os.path.join(root, slug, slug + ".pdf")):
             out.append({"slug": slug, "mtime": os.path.getmtime(os.path.join(root, slug))})
     out.sort(key=lambda p: -p["mtime"])
     return out
@@ -340,6 +412,8 @@ def has_markers(path):
 def file_role(slug, name):
     if name == slug + ".epub":
         return "original"
+    if name == slug + ".pdf":
+        return "PDF d'origine"
     for suffix, role in (("-a-relire.epub", "à relire (marqué)"), ("-relu.epub", "relu, sans marqueurs"),
                          ("-prepare.epub", "préparé"), ("-0-sans-marqueurs.epub", "étape intermédiaire")):
         if name.endswith(suffix):
@@ -383,6 +457,77 @@ LONG_S_HINTS = re.compile(r"\b(?:eft|auffi|ainfi|chofes?|plufieurs|fes|fon|fans|
 
 def strip_tags(s):
     return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", s)).split())
+
+
+def analyse_pdf(path, slug):
+    P = pdf_module()
+    if P is None:
+        return {"ok": False, "error": "L'import PDF demande PyMuPDF : pip install pymupdf "
+                                      "(puis relancez Prescel)."}
+    doc = P.pymupdf.open(path)
+    ark = P.find_ark(path, doc)
+    gallica = bool(ark) or P.is_gallica_pdf(doc)
+    prefix = P.gallica_prefix_pages(doc) if gallica else 0
+    meta = P.metadata_from(doc, ark)
+    n = doc.page_count
+    info = {"ok": True, "kind": "pdf", "notes": [], "title": meta.get("title") or slug,
+            "author": meta.get("author", ""), "stats": {}, "google": False}
+    notes = info["notes"]
+    has_alto, views = False, None
+    cache = os.path.join(project_dir(slug), "cache")
+    os.makedirs(cache, exist_ok=True)
+    if ark:
+        try:
+            labels, has_alto = P.gallica_pagination(ark, cache)
+            views = len(labels)
+            if views != n - prefix:
+                notes.append("Le PDF ne couvre qu'une partie du document Gallica (%d vues sur %d) : "
+                             "l'OCR de la BnF ne peut pas être aligné." % (n - prefix, views))
+                has_alto = False
+            skipped = sum(1 for l in labels if P.SKIP_PAGE.search(l))
+            if skipped:
+                notes.append("%d vues de reliure ou de garde seront ignorées (pagination Gallica)." % skipped)
+        except Exception as e:
+            notes.append("Gallica injoignable (%s) : l'OCR de la BnF ne sera pas utilisé." % e)
+    long_ratio, chars = P.text_layer_quality(doc, list(range(prefix, n)) or [0])
+    good_text = P.text_layer_usable(doc, list(range(prefix, n)) or [0])
+    if gallica and not ark:
+        notes.append("PDF de Gallica, mais son nom ne donne pas l'identifiant du document : renseignez-le "
+                     "(réglage « Identifiant Gallica », par exemple bpt6k9627352r, visible dans l'adresse "
+                     "de la page Gallica) pour utiliser l'OCR de la BnF, bien meilleur.")
+    source = "alto" if has_alto else ("text" if good_text else "ocr")
+    langs = CONFIG["tesseract"]
+    if ark:
+        notes.append("Document Gallica %s%s." % (ark, " — OCR de la BnF disponible en ALTO, utilisé" if has_alto
+                                                  else " — pas d'OCR à la BnF"))
+    if not has_alto and chars and not good_text:
+        notes.append("La couche texte du PDF est inutilisable (mots collés ou absente) : OCR nécessaire.")
+    if source == "ocr":
+        if not langs:
+            notes.append("OCR nécessaire mais Tesseract est introuvable : installez tesseract-ocr "
+                         "et le modèle français (tesseract-ocr-fra), ou indiquez --tessdata.")
+        else:
+            est = (n - prefix) * 3 / max(1, (os.cpu_count() or 2) - 1)
+            notes.append("OCR Tesseract : environ %d min pour tout le livre ; essayez d'abord quelques "
+                         "pages (réglage « Pages à traiter »). Modèles : %s."
+                         % (max(1, round(est / 60)), ", ".join(l for l in langs if l not in ("osd", "eng"))))
+    info["facts"] = [["PDF", "%d pages" % n], ["source proposée",
+                     {"alto": "OCR Gallica", "text": "couche texte", "ocr": "OCR Tesseract"}[source]],
+                     ["Gallica", ark or "non"], ["Tesseract", "oui" if langs else "absent"]]
+    rec = {s["id"]: {"enabled": s.get("enabled", False), "options": {}} for s in STEPS}
+    rec["import"] = {"enabled": True, "options": {"--source": "auto", "--ark": ark or "",
+                                                  "--lang": "frm" if ("frm" in langs and "fra" not in langs)
+                                                  else "fra"}}
+    rec["simplify"] = {"enabled": False, "options": {}}
+    rec["longs"] = {"enabled": True, "options": {}}
+    rec["structure"] = {"enabled": True, "options": {"--merge-pages": False, "--drop-furniture": True,
+                                                     "--drop-google-notice": False, "--caps-titles": True}}
+    rec["split"] = {"enabled": True, "options": {"--tag": "h1,h2"}}
+    rec["review"] = {"enabled": True, "options": {}}
+    notes.append("L'import remplace le nettoyage (étape 2 décochée) ; le s long est coché : il ne corrige "
+                 "que ce que le livre lui-même confirme.")
+    info["recommend"] = rec
+    return info
 
 
 def analyse(path):
@@ -599,6 +744,33 @@ def pipeline(job, plan, check_mode, start=None):
     slug = job.slug
     d = project_dir(slug)
     original = os.path.join(d, slug + ".epub")
+    imp = next((e for e in plan if e["id"] == "import"), None)
+    if imp is not None:
+        plan = [e for e in plan if e["id"] != "import"]
+        pdf = os.path.join(d, slug + ".pdf")
+        st = {"id": "import", "title": STEP_BY_ID["import"]["title"], "status": "running",
+              "seconds": None, "output": None, "epubcheck": None}
+        with job.lock:
+            job.steps.append(st)
+        t0 = time.time()
+        if not os.path.exists(pdf):
+            job.log("import", "Ce projet n'a pas de PDF : étape ignorée.", "info")
+            st["status"] = "done"
+        else:
+            cmd = [sys.executable, "-u", os.path.join(HERE, "pdf_to_epub.py"), pdf, "-o", original,
+                   "--cache", os.path.join(d, "cache")] + build_args(STEP_BY_ID["import"], imp.get("options", {}))
+            if CONFIG["tessdata"]:
+                cmd += ["--tessdata", CONFIG["tessdata"]]
+            rc = run_command(job, "import", cmd)
+            st["seconds"] = round(time.time() - t0, 1)
+            if rc != 0 or not os.path.exists(original):
+                st["status"] = "error"
+                job.status = "error"
+                return
+            st["status"], st["output"] = "done", os.path.basename(original)
+            if check_mode == "each":
+                st["epubcheck"] = epubcheck(job, "import", original)
+        start = None
     current = os.path.join(d, os.path.basename(start)) if start else original
     py = sys.executable
     ok = True
@@ -688,6 +860,8 @@ def pipeline(job, plan, check_mode, start=None):
                 cmd.append("--use-tsv")
             if not opts.get("apply", True):
                 cmd.append("--no-apply")
+            if opts.get("french_list", True) and not opts.get("--wordlist"):
+                cmd += ["--wordlist", "auto"]
         rc = run_command(job, step["id"], cmd)
         st["seconds"] = round(time.time() - t0, 1)
         if rc != 0:
@@ -815,6 +989,8 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json({"steps": STEPS, "projects": list_projects(),
                             "epubcheck": bool(CONFIG["epubcheck"]), "sigil": bool(CONFIG["sigil"]),
                             "workdir": CONFIG["workdir"], "version": VERSION,
+                            "tesseract": [l for l in CONFIG["tesseract"] if l not in ("osd", "eng")],
+                            "pdf": pdf_module() is not None,
                             "missing": [s["script"] for s in STEPS
                                         if not os.path.exists(os.path.join(HERE, s["script"]))]})
         elif path == "/api/longs":
@@ -828,9 +1004,13 @@ class Handler(BaseHTTPRequestHandler):
         elif path == "/api/project":
             slug = parse_qs(url.query).get("slug", [""])[0]
             src = os.path.join(project_dir(slug), slug + ".epub")
-            if not os.path.exists(src):
+            pdf = os.path.join(project_dir(slug), slug + ".pdf")
+            if os.path.exists(pdf):
+                info = analyse_pdf(pdf, slug)
+            elif os.path.exists(src):
+                info = analyse(src)
+            else:
                 return self.send_json({"ok": False, "error": "Projet introuvable."}, 404)
-            info = analyse(src)
             info.update({"slug": slug, "files": project_files(slug)})
             self.send_json(info)
         elif path.startswith("/api/job/"):
@@ -895,12 +1075,15 @@ class Handler(BaseHTTPRequestHandler):
         name = unquote(self.headers.get("X-Filename", "livre.epub"))
         n = int(self.headers.get("Content-Length") or 0)
         data = self.rfile.read(n)
-        if name.lower().endswith(".pdf"):
-            return self.send_json({"ok": False, "pdf": True, "error":
-                                   "L'import PDF n'est pas encore disponible. Il passera par la couche "
-                                   "texte du PDF (ou un OCR comme Tesseract) avant de rejoindre la même "
-                                   "chaîne. En attendant, convertissez le PDF en EPUB (Calibre) ou "
-                                   "téléchargez l'EPUB proposé par la bibliothèque numérique."})
+        if name.lower().endswith(".pdf") and not self.headers.get("X-Project"):
+            slug = slugify(os.path.basename(name))
+            d = project_dir(slug)
+            os.makedirs(d, exist_ok=True)
+            with open(os.path.join(d, slug + ".pdf"), "wb") as f:
+                f.write(data)
+            info = analyse_pdf(os.path.join(d, slug + ".pdf"), slug)
+            info.update({"slug": slug, "files": project_files(slug)})
+            return self.send_json(info)
         if not name.lower().endswith(".epub"):
             return self.send_json({"ok": False, "error": "Choisissez un fichier .epub."}, 400)
         target = unquote(self.headers.get("X-Project", ""))
@@ -1137,7 +1320,7 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
     <div class="depot" id="depot">
       <div>
         <strong>Choisir le livre</strong>
-        <small>Un EPUB (Google Livres, Gallica, Internet Archive…). Glisser-déposer ici ou</small>
+        <small>Un EPUB ou un PDF (Google Livres, Gallica, Internet Archive…). Glisser-déposer ici ou</small>
       </div>
       <label class="bouton">Parcourir…<input type="file" id="fichier" accept=".epub,.pdf" hidden></label>
       <div class="reprendre" id="reprendre"></div>
@@ -1233,7 +1416,9 @@ async function init() {
     el("span", { class: c.epubcheck ? "ok" : "non", title: c.epubcheck ? "" : "Indiquez --epubcheck CHEMIN au lancement" },
        c.epubcheck ? "epubcheck" : "epubcheck absent"),
     el("span", { class: c.sigil ? "ok" : "non", title: c.sigil ? "" : "Indiquez --sigil CHEMIN au lancement" },
-       c.sigil ? "Sigil" : "Sigil introuvable"));
+       c.sigil ? "Sigil" : "Sigil introuvable"),
+    el("span", { class: c.tesseract.length ? "ok" : "non", title: c.tesseract.length ? "Modèles : " + c.tesseract.join(", ") : "Pour l'OCR des PDF : tesseract-ocr + tesseract-ocr-fra" },
+       c.tesseract.length ? "Tesseract" : "Tesseract absent"));
   if (c.missing.length) $("#fiche").append(el("p", { class: "erreur" },
     "Scripts manquants à côté de prescel.py : " + c.missing.join(", ")));
   if (!c.epubcheck) $$radio("none");
@@ -1346,7 +1531,7 @@ function loadProject(info) {
   state.project = info;
   resetDefaults();
   const st = info.stats;
-  const facts = [["EPUB", info.version], ["fichiers texte", st.docs], ["images", st.images],
+  const facts = info.facts || [["EPUB", info.version], ["fichiers texte", st.docs], ["images", st.images],
     ["paragraphes", st.paragraphs.toLocaleString("fr")], ["titres", st.h1 + st.h2],
     ["lignes « Chapitre »", st.chap_lines], ["numéros de page", info.page_map || st.gbs ? "oui" : "non"]];
   f.append(el("div", { class: "fiche" },
@@ -1615,6 +1800,7 @@ def main():
                     help="dossier des projets (défaut : ~/Prescel)")
     ap.add_argument("--epubcheck", help="epubcheck : commande ou chemin de epubcheck.jar")
     ap.add_argument("--sigil", help="chemin de l'exécutable Sigil")
+    ap.add_argument("--tessdata", help="dossier des modèles Tesseract (fra, frm…)")
     ap.add_argument("--no-browser", action="store_true", help="ne pas ouvrir le navigateur")
     opts = ap.parse_args()
 
@@ -1622,6 +1808,8 @@ def main():
     os.makedirs(CONFIG["workdir"], exist_ok=True)
     CONFIG["epubcheck"] = find_epubcheck(opts.epubcheck)
     CONFIG["sigil"] = find_sigil(opts.sigil)
+    CONFIG["tessdata"] = opts.tessdata or os.environ.get("PRESCEL_TESSDATA")
+    CONFIG["tesseract"] = find_tesseract(CONFIG["tessdata"])
 
     server = ThreadingHTTPServer(("127.0.0.1", opts.port), Handler)
     url = "http://127.0.0.1:%d/" % opts.port

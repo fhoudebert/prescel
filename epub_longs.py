@@ -60,7 +60,7 @@ ferment fervent fervente fol fols folle fou fous fable fables fain faine fac fec
 fonde fonder fondé fondez fonder foule foules fouler fouler fûr fin fins fil fils fille
 fier fiers fiere fieres fixe fûre fonge fage feu feux fond fonds fer fers fête fêtes
 fire fis fit fît firent fut fût furent fus fusse fussent faire faites faite faits fit
-faisons faisois faisoit faisoient faisant faisait faisaient fausse faussé feint fente fixe folie
+force forces forcer forcé forcée forcez fosse faisons faisois faisoit faisoient faisant faisait faisaient fausse faussé feint fente fixe folie
 fouler fondre fondu forcé forme formes fosse fossé
 """.split())
 
@@ -137,6 +137,37 @@ def normalized(s):
 # Propositions
 # --------------------------------------------------------------------------
 
+WORDLIST_URL = "https://raw.githubusercontent.com/words/an-array-of-french-words/master/index.json"
+# Débuts de mot qui n'existent pas en français : « fleur » ne peut pas être « sleur »
+BAD_START = re.compile(r"^s[lrdbgvnmfhzkqwcpj]")
+
+
+def load_wordlist(spec):
+    """Liste de mots : fichier (un mot par ligne ou .dic Hunspell) ou « auto »
+    (liste française libre téléchargée une fois dans ~/.cache/prescel)."""
+    if not spec:
+        return None
+    path = spec
+    if spec == "auto":
+        path = os.path.join(os.path.expanduser("~"), ".cache", "prescel", "mots-fr.txt")
+        if not os.path.exists(path):
+            try:
+                import json
+                import urllib.request
+                req = urllib.request.Request(WORDLIST_URL, headers={"User-Agent": "Prescel"})
+                words = json.loads(urllib.request.urlopen(req, timeout=60).read().decode("utf-8"))
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write("\n".join(sorted({w.lower() for w in words})) + "\n")
+                print("Liste de mots français téléchargée : %s (%d mots)" % (path, len(words)))
+            except Exception as e:
+                print("Avertissement : liste de mots français indisponible (%s) ; "
+                      "seule la liste intégrée des mots ambigus est utilisée." % e)
+                return None
+    with open(path, encoding="utf-8", errors="replace") as f:
+        return {l.split("/")[0].strip().lower() for l in f if l.strip()}
+
+
 def best_s_form(word, vocab, wordlist, min_count):
     """Meilleure forme en « s » d'un mot lu avec des « f » (minuscules)."""
     if "ß" in word or "ſ" in word:
@@ -152,11 +183,9 @@ def best_s_form(word, vocab, wordlist, min_count):
             for i in combo:
                 cand[i] = "s"
             cand = "".join(cand)
-            if "fs" in cand or "sf" in cand:
-                continue            # forme elle-même mal lue (« afsurance »)
-            n = vocab.get(cand, 0)
-            if wordlist is not None and cand in wordlist:
-                n = max(n, min_count)
+            if "fs" in cand or "sf" in cand or BAD_START.match(cand):
+                continue            # forme elle-même mal lue (« afsurance »), ou impossible
+            n = vocab.get(cand, 0)       # le livre seul décide de la forme corrigée
             # à fréquence égale, on préfère la forme qui garde le moins de « f »
             if n >= min_count and (n > best_n or (n == best_n and best and
                                                   cand.count("f") < best.count("f"))):
@@ -173,10 +202,13 @@ def propose(vocab, wordlist, min_count):
         if not s:
             continue
         ns = vocab.get(s, 0)
-        real = w in COLLISIONS or (wordlist is not None and w in wordlist)
+        # Vrai mot : liste intégrée (toujours ambigu) ou liste de mots (ambigu sauf si la
+        # forme en « s » est au moins aussi fréquente dans le livre : « fur »/« sur »)
+        real = w in COLLISIONS or (wordlist is not None and w in wordlist and ns < n)
         if real:
             ok, why = 0, "« %s » est aussi un mot : à vérifier au cas par cas" % w
-        elif len(w) < 5 and ns * 3 < n:
+        elif ns * 3 < n and (len(w) < 5 or ns < 5):
+            # « force » (32) → « sorce » (2) : la correction est elle-même une erreur rare
             ok, why = 0, "forme lue bien plus fréquente que la correction"
         else:
             ok, why = 1, ""
@@ -252,7 +284,9 @@ def main():
     ap.add_argument("--no-apply", action="store_true",
                     help="n'appliquer aucune correction automatiquement (liste seulement)")
     ap.add_argument("--propose-only", action="store_true", help="écrire le TSV sans produire d'EPUB")
-    ap.add_argument("--wordlist", help="liste de mots de référence (un par ligne, ou .dic Hunspell)")
+    ap.add_argument("--wordlist", help="liste de mots de référence (un par ligne, ou .dic Hunspell), "
+                    "ou « auto » : liste française libre téléchargée une fois ; une forme en « f » "
+                    "qui y figure (« fleur », « force ») n'est jamais corrigée d'office")
     ap.add_argument("--min-count", type=int, default=2,
                     help="occurrences minimales de la forme en « s » dans le livre (défaut 2)")
     opts = ap.parse_args()
@@ -282,10 +316,7 @@ def main():
         for d in docs:
             for w in WORD.findall("".join(d.body.itertext())):
                 vocab[w.lower()] += 1
-        wordlist = None
-        if opts.wordlist:
-            with open(opts.wordlist, encoding="utf-8", errors="replace") as f:
-                wordlist = {l.split("/")[0].strip().lower() for l in f if l.strip()}
+        wordlist = load_wordlist(opts.wordlist)
 
         rows = propose(vocab, wordlist, opts.min_count)
         if opts.no_apply:

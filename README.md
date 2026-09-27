@@ -16,6 +16,7 @@ Variables équivalentes : `PRESCEL_EPUBCHECK`, `PRESCEL_SIGIL`.
 
 | Script | Rôle |
 |---|---|
+| `pdf_to_epub.py` | PDF → EPUB brut : OCR de Gallica (ALTO), couche texte du PDF ou OCR Tesseract ; géométrie des pages |
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») : corrections sûres appliquées, liste TSV modifiable |
@@ -38,3 +39,13 @@ livre comme dictionnaire : une correction n'est faite que si la forme en « s »
 le livre. Les mots qui existent sous les deux formes (« font »/« sont », « fait »/« sait ») sont
 laissés au choix : l'onglet « S long » de Prescel permet de les cocher, et le rapport de relecture
 en signale chaque occurrence avec le lien vers la page scannée.
+
+## PDF
+
+`pdf_to_epub.py` (étape « Import du PDF » de Prescel) demande PyMuPDF : `pip install pymupdf`.
+Pour un PDF de Gallica dont le nom contient l'identifiant (`bpt6k…`, `btv1b…`), l'OCR de la BnF est
+récupéré en ALTO (la couche texte des PDF Gallica colle les mots) avec la pagination imprimée ; les
+pages de reliure sont ignorées. Sans OCR disponible, Tesseract est utilisé
+(`apt install tesseract-ocr tesseract-ocr-fra` ; modèle `frm` pour le moyen français, qui lit le ſ).
+La position des lignes sert à retirer titres courants, folios, signatures et réclames, à placer les
+manchettes, à recoller césures, lettrines et paragraphes coupés par les pages.
