@@ -15,7 +15,7 @@ utilisés s'ils sont trouvés.
 
   python3 prescel.py                     # ouvre http://127.0.0.1:8765
   python3 prescel.py --workdir ~/Livres/prescel --port 8800
-  python3 prescel.py --epubcheck ~/outils/epubcheck-5.1.0/epubcheck.jar --sigil /opt/sigil/sigil.sh
+  python3 github/prescel/prescel.py --epubcheck /opt/epubcheck/epubcheck-5.4.0/epubcheck.jar --sigil /opt/Sigil/Sigil-2.8.1-x86_64.AppImage
 
 Variables d'environnement équivalentes : PRESCEL_EPUBCHECK, PRESCEL_SIGIL.
 """
@@ -47,7 +47,7 @@ VERSION = "0.1"
 
 STEPS = [
     {
-        "id": "inline2css", "script": "epub_inline2css.py", "suffix": "1-styles",
+        "id": "inline2css", "script": "epub_inline2css.py", "suffix": "1-styles", "enabled": False,
         "title": "Styles en ligne → classes",
         "summary": "Remplace chaque style=\"…\" répété par une classe CSS commune. À réserver aux EPUB "
                    "dont on veut garder la mise en forme d'origine : le nettoyage (étape suivante) "
@@ -63,20 +63,20 @@ STEPS = [
         ],
     },
     {
-        "id": "simplify", "script": "epub_simplify.py", "suffix": "2-simplifie",
+        "id": "simplify", "enabled": True, "script": "epub_simplify.py", "suffix": "2-simplifie",
         "title": "Nettoyage du balisage",
         "summary": "Retire l'échafaudage de l'OCR : div et ancres vides, id inutiles, classes et "
                    "styles de Google. Les ancres qui servent aux numéros de page sont gardées. "
                    "Le texte est comparé avant/après : au moindre écart, rien n'est écrit.",
         "options": [
-            {"flag": "--join-hyphens", "type": "bool", "text": True,
+            {"flag": "--join-hyphens", "type": "bool", "default": True, "text": True,
              "label": "Recoller les mots coupés en fin de ligne",
              "help": "« estran-⏎ges » devient « estranges ». Seul le tiret de césure disparaît."},
-            {"flag": "--flatten-br", "type": "bool", "text": True,
+            {"flag": "--flatten-br", "type": "bool", "default": True, "text": True,
              "label": "Texte continu",
              "help": "Les retours à la ligne de l'imprimé (<br/>) deviennent des espaces. Indispensable "
                      "pour une lecture fluide sur liseuse ; à éviter pour de la poésie."},
-            {"flag": "--lettrines", "type": "bool", "text": True,
+            {"flag": "--lettrines", "type": "bool", "default": True, "text": True,
              "label": "Recoller les lettrines",
              "help": "Une grande lettre isolée (« M ») est rattachée au début du paragraphe suivant "
                      "(« E trouuant » → « ME trouuant »). Chaque fusion est listée dans le journal "
@@ -89,18 +89,18 @@ STEPS = [
         ],
     },
     {
-        "id": "structure", "script": "epub_structure.py", "suffix": "3-structure",
+        "id": "structure", "enabled": True, "script": "epub_structure.py", "suffix": "3-structure",
         "title": "Structure du livre",
         "summary": "Reconnaît les livres et chapitres (h1, h2), les sommaires et les notes ; "
                    "reconstruit la table des matières ; convertit la page-map Adobe en liste de "
                    "pages standard ; complète la feuille de style.",
         "options": [
-            {"flag": "--merge-pages", "type": "bool", "text": True,
+            {"flag": "--merge-pages", "type": "bool", "default": True, "text": True,
              "label": "Recoller les paragraphes coupés par les pages",
              "help": "« …ayant combattu Montgom » + « mery, il n'y… » ne font plus qu'un paragraphe. "
                      "Le vocabulaire du livre décide s'il faut une espace. Le numéro de page reste "
                      "à l'endroit de la jonction."},
-            {"flag": "--drop-furniture", "type": "bool", "text": True,
+            {"flag": "--drop-furniture", "type": "bool", "default": True, "text": True,
              "label": "Retirer folios et signatures",
              "help": "Supprime les restes sans mots : numéros de page (« 172 »), signatures de "
                      "cahier (« IV-1 »), titres courants (« MONTLUC REMPLACÉ EN GUYENNE 171 »). "
@@ -136,7 +136,7 @@ STEPS = [
         ],
     },
     {
-        "id": "split", "script": "epub_split_h1.py", "suffix": "4-decoupe",
+        "id": "split", "enabled": True, "script": "epub_split_h1.py", "suffix": "4-decoupe",
         "title": "Un fichier par chapitre",
         "summary": "Coupe les gros fichiers à chaque titre. Manifest, ordre de lecture, liens, table "
                    "des matières et numéros de page sont mis à jour. Dans Sigil, on navigue ainsi "
@@ -159,7 +159,7 @@ STEPS = [
         ],
     },
     {
-        "id": "review", "script": "epub_review.py", "suffix": "relecture",
+        "id": "review", "enabled": True, "script": "epub_review.py", "suffix": "relecture",
         "title": "Préparer la relecture",
         "summary": "Produit un rapport qui liste les cas douteux (mots collés ou coupés, casse, "
                    "chiffres dans les mots, chapitres manquants…) avec le fichier Sigil, l'extrait à "
@@ -282,6 +282,41 @@ def list_projects():
     return out
 
 
+MARKER_CACHE = {}
+
+
+def has_markers(path):
+    """Vrai si l'EPUB contient des marqueurs de relecture (a-verifier)."""
+    key = (path, os.path.getmtime(path), os.path.getsize(path))
+    if key not in MARKER_CACHE:
+        found = False
+        try:
+            with zipfile.ZipFile(path) as z:
+                for n in z.namelist():
+                    if n.lower().endswith((".xhtml", ".html", ".htm", ".xml")) and \
+                            b"a-verifier" in z.read(n):
+                        found = True
+                        break
+        except zipfile.BadZipFile:
+            pass
+        MARKER_CACHE[key] = found
+    return MARKER_CACHE[key]
+
+
+def file_role(slug, name):
+    if name == slug + ".epub":
+        return "original"
+    for suffix, role in (("-a-relire.epub", "à relire (marqué)"), ("-relu.epub", "relu, sans marqueurs"),
+                         ("-prepare.epub", "préparé"), ("-0-sans-marqueurs.epub", "étape intermédiaire")):
+        if name.endswith(suffix):
+            return role
+    if "-retouche-" in name:
+        return "version retouchée déposée"
+    if re.search(r"-\d-[\w-]+\.epub$", name):
+        return "étape intermédiaire"
+    return ""
+
+
 def project_files(slug):
     d = project_dir(slug)
     files = []
@@ -289,8 +324,12 @@ def project_files(slug):
         for n in sorted(os.listdir(d)):
             p = os.path.join(d, n)
             if os.path.isfile(p):
-                files.append({"name": n, "size": os.path.getsize(p),
-                              "url": "/files/%s/%s" % (slug, n)})
+                f = {"name": n, "size": os.path.getsize(p), "mtime": os.path.getmtime(p),
+                     "url": "/files/%s/%s" % (slug, n)}
+                if n.endswith(".epub"):
+                    f["role"] = file_role(slug, n)
+                    f["markers"] = has_markers(p)
+                files.append(f)
     return files
 
 
@@ -364,14 +403,19 @@ def analyse(path):
     # Recommandations : {étape: {"enabled": bool, "options": {clé: valeur}}}
     rec = {s["id"]: {"enabled": False, "options": {}} for s in STEPS}
     notes = info["notes"]
-    if info["google"]:
+    if info["google"] and not info["simplified"]:
         notes.append("EPUB produit par Google Livres (OCR) : nettoyage complet conseillé.")
+    elif info["google"]:
+        notes.append("EPUB issu de Google Livres (OCR), déjà passé par le nettoyage.")
     if info["simplified"]:
         notes.append("Le balisage semble déjà nettoyé (livre.css présente) : étape 2 décochée.")
     else:
         rec["simplify"]["enabled"] = True
-        if info["google"] or stats["divs"] > stats["paragraphs"]:
-            rec["simplify"]["options"] = {"--join-hyphens": True, "--flatten-br": True, "--lettrines": True}
+        ocr = info["google"] or stats["divs"] > stats["paragraphs"]
+        rec["simplify"]["options"] = {"--join-hyphens": ocr, "--flatten-br": ocr, "--lettrines": ocr}
+        if not ocr:
+            notes.append("Balisage qui ne ressemble pas à de l'OCR : césures, texte continu et "
+                         "lettrines décochés.")
     if stats["styles"] and not info["google"]:
         notes.append("%d attributs style=\"…\" : l'étape 1 peut les regrouper si vous voulez garder "
                      "la mise en forme." % stats["styles"])
@@ -483,12 +527,45 @@ def build_args(step, opts):
     return args
 
 
-def pipeline(job, plan, check_mode):
+def pipeline(job, plan, check_mode, start=None):
     slug = job.slug
     d = project_dir(slug)
-    current = os.path.join(d, slug + ".epub")
+    original = os.path.join(d, slug + ".epub")
+    current = os.path.join(d, os.path.basename(start)) if start else original
     py = sys.executable
     ok = True
+    if not os.path.isfile(current):
+        job.log("prescel", "Fichier de départ introuvable : %s" % os.path.basename(current), "err")
+        job.status = "error"
+        return
+    job.result["start"] = os.path.basename(current)
+    if current != original:
+        # Relance ciblée : on archive le fichier de départ (il peut porter des
+        # corrections faites dans Sigil et porter le nom d'une sortie à venir).
+        arch_dir = os.path.join(d, "archives")
+        os.makedirs(arch_dir, exist_ok=True)
+        stamp = time.strftime("%Y%m%d-%H%M%S")
+        arch = os.path.join(arch_dir, "%s-%s.epub" % (os.path.basename(current)[:-5], stamp))
+        shutil.copy2(current, arch)
+        job.log("prescel", "Relance à partir de %s (copie de sécurité : archives/%s)"
+                % (os.path.basename(current), os.path.basename(arch)), "info")
+        current = arch
+        if has_markers(current):
+            st = {"id": "unmark", "title": "Retrait des marqueurs (avant relance)", "status": "running",
+                  "seconds": None, "output": None, "epubcheck": None}
+            with job.lock:
+                job.steps.append(st)
+            t0 = time.time()
+            clean = os.path.join(d, slug + "-0-sans-marqueurs.epub")
+            rc = run_command(job, "unmark", [py, "-u", os.path.join(HERE, "epub_review.py"),
+                                             current, "--unmark", "-o", clean])
+            st["seconds"] = round(time.time() - t0, 1)
+            if rc != 0:
+                st["status"] = "error"
+                job.status = "error"
+                return
+            st["status"], st["output"] = "done", os.path.basename(clean)
+            current = clean
     final_epub = current
     for entry in plan:
         step = STEP_BY_ID[entry["id"]]
@@ -529,6 +606,8 @@ def pipeline(job, plan, check_mode):
             continue
 
         out = os.path.join(d, "%s-%s.epub" % (slug, step["suffix"]))
+        if os.path.abspath(out) == os.path.abspath(current):
+            out = out[:-5] + "-nouveau.epub"
         if os.path.exists(out):
             os.remove(out)
         cmd = [py, "-u", script, current, "-o", out] + build_args(step, opts)
@@ -710,7 +789,8 @@ class Handler(BaseHTTPRequestHandler):
                 plan = [p for p in body.get("steps", []) if p.get("enabled")]
                 if not plan:
                     return self.send_json({"ok": False, "error": "Aucune étape cochée."}, 400)
-                job = start_job(slug, "pipeline", pipeline, plan, body.get("epubcheck", "end"))
+                job = start_job(slug, "pipeline", pipeline, plan, body.get("epubcheck", "end"),
+                                body.get("start") or None)
                 self.send_json({"ok": True, "job": job.id})
             elif path == "/api/unmark":
                 job = start_job(body["slug"], "unmark", unmark_job, body["file"])
@@ -734,6 +814,19 @@ class Handler(BaseHTTPRequestHandler):
                                    "téléchargez l'EPUB proposé par la bibliothèque numérique."})
         if not name.lower().endswith(".epub"):
             return self.send_json({"ok": False, "error": "Choisissez un fichier .epub."}, 400)
+        target = unquote(self.headers.get("X-Project", ""))
+        if target:
+            # Version retouchée (enregistrée par Sigil ailleurs) ajoutée au projet
+            d = project_dir(target)
+            if not os.path.isdir(d):
+                return self.send_json({"ok": False, "error": "Projet introuvable."}, 404)
+            fname = "%s-retouche-%s.epub" % (target, time.strftime("%Y%m%d-%H%M%S"))
+            with open(os.path.join(d, fname), "wb") as f:
+                f.write(data)
+            if analyse(os.path.join(d, fname)).get("ok") is False:
+                os.remove(os.path.join(d, fname))
+                return self.send_json({"ok": False, "error": "Ce fichier n'est pas un EPUB lisible."}, 400)
+            return self.send_json({"ok": True, "retouche": fname, "files": project_files(target)})
         slug = slugify(os.path.basename(name))
         d = project_dir(slug)
         os.makedirs(d, exist_ok=True)
@@ -875,6 +968,10 @@ ul.suivi small { color: var(--gris); }
 .actions { display: flex; flex-direction: column; gap: .5rem; margin-top: .8rem; }
 .actions .bouton { text-align: left; }
 .fichiers { font-size: .85rem; margin: .3rem 0 0; padding-left: 1rem; }
+.bloc select#depart { width: 100%; padding: .3rem; border: 1px solid var(--trait); border-radius: 3px; background: var(--papier); }
+.note { font-size: .85rem; color: var(--gris); margin: .4rem 0 0; font-family: var(--serif); }
+.note.attention { color: var(--or); font-weight: 600; }
+.bloc-relance-actif { border-color: var(--vert); box-shadow: inset 4px 0 0 var(--vert); }
 .fichiers li { margin: .15rem 0; overflow-wrap: anywhere; }
 
 /* Journal et résultats */
@@ -935,8 +1032,24 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
         <label><input type="radio" name="check" value="each"> après chaque étape</label>
         <label><input type="radio" name="check" value="none"> jamais</label>
       </fieldset>
+      <fieldset id="depart-bloc" hidden>
+        <legend>Partir de</legend>
+        <select id="depart" aria-label="Fichier de départ"></select>
+        <p class="note" id="depart-note"></p>
+      </fieldset>
       <button class="bouton principal" id="lancer" disabled>Préparer le livre</button>
       <p class="vide" id="attente" style="margin:.6rem 0 0;font-size:.9rem">Choisissez d'abord un EPUB.</p>
+    </div>
+    <div class="bloc" id="bloc-relance" hidden>
+      <h3>Relance ciblée</h3>
+      <p class="note">Après des corrections dans Sigil (titre de chapitre ajouté, paragraphe réparé…),
+        on rejoue seulement la structure, le découpage et le rapport sur le fichier enregistré.
+        Les marqueurs de relecture sont retirés avant, et le fichier de départ est archivé.</p>
+      <div class="actions">
+        <button class="bouton" id="relance">Préparer une relance après Sigil</button>
+        <label class="bouton">Déposer une version retouchée…<input type="file" id="retouche" accept=".epub" hidden></label>
+      </div>
+      <p class="note" id="relance-note"></p>
     </div>
     <div class="bloc" id="bloc-suivi" hidden>
       <h3>Déroulement</h3>
@@ -1005,6 +1118,9 @@ async function init() {
   setupDrop();
   document.querySelectorAll("#onglets button").forEach(b => b.addEventListener("click", () => showTab(b.dataset.vue)));
   $("#lancer").addEventListener("click", run);
+  $("#depart").addEventListener("change", startChanged);
+  $("#relance").addEventListener("click", prepareRelance);
+  $("#retouche").addEventListener("change", e => { if (e.target.files[0]) uploadRetouche(e.target.files[0]); e.target.value = ""; });
 }
 function $$radio(v) { document.querySelectorAll("input[name=check]").forEach(r => { r.checked = r.value === v; if (!state.config.epubcheck && r.value !== "none") r.disabled = true; }); }
 
@@ -1023,13 +1139,13 @@ function renderProjects() {
 function renderSteps() {
   const ol = $("#chaine"); ol.innerHTML = "";
   for (const s of state.config.steps) {
-    const on = el("input", { type: "checkbox", id: "on-" + s.id });
+    const on = el("input", { type: "checkbox", id: "on-" + s.id, checked: !!s.enabled });
     on.addEventListener("change", () => li.classList.toggle("inactive", !on.checked));
     const opts = el("div", { class: "options" });
     const adv = el("details", { class: "avance" }, el("summary", {}, "Réglages avancés"));
     for (const o of s.options) (o.advanced ? adv : opts).append(renderOption(s, o));
     if (adv.children.length > 1) opts.append(adv);
-    const li = el("li", { class: "etape inactive", id: "etape-" + s.id },
+    const li = el("li", { class: "etape" + (s.enabled ? "" : " inactive"), id: "etape-" + s.id },
       el("div", { class: "entete" }, on, el("label", { for: "on-" + s.id }, s.title), el("span", { class: "recommande", id: "rec-" + s.id })),
       el("div", { class: "corps" }, el("p", { class: "resume" }, s.summary), opts));
     ol.append(li);
@@ -1060,6 +1176,14 @@ function setStep(id, enabled, options = {}) {
     const k = o.flag || o.key; if (!(k in options)) continue;
     const input = $("#" + optId(s, o));
     if (o.type === "bool") input.checked = !!options[k]; else input.value = options[k];
+  }
+}
+function resetDefaults() {
+  for (const s of state.config.steps) {
+    const options = {};
+    for (const o of s.options) options[o.flag || o.key] = o.default ?? (o.type === "bool" ? false : "");
+    setStep(s.id, !!s.enabled, options);
+    $("#rec-" + s.id).textContent = "";
   }
 }
 function collect() {
@@ -1094,6 +1218,7 @@ function loadProject(info) {
     $("#lancer").disabled = true; return;
   }
   state.project = info;
+  resetDefaults();
   const st = info.stats;
   const facts = [["EPUB", info.version], ["fichiers texte", st.docs], ["images", st.images],
     ["paragraphes", st.paragraphs.toLocaleString("fr")], ["titres", st.h1 + st.h2],
@@ -1110,13 +1235,16 @@ function loadProject(info) {
     $("#rec-" + id).textContent = rec.enabled ? "conseillé" : "";
   }
   $("#lancer").disabled = false; $("#attente").textContent = "Projet : " + info.slug;
-  renderFiles(info.files);
+  $("#relance-note").textContent = "";
+  $("#bloc-relance").classList.remove("bloc-relance-actif");
+  renderFiles(info.files, true);
 }
 
 /* ---------- exécution ---------- */
 async function run() {
   const check = document.querySelector("input[name=check]:checked").value;
-  const res = await api("/api/run", { slug: state.project.slug, steps: collect(), epubcheck: check });
+  const res = await api("/api/run", { slug: state.project.slug, steps: collect(), epubcheck: check,
+                                     start: $("#depart").value || null });
   if (!res.ok) { alert(res.error); return; }
   startPolling(res.job, true);
 }
@@ -1136,7 +1264,7 @@ async function poll() {
   for (const l of j.lines) {
     if (l.step !== state.lastStep) {
       const s = state.config.steps.find(x => x.id === l.step);
-      pre.append(el("span", { class: "titre" }, s ? s.title : l.step === "final" ? "Contrôle final" : l.step === "unmark" ? "Retrait des marqueurs" : l.step));
+      pre.append(el("span", { class: "titre" }, s ? s.title : l.step === "final" ? "Contrôle final" : l.step === "unmark" ? "Retrait des marqueurs" : l.step === "prescel" ? "Départ" : l.step));
       state.lastStep = l.step;
     }
     pre.append(el("span", { class: l.kind }, (l.kind === "cmd" ? "$ " : "") + l.text + "\n"));
@@ -1159,15 +1287,70 @@ function renderSuivi(j) {
     if (s.status === "running") $("#etape-" + s.id)?.classList.add("courante");
   }
 }
-function renderFiles(files) {
+function fmtTime(t) {
+  const d = new Date(t * 1000), now = new Date();
+  const hm = d.toLocaleTimeString("fr", { hour: "2-digit", minute: "2-digit" });
+  return d.toDateString() === now.toDateString() ? hm : d.toLocaleDateString("fr") + " " + hm;
+}
+function renderStart(files, reset) {
+  const sel = $("#depart"); const prev = reset ? "" : sel.value;
+  const epubs = files.filter(f => f.name.endsWith(".epub"));
+  state.epubs = epubs;
+  sel.innerHTML = "";
+  const slug = state.project.slug;
+  const orig = epubs.find(f => f.role === "original");
+  const order = [orig, ...epubs.filter(f => f !== orig).sort((a, b) => b.mtime - a.mtime)].filter(Boolean);
+  for (const f of order) {
+    const label = (f.role === "original" ? "Original — " : "") + f.name +
+      (f.role && f.role !== "original" ? " (" + f.role + ")" : "") + " — " + fmtTime(f.mtime);
+    sel.append(el("option", { value: f.role === "original" ? "" : f.name, selected: (f.role === "original" ? "" : f.name) === prev }, label));
+  }
+  $("#depart-bloc").hidden = epubs.length < 2;
+  $("#bloc-relance").hidden = false;
+  startChanged();
+}
+function startChanged() {
+  const v = $("#depart").value;
+  const f = (state.epubs || []).find(x => x.name === v);
+  const note = $("#depart-note");
+  note.className = "note";
+  if (!v) { note.textContent = "Toute la chaîne repart du fichier déposé."; $("#lancer").textContent = "Préparer le livre"; return; }
+  $("#lancer").textContent = "Relancer depuis ce fichier";
+  note.textContent = (f && f.markers ? "Contient des marqueurs : ils seront retirés avant les étapes. " : "") +
+    "Une copie est gardée dans archives/.";
+  if (f && f.markers) note.className = "note attention";
+}
+function prepareRelance() {
+  const cands = (state.epubs || []).filter(f => f.role !== "original" && f.role !== "étape intermédiaire")
+    .sort((a, b) => b.mtime - a.mtime);
+  const note = $("#relance-note");
+  if (!cands.length) { note.textContent = "Aucune version relue ou retouchée dans ce projet : préparez d'abord le livre."; return; }
+  const f = cands[0];
+  $("#depart").value = f.name; startChanged();
+  for (const s of state.config.steps) setStep(s.id, ["structure", "split", "review"].includes(s.id));
+  $("#bloc-relance").classList.add("bloc-relance-actif");
+  note.textContent = "Départ : " + f.name + " (modifié " + fmtTime(f.mtime) + "). Étapes 3, 4 et 5 cochées, réglages conservés. Cliquez « Relancer depuis ce fichier ».";
+}
+async function uploadRetouche(file) {
+  const note = $("#relance-note"); note.textContent = "Envoi de « " + file.name + " »…";
+  const r = await fetch("/api/upload", { method: "POST", headers: { "X-Filename": encodeURIComponent(file.name),
+    "X-Project": encodeURIComponent(state.project.slug) }, body: file });
+  const data = await r.json();
+  if (!data.ok) { note.textContent = data.error; return; }
+  renderFiles(data.files);
+  prepareRelance();
+}
+function renderFiles(files, reset) {
   if (!files || !files.length) return;
+  renderStart(files, reset);
   $("#bloc-fichiers").hidden = false;
   const ul = $("#fichiers"); ul.innerHTML = "";
   for (const f of files) ul.append(el("li", {}, el("a", { href: f.url + (f.name.endsWith(".html") ? "" : "?dl=1"), target: f.name.endsWith(".html") ? "_blank" : null }, f.name),
     " ", el("small", {}, (f.size / 1024).toFixed(0) + " Ko")));
 }
 function finish(j) {
-  $("#lancer").disabled = false; $("#lancer").textContent = "Préparer à nouveau";
+  $("#lancer").disabled = false; startChanged();
+  $("#bloc-relance").classList.remove("bloc-relance-actif");
   const r = j.result || {}; const slug = state.project.slug;
   const act = $("#actions"); act.innerHTML = "";
   if (j.status === "error") act.append(el("p", { class: "erreur" }, "Une étape a échoué : voir le journal. Les fichiers déjà produits restent utilisables."));
@@ -1217,8 +1400,8 @@ function renderSigilHelp() {
       Cherchez <code>a-verifier</code> (mode Normal) et utilisez « Suivant » ; le rapport, ouvert à côté,
       donne pour chaque cas le lien vers la page scannée.</li>
     <li><b>Titres manquants.</b> La section « Numérotation des chapitres » du rapport indique où un titre manque.
-      Ajoutez-le en <code>&lt;h2&gt;</code>, puis relancez Prescel sur le fichier enregistré (étapes 3 et 4) pour
-      régénérer la table des matières.</li>
+      Ajoutez-le en <code>&lt;h2&gt;</code>, enregistrez, puis utilisez « Relance ciblée » : les étapes 3 à 5
+      sont rejouées sur le fichier enregistré et la table des matières est régénérée.</li>
     <li><b>Correcteur orthographique.</b> Ajoutez le fichier <code>…-dictionnaire.txt</code> aux dictionnaires
       utilisateur de Sigil (Préférences › Dictionnaires) : l'orthographe ancienne du livre n'est plus soulignée,
       il reste surtout les vraies coquilles.</li>

@@ -592,6 +592,8 @@ def clean_number(label):
     compact_num = num.replace(" ", "")
     if re.fullmatch(r"[IVXLCDMivxl1]+", compact_num):
         num = compact_num.upper().replace("1", "I")
+    elif num.isupper():
+        num = num.lower()                   # « PREMIER » → « premier »
     word = {"CHAPITRE": "Chapitre", "CHAP": "Chap."}.get(word, "Chap." if word == "Chap" else word)
     return "%s %s" % (word, num)
 
