@@ -82,3 +82,14 @@ la table des matières, cette liste disparaît et les ancres semblent mortes. `e
 python3 epub_pages.py livre-relu.epub -o livre-pages.epub           # rétablir la liste des pages
 python3 epub_pages.py livre-relu.epub -o livre-sans-pages.epub --purge  # ou retirer les ancres
 ```
+
+## DOCTYPE (EPUB 2)
+
+Google Livres écrit ses pages en XHTML 1.0 Strict, qu'epubcheck refuse dans un EPUB 2
+(`HTM-004`). Toutes les étapes qui réécrivent les pages (nettoyage, s long, structure, relecture)
+mettent le DOCTYPE en XHTML 1.1. Pour corriger un fichier en cours de relecture sans toucher aux
+marqueurs :
+
+```
+python3 epub_review.py livre-a-relire.epub --fix-doctype
+```

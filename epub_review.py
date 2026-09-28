@@ -181,6 +181,19 @@ def compact(s):
     return "".join((s or "").split())
 
 
+EPUB2 = [True]      # mis à jour d'après la version du paquet (OPF)
+XHTML11 = ('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"\n'
+           '  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">')
+
+
+def fix_doctype(prefix):
+    """EPUB 2 : epubcheck exige le DOCTYPE XHTML 1.1 (Google met du XHTML 1.0 Strict)."""
+    if EPUB2[0] and re.search(r"<!DOCTYPE[^>]*XHTML 1\.0", prefix):
+        return re.sub(r"<!DOCTYPE[^>]*>", lambda m: XHTML11, prefix, count=1)
+    return prefix
+
+
+
 class Doc:
     def __init__(self, path, text, enc, bom):
         self.path, self.enc, self.bom = path, enc, bom
@@ -191,7 +204,8 @@ class Doc:
 
     def serialize(self):
         out = ET.tostring(self.root, encoding="unicode")
-        return self.bom + (self.prefix.rstrip() + "\n" + out + "\n").encode(self.enc, "xmlcharrefreplace")
+        return self.bom + (fix_doctype(self.prefix).rstrip() + "\n" + out + "\n").encode(
+            self.enc, "xmlcharrefreplace")
 
 
 def page_of(pid):
@@ -741,6 +755,8 @@ def main():
     ap.add_argument("--report", help="rapport HTML (défaut : <livre>-relecture.html)")
     ap.add_argument("--mark", metavar="EPUB", help="écrire une copie marquée pour Sigil")
     ap.add_argument("--unmark", action="store_true", help="retirer tous les marqueurs")
+    ap.add_argument("--fix-doctype", action="store_true",
+                    help="seulement mettre les DOCTYPE en XHTML 1.1 (EPUB 2), marqueurs conservés")
     ap.add_argument("-o", "--output", help="avec --unmark : EPUB de sortie (défaut : en place)")
     ap.add_argument("--dict-out", metavar="FICHIER", help="liste des mots du livre pour Sigil")
     ap.add_argument("--scan-url", help="modèle d'URL des pages scannées, avec {page} "
@@ -763,6 +779,8 @@ def main():
         container = zin.read("META-INF/container.xml").decode("utf-8", "replace")
         opf_path = re.search(r"""full-path\s*=\s*["']([^"']+)""", container).group(1)
         opf, _, _ = decode_text(zin.read(opf_path))
+        _ver = re.search(r"""<(?:[\w-]+:)?package\b[^>]*\sversion\s*=\s*["']([^"']+)""", opf)
+        EPUB2[0] = not (_ver and _ver.group(1).startswith("3"))
         items = {}
         for m in re.finditer(r"<(?:[\w-]+:)?item\b[^>]*>", opf):
             if get_attr(m.group(0), "href"):
@@ -786,13 +804,24 @@ def main():
         css_path = posixpath.normpath(posixpath.join(posixpath.dirname(opf_path), opts.css_path))
         css_text = zin.read(css_path).decode("utf-8") if css_path in names else None
 
+    # --- DOCTYPE seuls ---
+    if opts.fix_doctype:
+        new_data = {d.path: d.serialize() for d in docs if fix_doctype(d.prefix) != d.prefix}
+        out = opts.output or src
+        if new_data:
+            write_epub(src, out, new_data)
+        print("DOCTYPE mis en XHTML 1.1 : %d fichiers" % len(new_data))
+        if new_data:
+            print("EPUB écrit : %s" % out)
+        return
+
     # --- retrait des marqueurs ---
     if opts.unmark:
         new_data, n = {}, 0
         for d in docs:
             before = compact("".join(d.body.itertext()))
             k = unmark_doc(d)
-            if k:
+            if k or fix_doctype(d.prefix) != d.prefix:
                 assert compact("".join(d.body.itertext())) == before
                 new_data[d.path] = d.serialize()
                 n += k
