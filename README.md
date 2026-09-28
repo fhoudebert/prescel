@@ -22,6 +22,7 @@ Variables équivalentes : `PRESCEL_EPUBCHECK`, `PRESCEL_SIGIL`.
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») : corrections sûres appliquées, liste TSV modifiable |
 | `epub_structure.py` | livres, chapitres, titres en capitales, sommaires, notes, avertissement Google retiré, table des matières, liste des pages |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
+| `epub_pages.py` | liste des pages du livre papier rétablie depuis les ancres (`GBS.PA31`, `page-12`) après une retouche dans Sigil, ou `--purge` pour retirer ces ancres |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark` |
 
 Les réglages préconisés sont cochés par défaut, puis ajustés d'après l'analyse du livre déposé.
@@ -69,3 +70,15 @@ Outils et données utilisés, qui ont leur propre licence :
 - epubcheck (contrôle, facultatif) : BSD-3-Clause ;
 - liste de mots « an-array-of-french-words » (téléchargée par `epub_longs.py --wordlist auto`) : MIT ;
 - OCR et images de Gallica : conditions de réutilisation de la BnF (usage non commercial libre).
+
+## Numéros de page et Sigil
+
+Les ancres vides comme `<a id="GBS.PA31"></a>` marquent le début de chaque page du livre papier ;
+elles alimentent la liste des pages du `toc.ncx` (« page 31 » sur la liseuse). Quand Sigil régénère
+la table des matières, cette liste disparaît et les ancres semblent mortes. `epub_structure.py`
+(donc la relance ciblée de Prescel) la refait d'elle-même ; hors de Prescel :
+
+```
+python3 epub_pages.py livre-relu.epub -o livre-pages.epub           # rétablir la liste des pages
+python3 epub_pages.py livre-relu.epub -o livre-sans-pages.epub --purge  # ou retirer les ancres
+```
