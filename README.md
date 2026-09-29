@@ -21,7 +21,7 @@ Variables équivalentes : `PRESCEL_EPUBCHECK`, `PRESCEL_SIGIL`.
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») : corrections sûres appliquées, liste TSV modifiable |
 | `epub_structure.py` | livres, chapitres, titres en capitales, sommaires, notes, avertissement Google retiré, table des matières, liste des pages |
-| `epub_modernise.py` | modernisation : imparfaits et conditionnels en « oi » (`--mode oi`), vocabulaire ancien (`--mode vocab`) ; listes TSV modifiables |
+| `epub_modernise.py` | modernisation : imparfaits et conditionnels en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), vocabulaire ancien (`--mode vocab`) ; listes TSV modifiables |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_pages.py` | liste des pages du livre papier rétablie depuis les ancres (`GBS.PA31`, `page-12`) après une retouche dans Sigil, ou `--purge` pour retirer ces ancres |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark` |
@@ -105,6 +105,10 @@ laissées au choix dans une liste (onglets « oi → ai » et « Modernisation �
   appliquée que si le mot obtenu existe en français (« reconnoit » → « reconnaît »). Les mots où « oi »
   est juste (« trois », « droit », « soit ») ne sont pas touchés ; « François », « Anglois »
   (nom propre ou nationalité ?) restent au choix et sont signalés dans le rapport.
+- `--mode ez` : « les bontez » → « les bontés », « ils sont armez » → « armés ». Chaque occurrence
+  précédée de « vous » (« vous avez », « vous les envoyez »), en inversion (« allez-vous », « où allez
+  vous ») ou à l'impératif en tête de phrase (« Venez ») est gardée ; « nez », « chez », « assez »
+  ne sont jamais touchés.
 - `--mode vocab` : « luy » → « lui », « mesme » → « même », « aussi tost » → « aussitôt », d'après
   `dictionnaires/vocabulaire_17_18.py` ; les graphies qui sont aussi des mots modernes (« des » →
   « dès ») restent au choix. C'est un choix d'édition : l'étape n'est jamais cochée d'office.

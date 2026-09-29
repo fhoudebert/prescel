@@ -5,7 +5,7 @@ epub_modernise.py — Modernise l'orthographe d'un livre des XVIᵉ-XVIIIᵉ si�
 sur le modèle de epub_longs.py : une liste TSV des corrections, modifiable,
 les cas sûrs appliqués d'office, les cas douteux laissés au choix.
 
-Deux modes :
+Trois modes :
 
   --mode oi     imparfaits et conditionnels en -ois / -oit / -oient
                 (« il estoit » → « il était », « ils auroient » → « ils auraient »).
@@ -14,6 +14,12 @@ Deux modes :
                 obtenue est un mot français. Jamais d'office : les mots où « oi »
                 est légitime (« croit », « soit », « mois », « fois », « droit »,
                 « exploit »…) et les noms propres (« François »).
+
+  --mode ez     pluriels anciens en -ez (« bontez » → « bontés », « armez » → « armés »),
+                sauf la 2ᵉ personne du pluriel : après « vous » (« vous avez », « vous les
+                envoyez »), à l'impératif avec pronom (« allez-vous ») ou en tête de phrase
+                (« Venez ») quand la forme est aussi un verbe moderne. Jamais : « nez »,
+                « chez », « assez ».
 
   --mode vocab  vocabulaire (« luy » → « lui », « mesme » → « même », « faict » → « fait »,
                 « aussi tost » → « aussitôt ») : dictionnaires/vocabulaire_17_18.py.
@@ -76,6 +82,29 @@ droit droits endroit endroits étroit adroit maladroit exploit exploits toit toi
 emploi emplois choix poids pois noix voix croix foi soi moi toi loi roi quoi pourquoi
 aperçois aperçoit conçois conçoit déçoit perçoit reçoivent doivent voient croient soient
 """.split())
+
+
+# Mots en -ez qui ne sont pas des pluriels anciens en -és
+EZ_KEEP = set("nez chez assez rez lez sez raz".split())
+# Pronoms qui peuvent s'intercaler entre « vous » et le verbe : « vous ne les avez »
+VOUS_BEFORE = re.compile(r"\bvous(?:\s+|['’])(?:(?:ne|n['’]|pas|le|la|les|l['’]|lui|leur|en|y|me|m['’]|"
+                         r"te|t['’]|se|s['’]|nous)(?:\s+|(?<=['’])))*$", re.I)
+
+
+def ez_is_verb_here(m, source_is_word):
+    """Occurrence de « -ez » à garder : 2ᵉ personne du pluriel (« vous avez », « vous les
+    envoyez »), impératif avec pronom (« allez-vous », « donnez-le ») ou en tête de phrase
+    (« Venez ») quand la forme est aussi un verbe moderne."""
+    s, a, b = m.string, m.start(), m.end()
+    if VOUS_BEFORE.search(s[max(0, a - 40):a]):
+        return True
+    if b < len(s) and s[b] in "-‑":
+        return True
+    if re.match(r"\s+vous\b", s[b:b + 8], re.I):
+        return True                               # inversion sans trait : « où allez vous ? »
+    if source_is_word and m.group(0)[:1].isupper() and re.search(r"(?:^|[.!?:«»\"“]\s*)$", s[max(0, a - 3):a]):
+        return True
+    return False
 
 
 def load_dict(path, name_hint):
@@ -155,6 +184,34 @@ def propose_oi(counts, caps, wordlist, verbs):
     return rows
 
 
+def propose_ez(counts, caps, wordlist):
+    """Pluriels anciens en -ez : « bontez » → « bontés », « armez » → « armés »."""
+    rows = []
+    for w, n in counts.items():
+        if not w.endswith("ez") or len(w) < 4 or w in EZ_KEEP:
+            continue
+        target = w[:-2] + "és"
+        if w.endswith("iez") and wordlist is not None and target not in wordlist and \
+                w[:-3] + "yés" in wordlist:
+            target = w[:-3] + "yés"             # « envoiez » → « envoyés »
+        known = (wordlist is not None and target in wordlist) or counts.get(target, 0) >= 2
+        verb = wordlist is not None and w in wordlist
+        if not known and verb:
+            continue                             # « aviez », « étiez » : verbes, rien à proposer
+        if caps.get(w, 0) >= max(2, 0.6 * n):
+            ok, why = 0, "surtout avec une majuscule : nom propre ?"
+        elif not known:
+            ok, why = 0, "« %s » inconnu : forme à vérifier" % target
+        elif verb:
+            ok, why = 1, "aussi un verbe : gardé après « vous », à l'impératif"
+        else:
+            ok, why = 1, ""
+        rows.append({"appliquer": str(ok), "forme_lue": w, "correction": target,
+                     "occurrences": str(n), "occ_correction": str(counts.get(target, 0)), "remarque": why})
+    rows.sort(key=lambda r: (-int(r["occurrences"]), r["forme_lue"]))
+    return rows
+
+
 def propose_vocab(counts, caps, text, wordlist, vocab):
     rows = []
     low = text.lower().replace("’", "'")
@@ -180,7 +237,7 @@ def propose_vocab(counts, caps, text, wordlist, vocab):
 # Application
 # --------------------------------------------------------------------------
 
-def build_replacer(mapping, counts_out):
+def build_replacer(mapping, counts_out, ez_guard=None, kept=None):
     """Fonction de remplacement : expressions (« aussi tost ») d'abord, puis mots seuls."""
     phrases = sorted((k for k in mapping if not re.fullmatch(r"[%s]+" % LETTERS, k)), key=len, reverse=True)
     words = {k: v for k, v in mapping.items() if re.fullmatch(r"[%s]+" % LETTERS, k)}
@@ -201,6 +258,10 @@ def build_replacer(mapping, counts_out):
         w = m.group(0)
         new = words.get(w.lower())
         if new is None:
+            return w
+        if ez_guard is not None and ez_is_verb_here(m, w.lower() in ez_guard):
+            if kept is not None:
+                kept[w.lower()] += 1
             return w
         counts_out[w.lower()] += 1
         return match_case(w, new)
@@ -235,7 +296,7 @@ def main():
     ap = argparse.ArgumentParser(description="Modernisation : imparfaits en oi, vocabulaire ancien.")
     ap.add_argument("epub")
     ap.add_argument("-o", "--output", help="EPUB modernisé (défaut : en place)")
-    ap.add_argument("--mode", choices=["oi", "vocab"], required=True)
+    ap.add_argument("--mode", choices=["oi", "ez", "vocab"], required=True)
     ap.add_argument("--tsv", required=True, help="liste des corrections (créée ou relue)")
     ap.add_argument("--use-tsv", action="store_true", help="respecter les choix d'un TSV existant")
     ap.add_argument("--no-apply", action="store_true", help="liste seulement, rien n'est corrigé")
@@ -245,7 +306,9 @@ def main():
 
     dict_path = opts.dict or os.path.join(HERE, "dictionnaires",
                                           "verbes_oi.py" if opts.mode == "oi" else "vocabulaire_17_18.py")
-    table = load_dict(dict_path, opts.mode) if os.path.exists(dict_path) else {}
+    if opts.mode == "ez" and not opts.dict:
+        dict_path = ""
+    table = load_dict(dict_path, opts.mode) if dict_path and os.path.exists(dict_path) else {}
     if not table and opts.mode == "vocab":
         sys.exit("Dictionnaire de vocabulaire introuvable : %s" % dict_path)
 
@@ -274,8 +337,12 @@ def main():
 
         counts, caps, text = book_counts(docs)
         wordlist = load_wordlist(opts.wordlist)
-        rows = propose_oi(counts, caps, wordlist, table) if opts.mode == "oi" else \
-            propose_vocab(counts, caps, text, wordlist, table)
+        if opts.mode == "oi":
+            rows = propose_oi(counts, caps, wordlist, table)
+        elif opts.mode == "ez":
+            rows = propose_ez(counts, caps, wordlist)
+        else:
+            rows = propose_vocab(counts, caps, text, wordlist, table)
         if opts.no_apply:
             for r in rows:
                 r["appliquer"] = "0"
@@ -296,18 +363,24 @@ def main():
 
         chosen = {r["forme_lue"]: r["correction"] for r in rows if r.get("appliquer", "0").strip() == "1"}
         pending = [r for r in rows if r.get("appliquer", "0").strip() != "1"]
-        label = "Imparfaits et conditionnels en oi" if opts.mode == "oi" else "Vocabulaire ancien"
+        label = {"oi": "Imparfaits et conditionnels en oi", "ez": "Pluriels en -ez",
+                 "vocab": "Vocabulaire ancien"}[opts.mode]
         print("%s : %d formes (%d occurrences) — %d à appliquer, %d laissées au choix"
               % (label, len(rows), sum(int(r["occurrences"]) for r in rows), len(chosen), len(pending)))
         print("Liste : %s" % opts.tsv)
 
-        counts_out = collections.Counter()
-        replace = build_replacer(chosen, counts_out)
+        counts_out, kept = collections.Counter(), collections.Counter()
+        guard = None
+        if opts.mode == "ez":
+            guard = {w for w in chosen if wordlist is None or w in wordlist}
+        replace = build_replacer(chosen, counts_out, guard, kept)
         new_data = {}
         for d in docs:
             if apply_doc(d, replace) or fix_doctype(d.prefix) != d.prefix:
                 new_data[d.path] = d.serialize()
         print("Mots modernisés : %d" % sum(counts_out.values()))
+        if kept:
+            print("Gardés tels quels (verbe : « vous … », impératif) : %d occurrences" % sum(kept.values()))
         for w, n in counts_out.most_common(12):
             print("  %-18s → %-18s %5d" % (w, chosen.get(w, "?"), n))
         if pending:

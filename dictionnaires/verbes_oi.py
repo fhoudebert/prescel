@@ -554,4 +554,22 @@ ANCIEN_FRANCAIS = {
     "escrirois": "écrirais",
     "escriroit": "écrirait",
     "escriroient": "écriraient",
+    # -----------------------------------------------------------------
+    # BOIRE, CROIRE (graphies anciennes)
+    # -----------------------------------------------------------------
+    "beuvois": "buvais",
+    "beuvoit": "buvait",
+    "beuvoient": "buvaient",
+
+    "croiois": "croyais",
+    "croioit": "croyait",
+    "croioient": "croyaient",
+
+    # -----------------------------------------------------------------
+    # SUFFIRE (s long lu « f » par l'OCR)
+    # -----------------------------------------------------------------
+    "suffisoit": "suffisait",
+    "suffisoient": "suffisaient",
+    "suffifoit": "suffisait",
+    "suffifoient": "suffisaient",
 }

@@ -795,6 +795,21 @@ VOCABULAIRE_17_18 = {
 
     "dessein": "dessein",
     "desseins": "desseins",
+    # ==============================================================
+    # AJOUTS (relecture du Chardin)
+    # ==============================================================
+
+    "païs": "pays",
+    "sçût": "sut",
+    "sçut": "sut",
+    "eft": "est",
+    "tems": "temps",
+    "monnoye": "monnaie",
+    "monnoyes": "monnaies",
+    # « ayent » est le subjonctif « aient » (qu'ils ayent → qu'ils aient),
+    # le participe s'écrivait déjà « ayant »
+    "ayent": "aient",
+    "envoiez": "envoyés",
 }
 
 

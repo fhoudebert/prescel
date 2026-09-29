@@ -174,6 +174,25 @@ STEPS = [
         ],
     },
     {
+        "id": "ez", "enabled": False, "script": "epub_modernise.py", "suffix": "2e-ez",
+        "title": "Pluriels en « ez » → « és »",
+        "summary": "« les bontez » → « les bontés », « ils sont armez » → « ils sont armés ». La 2ᵉ personne du "
+                   "pluriel est gardée : après « vous » (« vous avez », « vous les envoyez »), en inversion "
+                   "(« allez-vous », « où allez vous »), à l'impératif en tête de phrase (« Venez »). "
+                   "« nez », « chez », « assez » ne sont jamais touchés ; les formes inconnues restent au "
+                   "choix, dans l'onglet « ez → és ».",
+        "options": [
+            {"key": "apply", "type": "bool", "default": True, "text": True,
+             "label": "Appliquer les corrections sûres", "help": "Décoché : la liste est seulement établie."},
+            {"key": "use_tsv", "type": "bool", "default": True, "label": "Respecter mes choix enregistrés",
+             "help": "Les mots cochés ou décochés dans l'onglet « ez → és » sont repris."},
+            {"key": "french_list", "type": "bool", "default": True,
+             "label": "Liste de mots français en renfort",
+             "help": "Vérifie que la forme en « és » existe, et repère les formes qui sont aussi des verbes "
+                     "(gardées après « vous »)."},
+        ],
+    },
+    {
         "id": "moderne", "enabled": False, "script": "epub_modernise.py", "suffix": "2d-moderne",
         "title": "Modernisation du vocabulaire",
         "summary": "« luy » → « lui », « mesme » → « même », « faict » → « fait », « aussi tost » → « aussitôt », "
@@ -314,8 +333,8 @@ STEP_BY_ID = {s["id"]: s for s in STEPS}
 CONFIG = {"workdir": None, "epubcheck": None, "sigil": None, "tessdata": None, "tesseract": []}
 
 
-LIST_FILES = {"longs": "-s-long.tsv", "oi": "-oi.tsv", "moderne": "-moderne.tsv"}
-LIST_NAMES = {"longs": "du s long", "oi": "oi → ai", "moderne": "de modernisation"}
+LIST_FILES = {"longs": "-s-long.tsv", "oi": "-oi.tsv", "ez": "-ez.tsv", "moderne": "-moderne.tsv"}
+LIST_NAMES = {"longs": "du s long", "oi": "oi → ai", "ez": "ez → és", "moderne": "de modernisation"}
 
 
 def list_path(slug, kind):
@@ -513,6 +532,11 @@ OI_HINTS = re.compile(r"\b(?:[eé]s?toi(?:t|s|ent)|avoi(?:t|s|ent)|[fs]aisoi(?:t
                       r"devoi(?:t|ent)|vouloi(?:t|ent)|[a-zà-ÿ]+roi(?:t|ent))\b")
 
 
+# Pluriels anciens en -ez après un déterminant ou un auxiliaire : « les bontez », « sont armez »
+EZ_HINTS = re.compile(r"\b(?:les|des|ses|mes|tes|nos|vos|leurs|aux|ces|sont|furent|étoient|estoient)\s+"
+                      r"[a-zà-ÿ]{3,}ez\b")
+
+
 def strip_tags(s):
     return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", s)).split())
 
@@ -624,7 +648,7 @@ def analyse(path):
         stats = dict(docs=len(docs), images=sum(n.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".svg"))
                                                 for n in names),
                      styles=0, gtxt=0, gbs=0, h1=0, h2=0, chap_lines=0, chap_title_before=0,
-                     book_lines=0, markers=0, paragraphs=0, chars=0, divs=0, longs=0, caps_blocks=0, date_lines=0, oi=0)
+                     book_lines=0, markers=0, paragraphs=0, chars=0, divs=0, longs=0, caps_blocks=0, date_lines=0, oi=0, ez=0)
         for n in docs:
             t = z.read(n).decode("utf-8", "replace")
             stats["styles"] += len(re.findall(r"\sstyle\s*=", t))
@@ -640,6 +664,7 @@ def analyse(path):
             plain = " ".join(paras).lower()
             stats["longs"] += len(LONG_S_HINTS.findall(plain))
             stats["oi"] += len(OI_HINTS.findall(plain))
+            stats["ez"] += len(EZ_HINTS.findall(plain))
             run = 0
             for ptxt in paras + [""]:
                 letters = [c for c in ptxt if c.isalpha()]
@@ -702,6 +727,10 @@ def analyse(path):
         notes.append("Imparfaits et conditionnels en « oi » (%d formes typiques : « avoit », « seroit »…) : "
                      "étape « oi → ai » cochée. La modernisation du vocabulaire (« luy », « mesme ») reste "
                      "à cocher si vous la souhaitez." % stats["oi"])
+    if stats["ez"] >= 10:
+        rec["ez"]["enabled"] = True
+        notes.append("Pluriels anciens en « ez » (%d cas typiques : « les bontez », « sont armez ») : "
+                     "étape « ez → és » cochée." % stats["ez"])
     if stats["caps_blocks"] >= 2:
         rec["structure"]["options"]["--caps-titles"] = True
         notes.append("%d titres composés en capitales sur plusieurs lignes : réglage « titres en "
@@ -930,8 +959,8 @@ def pipeline(job, plan, check_mode, start=None):
         if os.path.exists(out):
             os.remove(out)
         cmd = [py, "-u", script, current, "-o", out] + build_args(step, opts)
-        if step["id"] in ("oi", "moderne"):
-            cmd += ["--mode", "oi" if step["id"] == "oi" else "vocab", "--tsv", list_tsv]
+        if step["id"] in ("oi", "ez", "moderne"):
+            cmd += ["--mode", {"oi": "oi", "ez": "ez", "moderne": "vocab"}[step["id"]], "--tsv", list_tsv]
             if opts.get("use_tsv", True):
                 cmd.append("--use-tsv")
             if not opts.get("apply", True):
@@ -958,7 +987,7 @@ def pipeline(job, plan, check_mode, start=None):
         st["status"], st["output"] = "done", os.path.basename(out)
         if step["id"] == "longs" and os.path.exists(tsv):
             job.result["longs"] = os.path.basename(tsv)
-        if step["id"] in ("oi", "moderne") and os.path.exists(list_tsv):
+        if step["id"] in ("oi", "ez", "moderne") and os.path.exists(list_tsv):
             job.result.setdefault("lists", []).append(step["id"])
         current = final_epub = out
         if check_mode == "each":
@@ -1463,6 +1492,7 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
       <button role="tab" aria-selected="false" data-vue="tdm">Table des matières</button>
       <button role="tab" aria-selected="false" data-vue="longs">S long</button>
       <button role="tab" aria-selected="false" data-vue="oi">oi → ai</button>
+      <button role="tab" aria-selected="false" data-vue="ez">ez → és</button>
       <button role="tab" aria-selected="false" data-vue="moderne">Modernisation</button>
       <button role="tab" aria-selected="false" data-vue="rapport">Rapport de relecture</button>
       <button role="tab" aria-selected="false" data-vue="sigil">Relire dans Sigil</button>
@@ -1472,6 +1502,7 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
     <div class="vue" id="vue-rapport" hidden><p class="vide">Le rapport de relecture s'affichera ici après l'étape « Préparer la relecture ».</p></div>
     <div class="vue" id="vue-longs" hidden><p class="vide">La liste des corrections du s long apparaît après l'étape « S long lu f ».</p></div>
     <div class="vue" id="vue-oi" hidden><p class="vide">La liste apparaît après l'étape « Imparfaits en oi ».</p></div>
+    <div class="vue" id="vue-ez" hidden><p class="vide">La liste apparaît après l'étape « Pluriels en ez ».</p></div>
     <div class="vue" id="vue-moderne" hidden><p class="vide">La liste apparaît après l'étape « Modernisation du vocabulaire ».</p></div>
     <div class="vue conseils" id="vue-sigil" hidden></div>
 </section>
@@ -1519,7 +1550,7 @@ async function init() {
   renderSigilHelp();
   setupDrop();
   document.querySelectorAll("#onglets button").forEach(b => b.addEventListener("click", () => {
-    showTab(b.dataset.vue); if (["longs", "oi", "moderne"].includes(b.dataset.vue) && state.project) loadList(b.dataset.vue); }));
+    showTab(b.dataset.vue); if (["longs", "oi", "ez", "moderne"].includes(b.dataset.vue) && state.project) loadList(b.dataset.vue); }));
   $("#lancer").addEventListener("click", run);
   $("#depart").addEventListener("change", startChanged);
   $("#relance").addEventListener("click", prepareRelance);
@@ -1729,6 +1760,8 @@ const LISTS = {
     aide: "Chaque ligne est une forme lue avec un « f » à la place d'un s long, et sa correction. Les mots qui existent sous les deux formes (« font »/« sont ») sont laissés au choix ; leurs occurrences sont aussi signalées une par une dans le rapport de relecture." },
   oi: { vide: "La liste apparaît après l'étape « Imparfaits en oi ».",
     aide: "Imparfaits et conditionnels en « oi » et leur forme moderne. Sont laissés au choix : les formes inconnues du dictionnaire, les mots surtout écrits avec une majuscule (« François » : prénom ou « Français » ? « Anglois » → « Anglais », mais « Génois » reste « Génois »). Leurs occurrences sont signalées dans le rapport." },
+  ez: { vide: "La liste apparaît après l'étape « Pluriels en ez ».",
+    aide: "Pluriels anciens en « ez » et leur forme en « és ». Chaque occurrence précédée de « vous », en inversion (« allez-vous ») ou à l'impératif en tête de phrase est gardée telle quelle, même si la forme est cochée. Restent au choix les formes inconnues (souvent un s long ou un accent à corriger d'abord : « affiégez », « deputez ») et celles surtout écrites avec une majuscule." },
   moderne: { vide: "La liste apparaît après l'étape « Modernisation du vocabulaire ».",
     aide: "Graphies anciennes du dictionnaire de vocabulaire trouvées dans le livre. Celles qui sont aussi des mots modernes (« des » → « dès ») sont laissées au choix : décochez aussi ce que vous préférez garder tel quel." },
 };
@@ -1788,7 +1821,7 @@ function prepareRelance() {
   const has = suffix => (state.files || []).some(x => x.name.endsWith(suffix));
   const withLongs = has("-s-long.tsv");
   const ids = ["structure", "split", "review"].concat(withLongs ? ["longs"] : [],
-    has("-oi.tsv") ? ["oi"] : [], has("-moderne.tsv") ? ["moderne"] : []);
+    has("-oi.tsv") ? ["oi"] : [], has("-ez.tsv") ? ["ez"] : [], has("-moderne.tsv") ? ["moderne"] : []);
   for (const s of state.config.steps) setStep(s.id, ids.includes(s.id));
   $("#bloc-relance").classList.add("bloc-relance-actif");
   note.textContent = "Départ : " + f.name + " (modifié " + fmtTime(f.mtime) + "). " +
