@@ -1164,6 +1164,63 @@ def reorder_adjacent_anchors(text):
     return run.sub(fix, text)
 
 
+def dedupe_ids(text):
+    """Id en double dans un même fichier (Sigil recopie l'id quand on coupe un paragraphe en
+    deux) : le premier est gardé ; une ancre vide en double disparaît, ailleurs seul l'attribut
+    part. Renvoie (texte, nombre de doublons retirés)."""
+    seen, removed = set(), [0]
+    tag_re = re.compile(r"""<([a-zA-Z][\w:]*)((?:\s+[^\s=/>]+(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*)\s*(/?)>""")
+
+    def fix(m):
+        attrs = m.group(2)
+        idm = re.search(r"""\s+id\s*=\s*(?:"([^"]*)"|'([^']*)')""", attrs)
+        if not idm:
+            return m.group(0)
+        v = idm.group(1) if idm.group(1) is not None else idm.group(2)
+        if v not in seen:
+            seen.add(v)
+            return m.group(0)
+        removed[0] += 1
+        new_attrs = attrs[:idm.start()] + attrs[idm.end():]
+        return "<%s%s%s>" % (m.group(1), new_attrs, " /" if m.group(3) else "")
+    out = tag_re.sub(fix, text)
+    out = re.sub(r"<a\s*>\s*</a>|<a\s*/>", "", out)      # ancres devenues vides
+    return out, removed[0]
+
+
+def fix_nav_targets(ncx_text, ncx_path, texts):
+    """Entrées du toc.ncx qui visent une ancre disparue (texte retouché dans Sigil) :
+    une page de la liste des pages est retirée ; une entrée de la table vise le début du
+    fichier. Renvoie (texte, pages retirées, entrées corrigées)."""
+    ids = {p: set(re.findall(r"""\sid\s*=\s*["']([^"']+)["']""", t)) for p, t in texts.items()}
+    dropped, fixed = [0], [0]
+
+    def target_ok(src):
+        path, _, frag = src.partition("#")
+        full = resolve(ncx_path, path)
+        return not frag or unquote(frag) in ids.get(full, set()) or full not in ids
+
+    def drop_page(m):
+        src = re.search(r"""<content\s+src\s*=\s*["']([^"']+)["']""", m.group(0))
+        if src and not target_ok(src.group(1)):
+            dropped[0] += 1
+            return ""
+        return m.group(0)
+    ncx_text = re.sub(r"[ \t]*<pageTarget\b.*?</pageTarget>[ \t]*\r?\n?", drop_page, ncx_text, flags=re.S)
+
+    def fix_point(m):
+        src = m.group(2)
+        if target_ok(src):
+            return m.group(0)
+        fixed[0] += 1
+        return m.group(1) + src.split("#", 1)[0] + m.group(3)
+    ncx_text = re.sub(r"""(<content\s+src\s*=\s*["'])([^"']+)(["'])""", fix_point, ncx_text)
+    n = len(re.findall(r"<pageTarget\b", ncx_text))
+    ncx_text = re.sub(r"""(<meta\s+name=["']dtb:totalPageCount["']\s+content=["'])\d+""",
+                      lambda m: m.group(1) + str(n), ncx_text)
+    return ncx_text, dropped[0], fixed[0]
+
+
 def anchors_to_pagelist(ncx_text, ncx_path, spine, texts, stats):
     """Liste des pages du toc.ncx reconstruite à partir des ancres de page restées dans le
     texte (GBS.PA31…, page-12), quand la page-map et la liste des pages ont disparu
@@ -1325,7 +1382,10 @@ def main():
         new_data = {}
         for d in docs:
             raw = d.serialize()
-            fixed = reorder_adjacent_anchors(raw.decode(d.enc)).encode(d.enc, "xmlcharrefreplace")
+            txt, dup = dedupe_ids(reorder_adjacent_anchors(raw.decode(d.enc)))
+            if dup:
+                stats["id en double retirés"] += dup
+            fixed = txt.encode(d.enc, "xmlcharrefreplace")
             new_data[d.path] = fixed
         if entries and not opts.no_toc:
             if ncx_path and ncx_path in names:
@@ -1383,9 +1443,16 @@ def main():
                 rebuilt = anchors_to_pagelist(t, ncx_path, spine, texts, stats)
                 if rebuilt is not None:
                     new_data[ncx_path] = bom + rebuilt.encode(enc)
-            elif ncx_path in new_data:
-                # TdM reconstruite : playOrder cohérents avec d'éventuelles pages
-                new_data[ncx_path] = bom + renumber_play_order(t, ncx_path, spine, texts).encode(enc)
+            else:
+                # ancres disparues (retouches dans Sigil) : pages retirées, entrées au début du fichier ;
+                # puis playOrder recalculés (deux pages n'ont jamais le même numéro)
+                t2, dropped, repaired = fix_nav_targets(t, ncx_path, texts)
+                if dropped:
+                    stats["pages sans ancre retirées de la liste"] += dropped
+                if repaired:
+                    stats["entrées de table sans ancre corrigées"] += repaired
+                if t2 != t or ncx_path in new_data:
+                    new_data[ncx_path] = bom + renumber_play_order(t2, ncx_path, spine, texts).encode(enc)
 
         # CSS
         css_path = posixpath.normpath(posixpath.join(posixpath.dirname(opf_path), opts.css_path))

@@ -84,6 +84,7 @@ PREFIXES = {"entre", "contre", "quatre", "sur", "sous", "tres", "très", "mal", 
 CATEGORIES = collections.OrderedDict([
     ("chapitres", "Numérotation des chapitres"),
     ("slong", "S long lu « f » ? (mot laissé tel quel)"),
+    ("oi", "Imparfait en « oi » ? (mot laissé tel quel)"),
     ("ocr", "Mots peu sûrs pour l'OCR"),
     ("notes", "Notes sans appel dans le texte"),
     ("cesures", "Mots coupés par un trait d'union"),
@@ -98,6 +99,9 @@ CATEGORIES = collections.OrderedDict([
     ("coupures", "Paragraphe qui semble coupé"),
 ])
 HELP = {
+    "oi": "Forme en « oi » laissée telle quelle par la modernisation (nom propre, nationalité, forme "
+          "inconnue : « François », « Anglois », « appelloit »). Décidez ici, ou une fois pour toutes "
+          "dans l'onglet « oi → ai » de Prescel.",
     "lettrines": "Le paragraphe commence par un mot incomplet : la grande lettre du début (lettrine) "
                  "n'a pas été lue par l'OCR (« Ous avons » pour « NOus avons »). La lettre proposée "
                  "est celle qui donne un mot fréquent du livre ; vérifiez sur la page scannée.",
@@ -274,9 +278,10 @@ def chapter_number(label):
 # --------------------------------------------------------------------------
 
 class Reviewer:
-    def __init__(self, vocab, scan_template, wordlist=None, min_glued=11, longs=None):
+    def __init__(self, vocab, scan_template, wordlist=None, min_glued=11, longs=None, oi=None):
         self.vocab = vocab
         self.longs = longs or {}
+        self.oi = oi or {}
         self.wordlist = wordlist
         self.min_glued = min_glued
         self.scan_template = scan_template
@@ -298,6 +303,9 @@ class Reviewer:
             lw = w.lower()
             if lw in self.longs:
                 out.append((a, b, "slong", "→ %s ?" % self.longs[lw]))
+                continue
+            if lw in self.oi:
+                out.append((a, b, "oi", "→ %s ?" % self.oi[lw]))
                 continue
             elided = b < len(s) and s[b] in "'’"
             # « a-t-il », « va-t-on » : seul le t euphonique, entre deux traits d'union, est admis.
@@ -769,6 +777,8 @@ def main():
     ap.add_argument("--longs-tsv", metavar="FICHIER",
                     help="liste d'epub_longs.py : les formes laissées telles quelles (appliquer=0) "
                          "sont signalées une par une")
+    ap.add_argument("--oi-tsv", metavar="FICHIER",
+                    help="liste d'epub_modernise.py --mode oi : formes laissées au choix signalées")
     ap.add_argument("--max-items", type=int, default=400, help="cas affichés par catégorie")
     ap.add_argument("--css-path", default="Styles/livre.css")
     opts = ap.parse_args()
@@ -860,7 +870,14 @@ def main():
             for r in csv.DictReader(f, delimiter="\t"):
                 if r.get("forme_lue") and (r.get("appliquer") or "0").strip() != "1":
                     longs[r["forme_lue"].lower()] = r.get("correction", "")
-    rv = Reviewer(vocab, scan, wordlist, opts.min_glued, longs)
+    oi = {}
+    if opts.oi_tsv and os.path.exists(opts.oi_tsv):
+        import csv
+        with open(opts.oi_tsv, encoding="utf-8", newline="") as f:
+            for r in csv.DictReader(f, delimiter="\t"):
+                if r.get("forme_lue") and (r.get("appliquer") or "0").strip() != "1":
+                    oi[r["forme_lue"].lower()] = r.get("correction", "")
+    rv = Reviewer(vocab, scan, wordlist, opts.min_glued, longs, oi)
     page_state = [None]
     mark = bool(opts.mark)
     before = {}

@@ -8,7 +8,10 @@ d'aller à une page précise. Quand Sigil régénère la table des matières, ce
 liste disparaît et les ancres paraissent mortes.
 
 Deux choix :
-  (défaut)  rétablir la liste des pages à partir des ancres ;
+  (défaut)  rétablir la liste des pages à partir des ancres (elle est refaite
+            entièrement : les pages dont l'ancre a disparu en sortent), retirer
+            les id en double et réparer les entrées de table qui visent une
+            ancre disparue ;
   --purge   retirer les ancres de page que plus rien ne vise (le livre n'aura
             plus de numéros de page ; le texte n'est pas modifié).
 
@@ -29,8 +32,8 @@ import zipfile
 from urllib.parse import unquote
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from epub_structure import (anchors_to_pagelist, decode_text, get_attr,  # noqa: E402
-                            reorder_adjacent_anchors, resolve)
+from epub_structure import (anchors_to_pagelist, decode_text, dedupe_ids, fix_nav_targets,  # noqa: E402
+                            get_attr, renumber_play_order, reorder_adjacent_anchors, resolve)
 
 EMPTY_ANCHOR = r"""<a\s+id\s*=\s*["']({id})["']\s*(?:/>|>\s*</a>)"""
 
@@ -92,18 +95,34 @@ def main():
         else:
             if not ncx_path or ncx_path not in names:
                 sys.exit("Pas de toc.ncx dans cet EPUB : liste des pages impossible à rétablir.")
+            dups = 0
             for p in spine:
-                fixed = reorder_adjacent_anchors(texts[p])
+                fixed, n = dedupe_ids(reorder_adjacent_anchors(texts[p]))
+                dups += n
                 if fixed != texts[p]:
                     texts[p] = fixed
                     new_data[p] = fixed.encode("utf-8")
+            if dups:
+                print("Id en double retirés (paragraphe coupé en deux dans Sigil) : %d" % dups)
             if new_data:
-                print("Ancres voisines remises dans l'ordre des pages : %d fichiers" % len(new_data))
+                print("Fichiers retouchés (ordre des ancres, doublons) : %d" % len(new_data))
             t, enc, bom = decode_text(zin.read(ncx_path))
             stats = collections.Counter()
-            rebuilt = anchors_to_pagelist(t, ncx_path, spine, texts, stats)
-            if rebuilt is None:
-                sys.exit("Aucune ancre de page (GBS.…, page-…) dans le texte.")
+            if "<pageTarget" in t:
+                # liste présente : on la garde (plusieurs pages blanches peuvent viser la même
+                # ancre) et on n'en retire que les pages dont l'ancre a disparu
+                rebuilt, dropped, repaired = fix_nav_targets(t, ncx_path, texts)
+                stats["liste des pages reconstruite"] = len(re.findall(r"<pageTarget\b", rebuilt))
+                if dropped:
+                    print("Pages dont l'ancre a disparu, retirées de la liste : %d" % dropped)
+            else:
+                rebuilt = anchors_to_pagelist(t, ncx_path, spine, texts, stats)
+                if rebuilt is None:
+                    sys.exit("Aucune ancre de page (GBS.…, page-…) dans le texte.")
+                rebuilt, _, repaired = fix_nav_targets(rebuilt, ncx_path, texts)
+            if repaired:
+                print("Entrées de la table dont l'ancre a disparu : %d (elles visent le début du fichier)" % repaired)
+            rebuilt = renumber_play_order(rebuilt, ncx_path, spine, texts)
             new_data[ncx_path] = bom + rebuilt.encode(enc)
             print("Liste des pages rétablie : %d pages" % stats["liste des pages reconstruite"])
 

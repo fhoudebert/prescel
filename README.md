@@ -21,6 +21,7 @@ Variables équivalentes : `PRESCEL_EPUBCHECK`, `PRESCEL_SIGIL`.
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») : corrections sûres appliquées, liste TSV modifiable |
 | `epub_structure.py` | livres, chapitres, titres en capitales, sommaires, notes, avertissement Google retiré, table des matières, liste des pages |
+| `epub_modernise.py` | modernisation : imparfaits et conditionnels en « oi » (`--mode oi`), vocabulaire ancien (`--mode vocab`) ; listes TSV modifiables |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_pages.py` | liste des pages du livre papier rétablie depuis les ancres (`GBS.PA31`, `page-12`) après une retouche dans Sigil, ou `--purge` pour retirer ces ancres |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark` |
@@ -79,7 +80,7 @@ la table des matières, cette liste disparaît et les ancres semblent mortes. `e
 (donc la relance ciblée de Prescel) la refait d'elle-même ; hors de Prescel :
 
 ```
-python3 epub_pages.py livre-relu.epub -o livre-pages.epub           # rétablir la liste des pages
+python3 epub_pages.py livre-relu.epub -o livre-pages.epub           # rétablir / réparer la liste des pages
 python3 epub_pages.py livre-relu.epub -o livre-sans-pages.epub --purge  # ou retirer les ancres
 ```
 
@@ -93,3 +94,29 @@ marqueurs :
 ```
 python3 epub_review.py livre-a-relire.epub --fix-doctype
 ```
+
+## Modernisation (oi → ai, vocabulaire)
+
+`epub_modernise.py`, sur le modèle du s long : les corrections sûres sont appliquées, les autres
+laissées au choix dans une liste (onglets « oi → ai » et « Modernisation » de Prescel).
+
+- `--mode oi` : « il estoit » → « il était », « ils auroient » → « ils auraient ». Le dictionnaire
+  `dictionnaires/verbes_oi.py` donne la forme moderne complète ; ailleurs la règle -oi- → -ai- n'est
+  appliquée que si le mot obtenu existe en français (« reconnoit » → « reconnaît »). Les mots où « oi »
+  est juste (« trois », « droit », « soit ») ne sont pas touchés ; « François », « Anglois »
+  (nom propre ou nationalité ?) restent au choix et sont signalés dans le rapport.
+- `--mode vocab` : « luy » → « lui », « mesme » → « même », « aussi tost » → « aussitôt », d'après
+  `dictionnaires/vocabulaire_17_18.py` ; les graphies qui sont aussi des mots modernes (« des » →
+  « dès ») restent au choix. C'est un choix d'édition : l'étape n'est jamais cochée d'office.
+
+Les deux dictionnaires sont de simples fichiers Python (`{"ancien": "moderne", …}`) : on peut les
+compléter librement.
+
+## Après des retouches dans Sigil
+
+Couper un paragraphe en deux dans Sigil recopie son `id` (erreur epubcheck « Duplicate »), et
+supprimer un passage peut emporter une ancre de page que le `toc.ncx` vise encore (« identificateur
+de fragment non défini », playOrder identiques). `epub_pages.py` (et la relance ciblée de Prescel)
+retire les id en double, sort de la liste des pages celles dont l'ancre a disparu, fait viser le
+début du fichier aux entrées de table orphelines et renumérote les playOrder. Les marqueurs de
+relecture sont conservés.

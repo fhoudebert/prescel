@@ -155,6 +155,42 @@ STEPS = [
         ],
     },
     {
+        "id": "oi", "enabled": False, "script": "epub_modernise.py", "suffix": "2c-oi",
+        "title": "Imparfaits en « oi » → « ai »",
+        "summary": "« il estoit » → « il était », « ils auroient » → « ils auraient ». Le dictionnaire des verbes "
+                   "(dictionnaires/verbes_oi.py) donne la forme moderne complète ; ailleurs, la règle -oi- → -ai- "
+                   "n'est appliquée que si le mot obtenu existe en français. Les mots où « oi » est juste "
+                   "(« trois », « droit », « soit ») ne sont jamais touchés ; « François », « Anglois » "
+                   "(nom propre ou nationalité ?) sont laissés au choix, dans l'onglet « oi → ai ».",
+        "options": [
+            {"key": "apply", "type": "bool", "default": True, "text": True,
+             "label": "Appliquer les corrections sûres", "help": "Décoché : la liste est seulement établie."},
+            {"key": "use_tsv", "type": "bool", "default": True, "label": "Respecter mes choix enregistrés",
+             "help": "Les mots cochés ou décochés dans l'onglet « oi → ai » sont repris."},
+            {"key": "french_list", "type": "bool", "default": True,
+             "label": "Liste de mots français en renfort",
+             "help": "Sert à vérifier que la forme en « ai » existe, et que la forme en « oi » n'est pas "
+                     "déjà un mot moderne."},
+        ],
+    },
+    {
+        "id": "moderne", "enabled": False, "script": "epub_modernise.py", "suffix": "2d-moderne",
+        "title": "Modernisation du vocabulaire",
+        "summary": "« luy » → « lui », « mesme » → « même », « faict » → « fait », « aussi tost » → « aussitôt », "
+                   "d'après dictionnaires/vocabulaire_17_18.py. C'est un choix d'édition : l'étape n'est pas "
+                   "cochée d'office. Les graphies anciennes qui sont aussi des mots modernes (« des » → "
+                   "« dès », « teste » → « tête ») sont laissées au choix, dans l'onglet « Modernisation ».",
+        "options": [
+            {"key": "apply", "type": "bool", "default": True, "text": True,
+             "label": "Appliquer les corrections sûres", "help": "Décoché : la liste est seulement établie."},
+            {"key": "use_tsv", "type": "bool", "default": True, "label": "Respecter mes choix enregistrés",
+             "help": "Les mots cochés ou décochés dans l'onglet « Modernisation » sont repris."},
+            {"key": "french_list", "type": "bool", "default": True,
+             "label": "Liste de mots français en renfort",
+             "help": "Repère les graphies anciennes qui sont aussi des mots modernes."},
+        ],
+    },
+    {
         "id": "structure", "enabled": True, "script": "epub_structure.py", "suffix": "3-structure",
         "title": "Structure du livre",
         "summary": "Reconnaît les livres et chapitres (h1, h2), les sommaires et les notes ; "
@@ -276,6 +312,14 @@ STEP_BY_ID = {s["id"]: s for s in STEPS}
 # --------------------------------------------------------------------------
 
 CONFIG = {"workdir": None, "epubcheck": None, "sigil": None, "tessdata": None, "tesseract": []}
+
+
+LIST_FILES = {"longs": "-s-long.tsv", "oi": "-oi.tsv", "moderne": "-moderne.tsv"}
+LIST_NAMES = {"longs": "du s long", "oi": "oi → ai", "moderne": "de modernisation"}
+
+
+def list_path(slug, kind):
+    return os.path.join(project_dir(slug), slug + LIST_FILES.get(kind, "-s-long.tsv"))
 
 
 def find_tesseract(tessdata):
@@ -464,6 +508,11 @@ DATE_LINE = re.compile(r"(?i)^(?:le\s+)?\d{1,2}(?:er)?\s*\.?\s*(?:de\s+|d['’]\
                        r"ao[uû]st|aoust|septembre|octobre|novembre|nouembre|d[eé]cembre)\b\s*(?:\d{4})?\s*\.?$")
 
 
+# Imparfaits et conditionnels en -oi- les plus courants (toutes graphies)
+OI_HINTS = re.compile(r"\b(?:[eé]s?toi(?:t|s|ent)|avoi(?:t|s|ent)|[fs]aisoi(?:t|s|ent)|pouvoi(?:t|ent)|"
+                      r"devoi(?:t|ent)|vouloi(?:t|ent)|[a-zà-ÿ]+roi(?:t|ent))\b")
+
+
 def strip_tags(s):
     return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", s)).split())
 
@@ -575,7 +624,7 @@ def analyse(path):
         stats = dict(docs=len(docs), images=sum(n.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".svg"))
                                                 for n in names),
                      styles=0, gtxt=0, gbs=0, h1=0, h2=0, chap_lines=0, chap_title_before=0,
-                     book_lines=0, markers=0, paragraphs=0, chars=0, divs=0, longs=0, caps_blocks=0, date_lines=0)
+                     book_lines=0, markers=0, paragraphs=0, chars=0, divs=0, longs=0, caps_blocks=0, date_lines=0, oi=0)
         for n in docs:
             t = z.read(n).decode("utf-8", "replace")
             stats["styles"] += len(re.findall(r"\sstyle\s*=", t))
@@ -590,6 +639,7 @@ def analyse(path):
             stats["chars"] += sum(len(p) for p in paras)
             plain = " ".join(paras).lower()
             stats["longs"] += len(LONG_S_HINTS.findall(plain))
+            stats["oi"] += len(OI_HINTS.findall(plain))
             run = 0
             for ptxt in paras + [""]:
                 letters = [c for c in ptxt if c.isalpha()]
@@ -647,6 +697,11 @@ def analyse(path):
         if stats["chap_lines"] < 3:
             rec["split"]["enabled"] = False
             notes.append("Pas de chapitres : pas de découpage (un fichier par date serait trop fin).")
+    if stats["oi"] >= 20:
+        rec["oi"]["enabled"] = True
+        notes.append("Imparfaits et conditionnels en « oi » (%d formes typiques : « avoit », « seroit »…) : "
+                     "étape « oi → ai » cochée. La modernisation du vocabulaire (« luy », « mesme ») reste "
+                     "à cocher si vous la souhaitez." % stats["oi"])
     if stats["caps_blocks"] >= 2:
         rec["structure"]["options"]["--caps-titles"] = True
         notes.append("%d titres composés en capitales sur plusieurs lignes : réglage « titres en "
@@ -838,11 +893,15 @@ def pipeline(job, plan, check_mode, start=None):
             st["status"], ok = "error", False
             break
         tsv = os.path.join(d, slug + "-s-long.tsv")
+        list_tsv = os.path.join(d, slug + LIST_FILES.get(step["id"], "-s-long.tsv"))
         if step["id"] == "review":
             report = os.path.join(d, slug + "-relecture.html")
             cmd = [py, "-u", script, current, "--report", report] + build_args(step, opts)
             if os.path.exists(tsv):
                 cmd += ["--longs-tsv", tsv]
+            oi_tsv = os.path.join(d, slug + LIST_FILES["oi"])
+            if os.path.exists(oi_tsv):
+                cmd += ["--oi-tsv", oi_tsv]
             marked = os.path.join(d, slug + "-a-relire.epub") if opts.get("mark", True) else None
             dico = os.path.join(d, slug + "-dictionnaire.txt") if opts.get("dict", True) else None
             if marked:
@@ -871,6 +930,14 @@ def pipeline(job, plan, check_mode, start=None):
         if os.path.exists(out):
             os.remove(out)
         cmd = [py, "-u", script, current, "-o", out] + build_args(step, opts)
+        if step["id"] in ("oi", "moderne"):
+            cmd += ["--mode", "oi" if step["id"] == "oi" else "vocab", "--tsv", list_tsv]
+            if opts.get("use_tsv", True):
+                cmd.append("--use-tsv")
+            if not opts.get("apply", True):
+                cmd.append("--no-apply")
+            if opts.get("french_list", True):
+                cmd += ["--wordlist", "auto"]
         if step["id"] == "longs":
             cmd += ["--tsv", tsv]
             if opts.get("use_tsv", True):
@@ -891,6 +958,8 @@ def pipeline(job, plan, check_mode, start=None):
         st["status"], st["output"] = "done", os.path.basename(out)
         if step["id"] == "longs" and os.path.exists(tsv):
             job.result["longs"] = os.path.basename(tsv)
+        if step["id"] in ("oi", "moderne") and os.path.exists(list_tsv):
+            job.result.setdefault("lists", []).append(step["id"])
         current = final_epub = out
         if check_mode == "each":
             st["epubcheck"] = epubcheck(job, step["id"], out)
@@ -1010,9 +1079,10 @@ class Handler(BaseHTTPRequestHandler):
                             "pdf": pdf_module() is not None,
                             "missing": [s["script"] for s in STEPS
                                         if not os.path.exists(os.path.join(HERE, s["script"]))]})
-        elif path == "/api/longs":
-            slug = parse_qs(url.query).get("slug", [""])[0]
-            tsv = os.path.join(project_dir(slug), slug + "-s-long.tsv")
+        elif path in ("/api/longs", "/api/list"):
+            q = parse_qs(url.query)
+            slug = q.get("slug", [""])[0]
+            tsv = list_path(slug, q.get("kind", ["longs"])[0])
             if not os.path.exists(tsv):
                 return self.send_json({"ok": True, "rows": []})
             with open(tsv, encoding="utf-8", newline="") as f:
@@ -1076,7 +1146,7 @@ class Handler(BaseHTTPRequestHandler):
                 job = start_job(slug, "pipeline", pipeline, plan, body.get("epubcheck", "end"),
                                 body.get("start") or None)
                 self.send_json({"ok": True, "job": job.id})
-            elif path == "/api/longs":
+            elif path in ("/api/longs", "/api/list"):
                 self.save_longs(body)
             elif path == "/api/unmark":
                 job = start_job(body["slug"], "unmark", unmark_job, body["file"])
@@ -1128,9 +1198,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def save_longs(self, body):
         slug = body["slug"]
-        tsv = os.path.join(project_dir(slug), slug + "-s-long.tsv")
+        kind = body.get("kind", "longs")
+        tsv = list_path(slug, kind)
         if not os.path.exists(tsv):
-            return self.send_json({"ok": False, "error": "Aucune liste du s long dans ce projet."}, 404)
+            return self.send_json({"ok": False, "error": "Aucune liste %s dans ce projet." % LIST_NAMES.get(kind, "")}, 404)
         choice = {c["forme_lue"]: "1" if c["appliquer"] else "0" for c in body.get("choices", [])}
         with open(tsv, encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f, delimiter="\t")
@@ -1391,6 +1462,8 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
       <button role="tab" aria-selected="true" data-vue="journal">Journal</button>
       <button role="tab" aria-selected="false" data-vue="tdm">Table des matières</button>
       <button role="tab" aria-selected="false" data-vue="longs">S long</button>
+      <button role="tab" aria-selected="false" data-vue="oi">oi → ai</button>
+      <button role="tab" aria-selected="false" data-vue="moderne">Modernisation</button>
       <button role="tab" aria-selected="false" data-vue="rapport">Rapport de relecture</button>
       <button role="tab" aria-selected="false" data-vue="sigil">Relire dans Sigil</button>
     </div>
@@ -1398,6 +1471,8 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
     <div class="vue" id="vue-tdm" hidden><p class="vide">La table des matières du livre préparé s'affichera ici.</p></div>
     <div class="vue" id="vue-rapport" hidden><p class="vide">Le rapport de relecture s'affichera ici après l'étape « Préparer la relecture ».</p></div>
     <div class="vue" id="vue-longs" hidden><p class="vide">La liste des corrections du s long apparaît après l'étape « S long lu f ».</p></div>
+    <div class="vue" id="vue-oi" hidden><p class="vide">La liste apparaît après l'étape « Imparfaits en oi ».</p></div>
+    <div class="vue" id="vue-moderne" hidden><p class="vide">La liste apparaît après l'étape « Modernisation du vocabulaire ».</p></div>
     <div class="vue conseils" id="vue-sigil" hidden></div>
 </section>
 
@@ -1444,7 +1519,7 @@ async function init() {
   renderSigilHelp();
   setupDrop();
   document.querySelectorAll("#onglets button").forEach(b => b.addEventListener("click", () => {
-    showTab(b.dataset.vue); if (b.dataset.vue === "longs" && state.project) loadLongs(); }));
+    showTab(b.dataset.vue); if (["longs", "oi", "moderne"].includes(b.dataset.vue) && state.project) loadList(b.dataset.vue); }));
   $("#lancer").addEventListener("click", run);
   $("#depart").addEventListener("change", startChanged);
   $("#relance").addEventListener("click", prepareRelance);
@@ -1648,16 +1723,26 @@ function startChanged() {
     "Une copie est gardée dans archives/.";
   if (f && f.markers) note.className = "note attention";
 }
-/* ---------- liste du s long ---------- */
-async function loadLongs() {
-  const r = await api("/api/longs?slug=" + encodeURIComponent(state.project.slug));
-  state.longs = (r.rows || []).map(x => Object.assign(x, { _orig: x.appliquer }));
-  renderLongs();
+/* ---------- listes de corrections : s long, oi → ai, modernisation ---------- */
+const LISTS = {
+  longs: { vide: "La liste apparaît après l'étape « S long lu f ».",
+    aide: "Chaque ligne est une forme lue avec un « f » à la place d'un s long, et sa correction. Les mots qui existent sous les deux formes (« font »/« sont ») sont laissés au choix ; leurs occurrences sont aussi signalées une par une dans le rapport de relecture." },
+  oi: { vide: "La liste apparaît après l'étape « Imparfaits en oi ».",
+    aide: "Imparfaits et conditionnels en « oi » et leur forme moderne. Sont laissés au choix : les formes inconnues du dictionnaire, les mots surtout écrits avec une majuscule (« François » : prénom ou « Français » ? « Anglois » → « Anglais », mais « Génois » reste « Génois »). Leurs occurrences sont signalées dans le rapport." },
+  moderne: { vide: "La liste apparaît après l'étape « Modernisation du vocabulaire ».",
+    aide: "Graphies anciennes du dictionnaire de vocabulaire trouvées dans le livre. Celles qui sont aussi des mots modernes (« des » → « dès ») sont laissées au choix : décochez aussi ce que vous préférez garder tel quel." },
+};
+async function loadList(kind) {
+  const r = await api("/api/list?kind=" + kind + "&slug=" + encodeURIComponent(state.project.slug));
+  state.lists = state.lists || {};
+  state.lists[kind] = (r.rows || []).map(x => Object.assign(x, { _orig: x.appliquer }));
+  renderList(kind);
 }
-function renderLongs() {
-  const v = $("#vue-longs"); v.innerHTML = "";
-  const rows = state.longs || [];
-  if (!rows.length) { v.append(el("p", { class: "vide" }, "La liste apparaît après l'étape « S long lu f »."));  return; }
+async function loadLongs() { return loadList("longs"); }
+function renderList(kind) {
+  const v = $("#vue-" + kind); v.innerHTML = "";
+  const rows = (state.lists || {})[kind] || [];
+  if (!rows.length) { v.append(el("p", { class: "vide" }, LISTS[kind].vide)); return; }
   const pending = rows.filter(r => r._orig !== "1").length;
   const filtre = el("select", { "aria-label": "Filtrer" },
     el("option", { value: "doute" }, "Laissés au choix (" + pending + ")"),
@@ -1670,7 +1755,7 @@ function renderLongs() {
     tbody.innerHTML = ""; const q = cherche.value.trim().toLowerCase(); let n = 0;
     for (const r of rows) {
       if (filtre.value === "doute" && r._orig === "1") continue;
-      if (q && !r.forme_lue.includes(q) && !r.correction.includes(q)) continue;
+      if (q && !r.forme_lue.includes(q) && !r.correction.toLowerCase().includes(q)) continue;
       if (++n > 500) break;
       const cb = el("input", { type: "checkbox", checked: r.appliquer === "1", "aria-label": "Corriger " + r.forme_lue + " en " + r.correction });
       cb.addEventListener("change", () => { r.appliquer = cb.checked ? "1" : "0"; save.disabled = false;
@@ -1681,13 +1766,12 @@ function renderLongs() {
   };
   filtre.addEventListener("change", draw); cherche.addEventListener("input", draw);
   save.addEventListener("click", async () => {
-    const res = await api("/api/longs", { slug: state.project.slug, choices: rows.map(r => ({ forme_lue: r.forme_lue, appliquer: r.appliquer === "1" })) });
+    const res = await api("/api/list", { slug: state.project.slug, kind, choices: rows.map(r => ({ forme_lue: r.forme_lue, appliquer: r.appliquer === "1" })) });
     if (!res.ok) { msg.textContent = res.error; return; }
     save.disabled = true; msg.className = "note";
     msg.textContent = res.changed + " choix enregistré(s). Ils seront appliqués à la prochaine préparation, ou par « Relance ciblée ».";
   });
-  v.append(el("p", { class: "note", style: "margin:0 0 .8rem" },
-      "Chaque ligne est une forme lue avec un « f » à la place d'un s long, et sa correction. Les mots qui existent sous les deux formes (« font »/« sont ») sont laissés au choix ; leurs occurrences sont aussi signalées une par une dans le rapport de relecture."),
+  v.append(el("p", { class: "note", style: "margin:0 0 .8rem" }, LISTS[kind].aide),
     el("div", { class: "longs-outils" }, filtre, cherche, save, msg),
     el("div", { class: "table-longs" }, el("table", {},
       el("thead", {}, el("tr", {}, ["Corriger", "Forme lue", "Correction", "Occ.", "Occ. correction", "Remarque"].map(h => el("th", {}, h)))),
@@ -1701,12 +1785,14 @@ function prepareRelance() {
   if (!cands.length) { note.textContent = "Aucune version relue ou retouchée dans ce projet : préparez d'abord le livre."; return; }
   const f = cands[0];
   $("#depart").value = f.name; startChanged();
-  const withLongs = (state.files || []).some(x => x.name.endsWith("-s-long.tsv"));
-  const ids = ["structure", "split", "review"].concat(withLongs ? ["longs"] : []);
+  const has = suffix => (state.files || []).some(x => x.name.endsWith(suffix));
+  const withLongs = has("-s-long.tsv");
+  const ids = ["structure", "split", "review"].concat(withLongs ? ["longs"] : [],
+    has("-oi.tsv") ? ["oi"] : [], has("-moderne.tsv") ? ["moderne"] : []);
   for (const s of state.config.steps) setStep(s.id, ids.includes(s.id));
   $("#bloc-relance").classList.add("bloc-relance-actif");
   note.textContent = "Départ : " + f.name + " (modifié " + fmtTime(f.mtime) + "). " +
-    (withLongs ? "S long (avec vos choix), structure, découpage et rapport" : "Structure, découpage et rapport") +
+    (ids.length > 3 ? "Listes de corrections (avec vos choix), structure, découpage et rapport" : "Structure, découpage et rapport") +
     " cochés, réglages conservés. Cliquez « Relancer depuis ce fichier ».";
 }
 async function uploadRetouche(file) {
@@ -1744,7 +1830,8 @@ function finish(j) {
   if (r.epubcheck) act.append(el("p", { class: "check " + (r.epubcheck.errors + r.epubcheck.fatals ? "mauvais" : "bon") },
     "epubcheck (final) : " + (r.epubcheck.errors + r.epubcheck.fatals) + " erreur(s), " + r.epubcheck.warnings + " avertissement(s)"));
   if (r.toc) renderToc(r.toc);
-  if (r.longs) loadLongs();
+  if (r.longs) loadList("longs");
+  for (const k of r.lists || []) loadList(k);
   if (r.report) {
     const v = $("#vue-rapport"); v.innerHTML = "";
     v.append(el("p", {}, el("a", { href: "/files/" + slug + "/" + r.report, target: "_blank" }, "Ouvrir le rapport dans un nouvel onglet"),
