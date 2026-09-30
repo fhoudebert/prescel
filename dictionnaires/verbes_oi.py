@@ -601,4 +601,8 @@ ANCIEN_FRANCAIS = {
     "meritoit": "méritait",
     "presentoit": "présentait",
     "soûtenoient": "soutenaient",
+    "regnoit": "régnait",
+    "regnoient": "régnaient",
+    "aprochoit": "approchait",
+    "aprochoient": "approchaient",
 }

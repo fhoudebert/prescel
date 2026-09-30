@@ -14,4 +14,6 @@ PLURIELS_EZ = {
     "suez": "suées",
     "austeritez": "austérités",
     "liberalitez": "libéralités",
+    "séveritez": "sévérités",
+    "severitez": "sévérités",
 }

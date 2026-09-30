@@ -823,6 +823,30 @@ VOCABULAIRE_17_18 = {
     "touteffois": "toutefois",
     "iectoit": "jetait",
     "souuentesfois": "souventes fois",
+    # s long lu « f » et graphies anciennes (relecture)
+    # « disferens » : le plus souvent des querelles (« les différends entre les princes ») ;
+    # décocher dans l'onglet « Modernisation » si le livre l'emploie pour « différents »
+    "disferens": "différends",
+    "refurrection": "résurrection",
+    "refolvent": "résolvent",
+    "refifter": "résister",
+    "refide": "réside",
+    "refferrée": "resserrée",
+    "refferré": "resserré",
+    "refferre": "resserre",
+    "reffent": "ressent",
+    "reffemblance": "ressemblance",
+    "reconnoiffant": "reconnaissant",
+    "recompenfer": "récompenser",
+    "rebrouffer": "rebrousser",
+    "rassafier": "rassasier",
+    "ramaffé": "ramassé",
+    "beuvait": "buvait",
+    "chaffez": "chassez",
+    # « boite » seul est aussi le verbe boiter (« il boite ») : on garde l'accent
+    "boëte": "boîte",
+    "boëtes": "boîtes",
+    "boiffons": "boissons",
 }
 
 
