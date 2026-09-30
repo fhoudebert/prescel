@@ -99,6 +99,19 @@ def replace_named_entities(text):
     return re.sub(r"&([A-Za-z][A-Za-z0-9]*);", rep, text)
 
 
+EPUB2 = [True]      # mis à jour d'après la version du paquet (OPF)
+XHTML11 = ('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"\n'
+           '  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">')
+
+
+def fix_doctype(prefix):
+    """EPUB 2 : epubcheck exige le DOCTYPE XHTML 1.1 (Google met du XHTML 1.0 Strict)."""
+    if EPUB2[0] and re.search(r"<!DOCTYPE[^>]*XHTML 1\.0", prefix):
+        return re.sub(r"<!DOCTYPE[^>]*>", lambda m: XHTML11, prefix, count=1)
+    return prefix
+
+
+
 class Doc:
     def __init__(self, path, text, enc, bom):
         self.path, self.enc, self.bom = path, enc, bom
@@ -109,7 +122,8 @@ class Doc:
 
     def serialize(self):
         out = ET.tostring(self.root, encoding="unicode")
-        return self.bom + (self.prefix.rstrip() + "\n" + out + "\n").encode(self.enc, "xmlcharrefreplace")
+        return self.bom + (fix_doctype(self.prefix).rstrip() + "\n" + out + "\n").encode(
+            self.enc, "xmlcharrefreplace")
 
 
 def text_holders(body):
@@ -298,6 +312,8 @@ def main():
         container = zin.read("META-INF/container.xml").decode("utf-8", "replace")
         opf_path = re.search(r"""full-path\s*=\s*["']([^"']+)""", container).group(1)
         opf = decode_text(zin.read(opf_path))[0]
+        _ver = re.search(r"""<(?:[\w-]+:)?package\b[^>]*\sversion\s*=\s*["']([^"']+)""", opf)
+        EPUB2[0] = not (_ver and _ver.group(1).startswith("3"))
         docs = []
         for m in re.finditer(r"<(?:[\w-]+:)?item\b[^>]*>", opf):
             if (get_attr(m.group(0), "media-type") or "").lower() != "application/xhtml+xml":
@@ -351,7 +367,7 @@ def main():
         new_data = {}
         for d in docs:
             before = normalized("".join(d.body.itertext()))
-            if apply_doc(d, chosen, counts):
+            if apply_doc(d, chosen, counts) or fix_doctype(d.prefix) != d.prefix:
                 if normalized("".join(d.body.itertext())) != before:
                     sys.exit("ARRÊT : le texte de %s a changé au-delà de f → s ; rien n'a été écrit." % d.path)
                 new_data[d.path] = d.serialize()

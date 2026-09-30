@@ -155,6 +155,81 @@ STEPS = [
         ],
     },
     {
+        "id": "oi", "enabled": False, "script": "epub_modernise.py", "suffix": "2c-oi",
+        "title": "Imparfaits en « oi » → « ai »",
+        "summary": "« il estoit » → « il était », « ils auroient » → « ils auraient ». Le dictionnaire des verbes "
+                   "(dictionnaires/verbes_oi.py) donne la forme moderne complète ; ailleurs, la règle -oi- → -ai- "
+                   "n'est appliquée que si le mot obtenu existe en français. Les mots où « oi » est juste "
+                   "(« trois », « droit », « soit ») ne sont jamais touchés ; « François », « Anglois » "
+                   "(nom propre ou nationalité ?) sont laissés au choix, dans l'onglet « oi → ai ».",
+        "options": [
+            {"key": "apply", "type": "bool", "default": True, "text": True,
+             "label": "Appliquer les corrections sûres", "help": "Décoché : la liste est seulement établie."},
+            {"key": "use_tsv", "type": "bool", "default": True, "label": "Respecter mes choix enregistrés",
+             "help": "Les mots cochés ou décochés dans l'onglet « oi → ai » sont repris."},
+            {"key": "french_list", "type": "bool", "default": True,
+             "label": "Liste de mots français en renfort",
+             "help": "Sert à vérifier que la forme en « ai » existe, et que la forme en « oi » n'est pas "
+                     "déjà un mot moderne."},
+        ],
+    },
+    {
+        "id": "ez", "enabled": False, "script": "epub_modernise.py", "suffix": "2e-ez",
+        "title": "Pluriels en « ez » → « és »",
+        "summary": "« les bontez » → « les bontés », « ils sont armez » → « ils sont armés ». La 2ᵉ personne du "
+                   "pluriel est gardée : après « vous » (« vous avez », « vous les envoyez »), en inversion "
+                   "(« allez-vous », « où allez vous »), à l'impératif en tête de phrase (« Venez »). "
+                   "« nez », « chez », « assez » ne sont jamais touchés. dictionnaires/pluriels_ez.py donne les "
+                   "formes qui ne suivent pas la règle (« excez » → « excès », « extremitez » → « extrémités ») ; "
+                   "les formes inconnues restent au choix, dans l'onglet « ez → és ».",
+        "options": [
+            {"key": "apply", "type": "bool", "default": True, "text": True,
+             "label": "Appliquer les corrections sûres", "help": "Décoché : la liste est seulement établie."},
+            {"key": "use_tsv", "type": "bool", "default": True, "label": "Respecter mes choix enregistrés",
+             "help": "Les mots cochés ou décochés dans l'onglet « ez → és » sont repris."},
+            {"key": "french_list", "type": "bool", "default": True,
+             "label": "Liste de mots français en renfort",
+             "help": "Vérifie que la forme en « és » existe, et repère les formes qui sont aussi des verbes "
+                     "(gardées après « vous »)."},
+        ],
+    },
+    {
+        "id": "ants", "enabled": False, "script": "epub_modernise.py", "suffix": "2f-ants",
+        "title": "Pluriels en « ans » → « ants »",
+        "summary": "« charmans » → « charmants », « enfans » → « enfants », « momens » → « moments » : le t "
+                   "tombait devant le s du pluriel. La règle n'est appliquée que si la forme en « ts » existe "
+                   "en français et que l'ancienne n'est pas déjà un mot moderne (« sens », « gens », « dans » "
+                   "ne bougent pas) ; dictionnaires/pluriels_ants.py donne les formes à accent (« presens » → "
+                   "« présents »). Les mots surtout écrits avec une majuscule restent au choix, dans l'onglet "
+                   "« ans → ants ».",
+        "options": [
+            {"key": "apply", "type": "bool", "default": True, "text": True,
+             "label": "Appliquer les corrections sûres", "help": "Décoché : la liste est seulement établie."},
+            {"key": "use_tsv", "type": "bool", "default": True, "label": "Respecter mes choix enregistrés",
+             "help": "Les mots cochés ou décochés dans l'onglet « ans → ants » sont repris."},
+            {"key": "french_list", "type": "bool", "default": True,
+             "label": "Liste de mots français en renfort",
+             "help": "Vérifie que la forme en « ts » existe et que la forme ancienne n'est pas un mot moderne."},
+        ],
+    },
+    {
+        "id": "moderne", "enabled": False, "script": "epub_modernise.py", "suffix": "2d-moderne",
+        "title": "Modernisation du vocabulaire",
+        "summary": "« luy » → « lui », « mesme » → « même », « faict » → « fait », « aussi tost » → « aussitôt », "
+                   "d'après dictionnaires/vocabulaire_17_18.py. C'est un choix d'édition : l'étape n'est pas "
+                   "cochée d'office. Les graphies anciennes qui sont aussi des mots modernes (« des » → "
+                   "« dès », « teste » → « tête ») sont laissées au choix, dans l'onglet « Modernisation ».",
+        "options": [
+            {"key": "apply", "type": "bool", "default": True, "text": True,
+             "label": "Appliquer les corrections sûres", "help": "Décoché : la liste est seulement établie."},
+            {"key": "use_tsv", "type": "bool", "default": True, "label": "Respecter mes choix enregistrés",
+             "help": "Les mots cochés ou décochés dans l'onglet « Modernisation » sont repris."},
+            {"key": "french_list", "type": "bool", "default": True,
+             "label": "Liste de mots français en renfort",
+             "help": "Repère les graphies anciennes qui sont aussi des mots modernes."},
+        ],
+    },
+    {
         "id": "structure", "enabled": True, "script": "epub_structure.py", "suffix": "3-structure",
         "title": "Structure du livre",
         "summary": "Reconnaît les livres et chapitres (h1, h2), les sommaires et les notes ; "
@@ -258,6 +333,16 @@ STEPS = [
              "help": "Liste des mots qui reviennent au moins 3 fois. Ajoutée aux dictionnaires "
                      "utilisateur de Sigil, elle évite que l'orthographe ancienne soit soulignée "
                      "partout : il ne reste que les vraies fautes."},
+            {"key": "sans_categories", "type": "multi", "advanced": True, "default": [],
+             "choices": [["colles", "mots collés"], ["coupes", "mots coupés"], ["cesures", "coupures par trait d'union"],
+                         ["casse", "casse mélangée"], ["chiffres", "chiffres dans un mot"],
+                         ["isolees", "lettres isolées"], ["ponctuation", "ponctuation"],
+                         ["lettrines", "lettrines perdues"], ["courts", "paragraphes très courts"],
+                         ["coupures", "paragraphes coupés"], ["ocr", "mots peu sûrs pour l'OCR"]],
+             "label": "Ne pas signaler",
+             "help": "Catégories déjà traitées : elles ne sont plus surlignées ni listées. Les mots laissés "
+                     "au choix du s long et des imparfaits en « oi » ne sont signalés que si leur étape est "
+                     "cochée dans ce passage."},
             {"flag": "--wordlist", "type": "text", "advanced": True, "label": "Liste de mots de référence",
              "help": "Chemin d'un fichier de mots (/usr/share/dict/french, .dic Hunspell) : "
                      "détection plus fine des mots collés."},
@@ -276,6 +361,16 @@ STEP_BY_ID = {s["id"]: s for s in STEPS}
 # --------------------------------------------------------------------------
 
 CONFIG = {"workdir": None, "epubcheck": None, "sigil": None, "tessdata": None, "tesseract": []}
+
+
+LIST_FILES = {"longs": "-s-long.tsv", "oi": "-oi.tsv", "ez": "-ez.tsv", "ants": "-ants.tsv",
+              "moderne": "-moderne.tsv"}
+LIST_NAMES = {"longs": "du s long", "oi": "oi → ai", "ez": "ez → és", "ants": "ans → ants",
+              "moderne": "de modernisation"}
+
+
+def list_path(slug, kind):
+    return os.path.join(project_dir(slug), slug + LIST_FILES.get(kind, "-s-long.tsv"))
 
 
 def find_tesseract(tessdata):
@@ -464,6 +559,21 @@ DATE_LINE = re.compile(r"(?i)^(?:le\s+)?\d{1,2}(?:er)?\s*\.?\s*(?:de\s+|d['’]\
                        r"ao[uû]st|aoust|septembre|octobre|novembre|nouembre|d[eé]cembre)\b\s*(?:\d{4})?\s*\.?$")
 
 
+# Imparfaits et conditionnels en -oi- les plus courants (toutes graphies)
+OI_HINTS = re.compile(r"\b(?:[eé]s?toi(?:t|s|ent)|avoi(?:t|s|ent)|[fs]aisoi(?:t|s|ent)|pouvoi(?:t|ent)|"
+                      r"devoi(?:t|ent)|vouloi(?:t|ent)|[a-zà-ÿ]+roi(?:t|ent))\b")
+
+
+# Pluriels anciens en -ez après un déterminant ou un auxiliaire : « les bontez », « sont armez »
+EZ_HINTS = re.compile(r"\b(?:les|des|ses|mes|tes|nos|vos|leurs|aux|ces|sont|furent|étoient|estoient)\s+"
+                      r"[a-zà-ÿ]{3,}ez\b")
+
+
+# Pluriels anciens en -ans / -ens (t tombé) les plus courants
+ANTS_HINTS = re.compile(r"\b(?:enfans|habitans|parens|presens|présens|[a-zà-ÿ]{3,}(?:emens|mens)|"
+                        r"[a-zà-ÿ]{3,}(?:issans|uissans|eans|ivans|arans|orans|urans))\b")
+
+
 def strip_tags(s):
     return " ".join(html.unescape(re.sub(r"<[^>]+>", " ", s)).split())
 
@@ -575,7 +685,7 @@ def analyse(path):
         stats = dict(docs=len(docs), images=sum(n.lower().endswith((".jpg", ".jpeg", ".png", ".gif", ".svg"))
                                                 for n in names),
                      styles=0, gtxt=0, gbs=0, h1=0, h2=0, chap_lines=0, chap_title_before=0,
-                     book_lines=0, markers=0, paragraphs=0, chars=0, divs=0, longs=0, caps_blocks=0, date_lines=0)
+                     book_lines=0, markers=0, paragraphs=0, chars=0, divs=0, longs=0, caps_blocks=0, date_lines=0, oi=0, ez=0, ants=0)
         for n in docs:
             t = z.read(n).decode("utf-8", "replace")
             stats["styles"] += len(re.findall(r"\sstyle\s*=", t))
@@ -590,6 +700,9 @@ def analyse(path):
             stats["chars"] += sum(len(p) for p in paras)
             plain = " ".join(paras).lower()
             stats["longs"] += len(LONG_S_HINTS.findall(plain))
+            stats["oi"] += len(OI_HINTS.findall(plain))
+            stats["ez"] += len(EZ_HINTS.findall(plain))
+            stats["ants"] += len(ANTS_HINTS.findall(plain))
             run = 0
             for ptxt in paras + [""]:
                 letters = [c for c in ptxt if c.isalpha()]
@@ -647,6 +760,19 @@ def analyse(path):
         if stats["chap_lines"] < 3:
             rec["split"]["enabled"] = False
             notes.append("Pas de chapitres : pas de découpage (un fichier par date serait trop fin).")
+    if stats["oi"] >= 20:
+        rec["oi"]["enabled"] = True
+        notes.append("Imparfaits et conditionnels en « oi » (%d formes typiques : « avoit », « seroit »…) : "
+                     "étape « oi → ai » cochée. La modernisation du vocabulaire (« luy », « mesme ») reste "
+                     "à cocher si vous la souhaitez." % stats["oi"])
+    if stats["ez"] >= 10:
+        rec["ez"]["enabled"] = True
+        notes.append("Pluriels anciens en « ez » (%d cas typiques : « les bontez », « sont armez ») : "
+                     "étape « ez → és » cochée." % stats["ez"])
+    if stats["ants"] >= 10:
+        rec["ants"]["enabled"] = True
+        notes.append("Pluriels anciens en « ans » / « ens » (%d cas typiques : « enfans », « momens ») : "
+                     "étape « ans → ants » cochée." % stats["ants"])
     if stats["caps_blocks"] >= 2:
         rec["structure"]["options"]["--caps-titles"] = True
         notes.append("%d titres composés en capitales sur plusieurs lignes : réglage « titres en "
@@ -838,11 +964,21 @@ def pipeline(job, plan, check_mode, start=None):
             st["status"], ok = "error", False
             break
         tsv = os.path.join(d, slug + "-s-long.tsv")
+        list_tsv = os.path.join(d, slug + LIST_FILES.get(step["id"], "-s-long.tsv"))
         if step["id"] == "review":
             report = os.path.join(d, slug + "-relecture.html")
             cmd = [py, "-u", script, current, "--report", report] + build_args(step, opts)
-            if os.path.exists(tsv):
+            # Les mots laissés au choix d'une liste ne sont signalés (et surlignés) que si son
+            # étape fait partie de ce passage : une fois l'étape décochée (tout est tranché),
+            # la relance sur le fichier marqué ne remet plus ces marques.
+            planned = {e["id"] for e in plan}
+            if "longs" in planned and os.path.exists(tsv):
                 cmd += ["--longs-tsv", tsv]
+            oi_tsv = os.path.join(d, slug + LIST_FILES["oi"])
+            if "oi" in planned and os.path.exists(oi_tsv):
+                cmd += ["--oi-tsv", oi_tsv]
+            for cat in opts.get("sans_categories") or []:
+                cmd += ["--sans", cat]
             marked = os.path.join(d, slug + "-a-relire.epub") if opts.get("mark", True) else None
             dico = os.path.join(d, slug + "-dictionnaire.txt") if opts.get("dict", True) else None
             if marked:
@@ -871,6 +1007,15 @@ def pipeline(job, plan, check_mode, start=None):
         if os.path.exists(out):
             os.remove(out)
         cmd = [py, "-u", script, current, "-o", out] + build_args(step, opts)
+        if step["id"] in ("oi", "ez", "ants", "moderne"):
+            cmd += ["--mode", {"oi": "oi", "ez": "ez", "ants": "ants", "moderne": "vocab"}[step["id"]],
+                    "--tsv", list_tsv]
+            if opts.get("use_tsv", True):
+                cmd.append("--use-tsv")
+            if not opts.get("apply", True):
+                cmd.append("--no-apply")
+            if opts.get("french_list", True):
+                cmd += ["--wordlist", "auto"]
         if step["id"] == "longs":
             cmd += ["--tsv", tsv]
             if opts.get("use_tsv", True):
@@ -891,6 +1036,8 @@ def pipeline(job, plan, check_mode, start=None):
         st["status"], st["output"] = "done", os.path.basename(out)
         if step["id"] == "longs" and os.path.exists(tsv):
             job.result["longs"] = os.path.basename(tsv)
+        if step["id"] in ("oi", "ez", "ants", "moderne") and os.path.exists(list_tsv):
+            job.result.setdefault("lists", []).append(step["id"])
         current = final_epub = out
         if check_mode == "each":
             st["epubcheck"] = epubcheck(job, step["id"], out)
@@ -1010,9 +1157,10 @@ class Handler(BaseHTTPRequestHandler):
                             "pdf": pdf_module() is not None,
                             "missing": [s["script"] for s in STEPS
                                         if not os.path.exists(os.path.join(HERE, s["script"]))]})
-        elif path == "/api/longs":
-            slug = parse_qs(url.query).get("slug", [""])[0]
-            tsv = os.path.join(project_dir(slug), slug + "-s-long.tsv")
+        elif path in ("/api/longs", "/api/list"):
+            q = parse_qs(url.query)
+            slug = q.get("slug", [""])[0]
+            tsv = list_path(slug, q.get("kind", ["longs"])[0])
             if not os.path.exists(tsv):
                 return self.send_json({"ok": True, "rows": []})
             with open(tsv, encoding="utf-8", newline="") as f:
@@ -1076,7 +1224,7 @@ class Handler(BaseHTTPRequestHandler):
                 job = start_job(slug, "pipeline", pipeline, plan, body.get("epubcheck", "end"),
                                 body.get("start") or None)
                 self.send_json({"ok": True, "job": job.id})
-            elif path == "/api/longs":
+            elif path in ("/api/longs", "/api/list"):
                 self.save_longs(body)
             elif path == "/api/unmark":
                 job = start_job(body["slug"], "unmark", unmark_job, body["file"])
@@ -1128,9 +1276,10 @@ class Handler(BaseHTTPRequestHandler):
 
     def save_longs(self, body):
         slug = body["slug"]
-        tsv = os.path.join(project_dir(slug), slug + "-s-long.tsv")
+        kind = body.get("kind", "longs")
+        tsv = list_path(slug, kind)
         if not os.path.exists(tsv):
-            return self.send_json({"ok": False, "error": "Aucune liste du s long dans ce projet."}, 404)
+            return self.send_json({"ok": False, "error": "Aucune liste %s dans ce projet." % LIST_NAMES.get(kind, "")}, 404)
         choice = {c["forme_lue"]: "1" if c["appliquer"] else "0" for c in body.get("choices", [])}
         with open(tsv, encoding="utf-8", newline="") as f:
             reader = csv.DictReader(f, delimiter="\t")
@@ -1252,6 +1401,8 @@ li.etape.inactive .corps { opacity: .5; }
   background: var(--papier); }
 .option .ctrl input[type=text] { font-family: var(--mono); font-size: .85rem; }
 .option .aide { margin: 0; color: var(--gris); font-size: .9rem; }
+.option fieldset.multi { border: none; padding: 0; margin: 0; }
+.option fieldset.multi legend { font-weight: 600; padding: 0; margin-bottom: .2rem; }
 .touche { display: inline-block; margin-top: .3rem; font-size: .75rem; font-weight: 600; color: var(--or);
   background: var(--or-clair); padding: .05rem .45rem; border-radius: 3px; }
 .recommande { font-size: .75rem; color: var(--vert); margin-left: .4rem; font-weight: 400; }
@@ -1391,6 +1542,10 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
       <button role="tab" aria-selected="true" data-vue="journal">Journal</button>
       <button role="tab" aria-selected="false" data-vue="tdm">Table des matières</button>
       <button role="tab" aria-selected="false" data-vue="longs">S long</button>
+      <button role="tab" aria-selected="false" data-vue="oi">oi → ai</button>
+      <button role="tab" aria-selected="false" data-vue="ez">ez → és</button>
+      <button role="tab" aria-selected="false" data-vue="ants">ans → ants</button>
+      <button role="tab" aria-selected="false" data-vue="moderne">Modernisation</button>
       <button role="tab" aria-selected="false" data-vue="rapport">Rapport de relecture</button>
       <button role="tab" aria-selected="false" data-vue="sigil">Relire dans Sigil</button>
     </div>
@@ -1398,6 +1553,10 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
     <div class="vue" id="vue-tdm" hidden><p class="vide">La table des matières du livre préparé s'affichera ici.</p></div>
     <div class="vue" id="vue-rapport" hidden><p class="vide">Le rapport de relecture s'affichera ici après l'étape « Préparer la relecture ».</p></div>
     <div class="vue" id="vue-longs" hidden><p class="vide">La liste des corrections du s long apparaît après l'étape « S long lu f ».</p></div>
+    <div class="vue" id="vue-oi" hidden><p class="vide">La liste apparaît après l'étape « Imparfaits en oi ».</p></div>
+    <div class="vue" id="vue-ez" hidden><p class="vide">La liste apparaît après l'étape « Pluriels en ez ».</p></div>
+    <div class="vue" id="vue-ants" hidden><p class="vide">La liste apparaît après l'étape « Pluriels en ans ».</p></div>
+    <div class="vue" id="vue-moderne" hidden><p class="vide">La liste apparaît après l'étape « Modernisation du vocabulaire ».</p></div>
     <div class="vue conseils" id="vue-sigil" hidden></div>
 </section>
 
@@ -1444,7 +1603,7 @@ async function init() {
   renderSigilHelp();
   setupDrop();
   document.querySelectorAll("#onglets button").forEach(b => b.addEventListener("click", () => {
-    showTab(b.dataset.vue); if (b.dataset.vue === "longs" && state.project) loadLongs(); }));
+    showTab(b.dataset.vue); if (["longs", "oi", "ez", "ants", "moderne"].includes(b.dataset.vue) && state.project) loadList(b.dataset.vue); }));
   $("#lancer").addEventListener("click", run);
   $("#depart").addEventListener("change", startChanged);
   $("#relance").addEventListener("click", prepareRelance);
@@ -1485,6 +1644,10 @@ function renderOption(s, o) {
   let ctrl;
   if (o.type === "bool") {
     ctrl = el("label", {}, el("input", { type: "checkbox", id, checked: !!o.default }), o.label);
+  } else if (o.type === "multi") {
+    ctrl = el("fieldset", { id, class: "multi" }, el("legend", {}, o.label),
+      o.choices.map(([v, t]) => el("label", { style: "display:block;font-weight:400" },
+        el("input", { type: "checkbox", value: v, checked: (o.default || []).includes(v) }), " " + t)));
   } else if (o.type === "select") {
     ctrl = el("label", { for: id, style: "display:block" }, o.label,
       el("select", { id }, o.choices.map(([v, t]) => el("option", { value: v, selected: v === o.default }, t))));
@@ -1503,7 +1666,9 @@ function setStep(id, enabled, options = {}) {
   for (const o of s.options) {
     const k = o.flag || o.key; if (!(k in options)) continue;
     const input = $("#" + optId(s, o));
-    if (o.type === "bool") input.checked = !!options[k]; else input.value = options[k];
+    if (o.type === "bool") input.checked = !!options[k];
+    else if (o.type === "multi") input.querySelectorAll("input").forEach(x => { x.checked = (options[k] || []).includes(x.value); });
+    else input.value = options[k];
   }
 }
 function resetDefaults() {
@@ -1519,7 +1684,8 @@ function collect() {
     const options = {};
     for (const o of s.options) {
       const input = $("#" + optId(s, o)); const k = o.flag || o.key;
-      options[k] = o.type === "bool" ? input.checked : o.type === "int" ? (input.value === "" ? null : Number(input.value)) : input.value.trim();
+      options[k] = o.type === "bool" ? input.checked : o.type === "multi" ? [...input.querySelectorAll("input:checked")].map(x => x.value)
+        : o.type === "int" ? (input.value === "" ? null : Number(input.value)) : input.value.trim();
     }
     return { id: s.id, enabled: $("#on-" + s.id).checked, options };
   });
@@ -1648,16 +1814,30 @@ function startChanged() {
     "Une copie est gardée dans archives/.";
   if (f && f.markers) note.className = "note attention";
 }
-/* ---------- liste du s long ---------- */
-async function loadLongs() {
-  const r = await api("/api/longs?slug=" + encodeURIComponent(state.project.slug));
-  state.longs = (r.rows || []).map(x => Object.assign(x, { _orig: x.appliquer }));
-  renderLongs();
+/* ---------- listes de corrections : s long, oi → ai, modernisation ---------- */
+const LISTS = {
+  longs: { vide: "La liste apparaît après l'étape « S long lu f ».",
+    aide: "Chaque ligne est une forme lue avec un « f » à la place d'un s long, et sa correction. Les mots qui existent sous les deux formes (« font »/« sont ») sont laissés au choix ; leurs occurrences sont aussi signalées une par une dans le rapport de relecture." },
+  oi: { vide: "La liste apparaît après l'étape « Imparfaits en oi ».",
+    aide: "Imparfaits et conditionnels en « oi » et leur forme moderne. Sont laissés au choix : les formes inconnues du dictionnaire, les mots surtout écrits avec une majuscule (« François » : prénom ou « Français » ? « Anglois » → « Anglais », mais « Génois » reste « Génois »). Leurs occurrences sont signalées dans le rapport." },
+  ez: { vide: "La liste apparaît après l'étape « Pluriels en ez ».",
+    aide: "Pluriels anciens en « ez » et leur forme en « és ». Chaque occurrence précédée de « vous », en inversion (« allez-vous ») ou à l'impératif en tête de phrase est gardée telle quelle, même si la forme est cochée. Restent au choix les formes inconnues (souvent un s long ou un accent à corriger d'abord : « affiégez », « deputez ») et celles surtout écrites avec une majuscule." },
+  ants: { vide: "La liste apparaît après l'étape « Pluriels en ans ».",
+    aide: "Pluriels anciens en « ans » / « ens » et leur forme moderne en « ts ». Seuls les mots dont la forme en « ts » existe sont proposés ; restent au choix ceux qui sont surtout écrits avec une majuscule (nom propre ?)." },
+  moderne: { vide: "La liste apparaît après l'étape « Modernisation du vocabulaire ».",
+    aide: "Graphies anciennes du dictionnaire de vocabulaire trouvées dans le livre. Celles qui sont aussi des mots modernes (« des » → « dès ») sont laissées au choix : décochez aussi ce que vous préférez garder tel quel." },
+};
+async function loadList(kind) {
+  const r = await api("/api/list?kind=" + kind + "&slug=" + encodeURIComponent(state.project.slug));
+  state.lists = state.lists || {};
+  state.lists[kind] = (r.rows || []).map(x => Object.assign(x, { _orig: x.appliquer }));
+  renderList(kind);
 }
-function renderLongs() {
-  const v = $("#vue-longs"); v.innerHTML = "";
-  const rows = state.longs || [];
-  if (!rows.length) { v.append(el("p", { class: "vide" }, "La liste apparaît après l'étape « S long lu f »."));  return; }
+async function loadLongs() { return loadList("longs"); }
+function renderList(kind) {
+  const v = $("#vue-" + kind); v.innerHTML = "";
+  const rows = (state.lists || {})[kind] || [];
+  if (!rows.length) { v.append(el("p", { class: "vide" }, LISTS[kind].vide)); return; }
   const pending = rows.filter(r => r._orig !== "1").length;
   const filtre = el("select", { "aria-label": "Filtrer" },
     el("option", { value: "doute" }, "Laissés au choix (" + pending + ")"),
@@ -1670,7 +1850,7 @@ function renderLongs() {
     tbody.innerHTML = ""; const q = cherche.value.trim().toLowerCase(); let n = 0;
     for (const r of rows) {
       if (filtre.value === "doute" && r._orig === "1") continue;
-      if (q && !r.forme_lue.includes(q) && !r.correction.includes(q)) continue;
+      if (q && !r.forme_lue.includes(q) && !r.correction.toLowerCase().includes(q)) continue;
       if (++n > 500) break;
       const cb = el("input", { type: "checkbox", checked: r.appliquer === "1", "aria-label": "Corriger " + r.forme_lue + " en " + r.correction });
       cb.addEventListener("change", () => { r.appliquer = cb.checked ? "1" : "0"; save.disabled = false;
@@ -1681,13 +1861,12 @@ function renderLongs() {
   };
   filtre.addEventListener("change", draw); cherche.addEventListener("input", draw);
   save.addEventListener("click", async () => {
-    const res = await api("/api/longs", { slug: state.project.slug, choices: rows.map(r => ({ forme_lue: r.forme_lue, appliquer: r.appliquer === "1" })) });
+    const res = await api("/api/list", { slug: state.project.slug, kind, choices: rows.map(r => ({ forme_lue: r.forme_lue, appliquer: r.appliquer === "1" })) });
     if (!res.ok) { msg.textContent = res.error; return; }
     save.disabled = true; msg.className = "note";
     msg.textContent = res.changed + " choix enregistré(s). Ils seront appliqués à la prochaine préparation, ou par « Relance ciblée ».";
   });
-  v.append(el("p", { class: "note", style: "margin:0 0 .8rem" },
-      "Chaque ligne est une forme lue avec un « f » à la place d'un s long, et sa correction. Les mots qui existent sous les deux formes (« font »/« sont ») sont laissés au choix ; leurs occurrences sont aussi signalées une par une dans le rapport de relecture."),
+  v.append(el("p", { class: "note", style: "margin:0 0 .8rem" }, LISTS[kind].aide),
     el("div", { class: "longs-outils" }, filtre, cherche, save, msg),
     el("div", { class: "table-longs" }, el("table", {},
       el("thead", {}, el("tr", {}, ["Corriger", "Forme lue", "Correction", "Occ.", "Occ. correction", "Remarque"].map(h => el("th", {}, h)))),
@@ -1701,12 +1880,14 @@ function prepareRelance() {
   if (!cands.length) { note.textContent = "Aucune version relue ou retouchée dans ce projet : préparez d'abord le livre."; return; }
   const f = cands[0];
   $("#depart").value = f.name; startChanged();
-  const withLongs = (state.files || []).some(x => x.name.endsWith("-s-long.tsv"));
-  const ids = ["structure", "split", "review"].concat(withLongs ? ["longs"] : []);
+  const has = suffix => (state.files || []).some(x => x.name.endsWith(suffix));
+  const withLongs = has("-s-long.tsv");
+  const ids = ["structure", "split", "review"].concat(withLongs ? ["longs"] : [],
+    has("-oi.tsv") ? ["oi"] : [], has("-ez.tsv") ? ["ez"] : [], has("-ants.tsv") ? ["ants"] : [], has("-moderne.tsv") ? ["moderne"] : []);
   for (const s of state.config.steps) setStep(s.id, ids.includes(s.id));
   $("#bloc-relance").classList.add("bloc-relance-actif");
   note.textContent = "Départ : " + f.name + " (modifié " + fmtTime(f.mtime) + "). " +
-    (withLongs ? "S long (avec vos choix), structure, découpage et rapport" : "Structure, découpage et rapport") +
+    (ids.length > 3 ? "Listes de corrections (avec vos choix), structure, découpage et rapport" : "Structure, découpage et rapport") +
     " cochés, réglages conservés. Cliquez « Relancer depuis ce fichier ».";
 }
 async function uploadRetouche(file) {
@@ -1744,7 +1925,8 @@ function finish(j) {
   if (r.epubcheck) act.append(el("p", { class: "check " + (r.epubcheck.errors + r.epubcheck.fatals ? "mauvais" : "bon") },
     "epubcheck (final) : " + (r.epubcheck.errors + r.epubcheck.fatals) + " erreur(s), " + r.epubcheck.warnings + " avertissement(s)"));
   if (r.toc) renderToc(r.toc);
-  if (r.longs) loadLongs();
+  if (r.longs) loadList("longs");
+  for (const k of r.lists || []) loadList(k);
   if (r.report) {
     const v = $("#vue-rapport"); v.innerHTML = "";
     v.append(el("p", {}, el("a", { href: "/files/" + slug + "/" + r.report, target: "_blank" }, "Ouvrir le rapport dans un nouvel onglet"),

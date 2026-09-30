@@ -231,9 +231,17 @@ def give_id_to_next_block(parent, index, id_):
             if not el.get("id"):
                 el.set("id", id_)
             else:
+                # après les ancres déjà en tête : l'ordre des pages est conservé (PA30 puis PA31)
+                k = 0
+                while k < len(el) and is_bare_anchor(el[k]) and not (el[k].tail or "").strip() \
+                        and not (k == 0 and (el.text or "").strip()):
+                    k += 1
                 a = anchor(id_)
-                a.tail, el.text = el.text, None
-                el.insert(0, a)
+                if k == 0:
+                    a.tail, el.text = el.text, None
+                else:
+                    a.tail, el[k - 1].tail = el[k - 1].tail, None
+                el.insert(k, a)
             return True
     for el in reversed(kids[:index]):
         if lname(el) in ("p",) or lname(el) in HEAD_TAGS:
@@ -246,6 +254,19 @@ def give_id_to_next_block(parent, index, id_):
 # Traitement d'un document
 # --------------------------------------------------------------------------
 
+EPUB2 = [True]      # mis à jour d'après la version du paquet (OPF)
+XHTML11 = ('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"\n'
+           '  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">')
+
+
+def fix_doctype(prefix):
+    """EPUB 2 : epubcheck exige le DOCTYPE XHTML 1.1 (Google met du XHTML 1.0 Strict)."""
+    if EPUB2[0] and re.search(r"<!DOCTYPE[^>]*XHTML 1\.0", prefix):
+        return re.sub(r"<!DOCTYPE[^>]*>", lambda m: XHTML11, prefix, count=1)
+    return prefix
+
+
+
 class Doc:
     def __init__(self, path, text, enc, bom):
         self.path, self.enc, self.bom = path, enc, bom
@@ -257,7 +278,8 @@ class Doc:
 
     def serialize(self):
         out = ET.tostring(self.root, encoding="unicode")
-        return self.bom + (self.prefix.rstrip() + "\n" + out + "\n").encode(self.enc, "xmlcharrefreplace")
+        return self.bom + (fix_doctype(self.prefix).rstrip() + "\n" + out + "\n").encode(
+            self.enc, "xmlcharrefreplace")
 
 
 class Structurer:
@@ -456,6 +478,8 @@ class Structurer:
         t = text_of(el)
         if not t:
             return False
+        # lettres grecques prises pour des capitales latines par l'OCR (« Ιν - 12 » = « IV - 12 »)
+        t = t.translate(str.maketrans("ΑΒΕΖΗΙΚΜΝΟΡΤΥΧν", "ABEZHIKMNOPTYXv"))
         if len(t) <= 8 and FURNITURE_RE.match(t):
             return True
         return self.is_running_head(t)
@@ -1078,6 +1102,157 @@ def page_map_to_ncx(ncx_text, ncx_path, pm_text, pm_path, spine, texts, stats, l
     return ncx_text
 
 
+PAGE_ID = re.compile(r"""\sid\s*=\s*["']((?:GBS\.|page-)[^"']+)["']""")
+
+
+def int_to_roman(n):
+    out = ""
+    for v, r in ((1000, "m"), (900, "cm"), (500, "d"), (400, "cd"), (100, "c"), (90, "xc"),
+                 (50, "l"), (40, "xl"), (10, "x"), (9, "ix"), (5, "v"), (4, "iv"), (1, "i")):
+        while n >= v:
+            out, n = out + r, n - v
+    return out
+
+
+def page_label(pid):
+    """Numéro de page imprimé d'une ancre : GBS.PA31 → 31, GBS.PP5 → v (pages liminaires),
+    GBS.PA15-IA1 → 15 bis (page insérée, planche), page-12 → 12."""
+    m = re.match(r"GBS\.PA(\d+)$", pid)
+    if m:
+        return m.group(1), "normal"
+    m = re.match(r"GBS\.PA(\d+)-IA(\d+)$", pid)
+    if m:
+        return "%s bis%s" % (m.group(1), "" if m.group(2) == "1" else " " + m.group(2)), "special"
+    m = re.match(r"GBS\.PP(\d+)$", pid)
+    if m:
+        return int_to_roman(int(m.group(1))), "front"
+    m = re.match(r"page-(\d+)$", pid)
+    if m:
+        return m.group(1), "normal"
+    return pid.split(".", 1)[-1], "special"
+
+
+def page_sort_key(pid):
+    m = re.match(r"(?:GBS\.P([PAT])|page-)(\d+)", pid)
+    if not m:
+        return (9, 0)
+    return ({"P": 0, "A": 1, "T": 2}.get(m.group(1) or "A", 1), int(m.group(2)))
+
+
+def reorder_adjacent_anchors(text):
+    """<a id="GBS.PA31"></a><a id="GBS.PA30"></a> → PA30 puis PA31 (ancres voisines, sans texte
+    entre elles : pages sans texte courant)."""
+    run = re.compile(r"""(?:<a\s+id\s*=\s*["'](?:GBS\.|page-)[^"']+["']\s*(?:/>|>\s*</a>)\s*){2,}""")
+    # <p id="GBS.PA22"><a id="GBS.PA19"></a>… : l'id de page du paragraphe devient une ancre,
+    # rangée avec les autres (les pages 19 à 21, sans texte, précèdent la page 22)
+    lead = re.compile(r"""<([a-zA-Z][\w:]*)([^>]*?)\s+id\s*=\s*["']((?:GBS\.|page-)[^"']+)["']([^>]*)>"""
+                      r"""((?:\s*<a\s+id\s*=\s*["'](?:GBS\.|page-)[^"']+["']\s*(?:/>|>\s*</a>))+)""")
+
+    def fix_lead(m):
+        tag, a1, own, a2, anchors = m.groups()
+        if tag.lower() in ("a", "html", "body"):
+            return m.group(0)
+        return "<%s%s%s>" % (tag, a1, a2) + '<a id="%s"></a>' % own + anchors.strip()
+    text = lead.sub(fix_lead, text)
+
+    def fix(m):
+        parts = re.findall(r"""<a\s+id\s*=\s*["']([^"']+)["']\s*(?:/>|>\s*</a>)""", m.group(0))
+        ordered = sorted(parts, key=page_sort_key)
+        if ordered == parts:
+            return m.group(0)
+        return "".join('<a id="%s"></a>' % p for p in ordered)
+    return run.sub(fix, text)
+
+
+def dedupe_ids(text):
+    """Id en double dans un même fichier (Sigil recopie l'id quand on coupe un paragraphe en
+    deux) : le premier est gardé ; une ancre vide en double disparaît, ailleurs seul l'attribut
+    part. Renvoie (texte, nombre de doublons retirés)."""
+    seen, removed = set(), [0]
+    tag_re = re.compile(r"""<([a-zA-Z][\w:]*)((?:\s+[^\s=/>]+(?:\s*=\s*(?:"[^"]*"|'[^']*'))?)*)\s*(/?)>""")
+
+    def fix(m):
+        attrs = m.group(2)
+        idm = re.search(r"""\s+id\s*=\s*(?:"([^"]*)"|'([^']*)')""", attrs)
+        if not idm:
+            return m.group(0)
+        v = idm.group(1) if idm.group(1) is not None else idm.group(2)
+        if v not in seen:
+            seen.add(v)
+            return m.group(0)
+        removed[0] += 1
+        new_attrs = attrs[:idm.start()] + attrs[idm.end():]
+        return "<%s%s%s>" % (m.group(1), new_attrs, " /" if m.group(3) else "")
+    out = tag_re.sub(fix, text)
+    out = re.sub(r"<a\s*>\s*</a>|<a\s*/>", "", out)      # ancres devenues vides
+    return out, removed[0]
+
+
+def fix_nav_targets(ncx_text, ncx_path, texts):
+    """Entrées du toc.ncx qui visent une ancre disparue (texte retouché dans Sigil) :
+    une page de la liste des pages est retirée ; une entrée de la table vise le début du
+    fichier. Renvoie (texte, pages retirées, entrées corrigées)."""
+    ids = {p: set(re.findall(r"""\sid\s*=\s*["']([^"']+)["']""", t)) for p, t in texts.items()}
+    dropped, fixed = [0], [0]
+
+    def target_ok(src):
+        path, _, frag = src.partition("#")
+        full = resolve(ncx_path, path)
+        return not frag or unquote(frag) in ids.get(full, set()) or full not in ids
+
+    def drop_page(m):
+        src = re.search(r"""<content\s+src\s*=\s*["']([^"']+)["']""", m.group(0))
+        if src and not target_ok(src.group(1)):
+            dropped[0] += 1
+            return ""
+        return m.group(0)
+    ncx_text = re.sub(r"[ \t]*<pageTarget\b.*?</pageTarget>[ \t]*\r?\n?", drop_page, ncx_text, flags=re.S)
+
+    def fix_point(m):
+        src = m.group(2)
+        if target_ok(src):
+            return m.group(0)
+        fixed[0] += 1
+        return m.group(1) + src.split("#", 1)[0] + m.group(3)
+    ncx_text = re.sub(r"""(<content\s+src\s*=\s*["'])([^"']+)(["'])""", fix_point, ncx_text)
+    n = len(re.findall(r"<pageTarget\b", ncx_text))
+    ncx_text = re.sub(r"""(<meta\s+name=["']dtb:totalPageCount["']\s+content=["'])\d+""",
+                      lambda m: m.group(1) + str(n), ncx_text)
+    return ncx_text, dropped[0], fixed[0]
+
+
+def anchors_to_pagelist(ncx_text, ncx_path, spine, texts, stats):
+    """Liste des pages du toc.ncx reconstruite à partir des ancres de page restées dans le
+    texte (GBS.PA31…, page-12), quand la page-map et la liste des pages ont disparu
+    (Sigil régénère le toc.ncx sans elles)."""
+    targets = []
+    for p in spine:
+        for m in PAGE_ID.finditer(texts.get(p, "")):
+            targets.append((p, m.group(1)))
+    if not targets:
+        return None
+    out = ['  <pageList>\n    <navLabel><text>Pages</text></navLabel>\n']
+    max_num = 0
+    for n, (path, pid) in enumerate(targets, 1):
+        label, ptype = page_label(pid)
+        value = ""
+        if ptype == "normal":
+            value = ' value="%s"' % label
+            max_num = max(max_num, int(label))
+        src = rel_href(ncx_path, path) + "#" + pid
+        out.append('    <pageTarget id="page-%d" type="%s"%s playOrder="0">'
+                   '<navLabel><text>%s</text></navLabel><content src="%s"/></pageTarget>\n'
+                   % (n, ptype, value, html.escape(label, quote=False), html.escape(src)))
+    out.append("  </pageList>\n")
+    ncx_text = re.sub(r"\s*<pageList\b.*?</pageList>", "", ncx_text, flags=re.S)
+    ncx_text = re.sub(r"(</navMap>\s*\n?)", lambda m: m.group(1) + "".join(out), ncx_text, count=1)
+    for meta, val in (("dtb:totalPageCount", len(targets)), ("dtb:maxPageNumber", max_num)):
+        ncx_text = re.sub(r"""(<meta\s+name=["']%s["']\s+content=["'])[^"']*""" % meta,
+                          lambda m: m.group(1) + str(val), ncx_text)
+    stats["liste des pages reconstruite"] = len(targets)
+    return renumber_play_order(ncx_text, ncx_path, spine, texts)
+
+
 def renumber_play_order(ncx_text, ncx_path, spine, texts):
     """playOrder = ordre de lecture ; même cible → même numéro, sans trou."""
     key = doc_order_key(spine, texts)
@@ -1145,6 +1320,8 @@ def main():
         container = zin.read("META-INF/container.xml").decode("utf-8", "replace")
         opf_path = re.search(r"""full-path\s*=\s*["']([^"']+)""", container).group(1)
         opf_text, opf_enc, opf_bom = decode_text(zin.read(opf_path))
+        _ver = re.search(r"""<(?:[\w-]+:)?package\b[^>]*\sversion\s*=\s*["']([^"']+)""", opf_text)
+        EPUB2[0] = not (_ver and _ver.group(1).startswith("3"))
         items = {}
         for m in re.finditer(r"<(?:[\w-]+:)?item\b[^>]*>", opf_text):
             href = get_attr(m.group(0), "href")
@@ -1202,7 +1379,14 @@ def main():
 
         # Table des matières (avant sérialisation : des id peuvent être ajoutés)
         entries = toc_entries(docs, s.chapter_re, s.book_re, s.table_re, s.used_ids, s.date_re)
-        new_data = {d.path: d.serialize() for d in docs}
+        new_data = {}
+        for d in docs:
+            raw = d.serialize()
+            txt, dup = dedupe_ids(reorder_adjacent_anchors(raw.decode(d.enc)))
+            if dup:
+                stats["id en double retirés"] += dup
+            fixed = txt.encode(d.enc, "xmlcharrefreplace")
+            new_data[d.path] = fixed
         if entries and not opts.no_toc:
             if ncx_path and ncx_path in names:
                 ncx_text, enc, bom = decode_text(zin.read(ncx_path))
@@ -1214,7 +1398,7 @@ def main():
                     head_doc = next(d for d in docs if d.path == entries[0][2])
                     head_is_first = list(head_doc.body)[:1] and \
                         list(head_doc.body)[0].get("id") == entries[0][3]
-                    if first_file != entries[0][2] or not head_is_first:
+                    if first_file in names and (first_file != entries[0][2] or not head_is_first):
                         first = (html.unescape(m.group(1)), m.group(2))
                 new_data[ncx_path] = bom + build_ncx(ncx_text, ncx_path, entries, first).encode(enc)
                 stats["entrées de table des matières"] = len(entries)
@@ -1250,12 +1434,25 @@ def main():
                     opf_new = opf_new.replace(item_tag.group(0), "", 1)
                 new_data[opf_path] = opf_bom + opf_new.encode(opf_enc)
                 drop_files.add(pm_path)
-        elif ncx_path in new_data:
-            # TdM reconstruite : playOrder cohérents avec d'éventuelles pages
+        elif ncx_path and ncx_path in names:
             texts = {p: (new_data[p] if p in new_data else zin.read(p)).decode("utf-8", "replace")
                      for p in spine if p in names}
-            t, enc, bom = decode_text(new_data[ncx_path])
-            new_data[ncx_path] = bom + renumber_play_order(t, ncx_path, spine, texts).encode(enc)
+            t, enc, bom = decode_text(new_data.get(ncx_path) or zin.read(ncx_path))
+            if "<pageTarget" not in t and not opts.keep_page_map:
+                # pas de liste des pages (retouche dans Sigil) : on la refait depuis les ancres
+                rebuilt = anchors_to_pagelist(t, ncx_path, spine, texts, stats)
+                if rebuilt is not None:
+                    new_data[ncx_path] = bom + rebuilt.encode(enc)
+            else:
+                # ancres disparues (retouches dans Sigil) : pages retirées, entrées au début du fichier ;
+                # puis playOrder recalculés (deux pages n'ont jamais le même numéro)
+                t2, dropped, repaired = fix_nav_targets(t, ncx_path, texts)
+                if dropped:
+                    stats["pages sans ancre retirées de la liste"] += dropped
+                if repaired:
+                    stats["entrées de table sans ancre corrigées"] += repaired
+                if t2 != t or ncx_path in new_data:
+                    new_data[ncx_path] = bom + renumber_play_order(t2, ncx_path, spine, texts).encode(enc)
 
         # CSS
         css_path = posixpath.normpath(posixpath.join(posixpath.dirname(opf_path), opts.css_path))

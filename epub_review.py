@@ -84,6 +84,7 @@ PREFIXES = {"entre", "contre", "quatre", "sur", "sous", "tres", "très", "mal", 
 CATEGORIES = collections.OrderedDict([
     ("chapitres", "Numérotation des chapitres"),
     ("slong", "S long lu « f » ? (mot laissé tel quel)"),
+    ("oi", "Imparfait en « oi » ? (mot laissé tel quel)"),
     ("ocr", "Mots peu sûrs pour l'OCR"),
     ("notes", "Notes sans appel dans le texte"),
     ("cesures", "Mots coupés par un trait d'union"),
@@ -98,6 +99,9 @@ CATEGORIES = collections.OrderedDict([
     ("coupures", "Paragraphe qui semble coupé"),
 ])
 HELP = {
+    "oi": "Forme en « oi » laissée telle quelle par la modernisation (nom propre, nationalité, forme "
+          "inconnue : « François », « Anglois », « appelloit »). Décidez ici, ou une fois pour toutes "
+          "dans l'onglet « oi → ai » de Prescel.",
     "lettrines": "Le paragraphe commence par un mot incomplet : la grande lettre du début (lettrine) "
                  "n'a pas été lue par l'OCR (« Ous avons » pour « NOus avons »). La lettre proposée "
                  "est celle qui donne un mot fréquent du livre ; vérifiez sur la page scannée.",
@@ -181,6 +185,19 @@ def compact(s):
     return "".join((s or "").split())
 
 
+EPUB2 = [True]      # mis à jour d'après la version du paquet (OPF)
+XHTML11 = ('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"\n'
+           '  "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">')
+
+
+def fix_doctype(prefix):
+    """EPUB 2 : epubcheck exige le DOCTYPE XHTML 1.1 (Google met du XHTML 1.0 Strict)."""
+    if EPUB2[0] and re.search(r"<!DOCTYPE[^>]*XHTML 1\.0", prefix):
+        return re.sub(r"<!DOCTYPE[^>]*>", lambda m: XHTML11, prefix, count=1)
+    return prefix
+
+
+
 class Doc:
     def __init__(self, path, text, enc, bom):
         self.path, self.enc, self.bom = path, enc, bom
@@ -191,7 +208,8 @@ class Doc:
 
     def serialize(self):
         out = ET.tostring(self.root, encoding="unicode")
-        return self.bom + (self.prefix.rstrip() + "\n" + out + "\n").encode(self.enc, "xmlcharrefreplace")
+        return self.bom + (fix_doctype(self.prefix).rstrip() + "\n" + out + "\n").encode(
+            self.enc, "xmlcharrefreplace")
 
 
 def page_of(pid):
@@ -260,9 +278,11 @@ def chapter_number(label):
 # --------------------------------------------------------------------------
 
 class Reviewer:
-    def __init__(self, vocab, scan_template, wordlist=None, min_glued=11, longs=None):
+    def __init__(self, vocab, scan_template, wordlist=None, min_glued=11, longs=None, oi=None):
         self.vocab = vocab
         self.longs = longs or {}
+        self.oi = oi or {}
+        self.skip = set()
         self.wordlist = wordlist
         self.min_glued = min_glued
         self.scan_template = scan_template
@@ -284,6 +304,9 @@ class Reviewer:
             lw = w.lower()
             if lw in self.longs:
                 out.append((a, b, "slong", "→ %s ?" % self.longs[lw]))
+                continue
+            if lw in self.oi:
+                out.append((a, b, "oi", "→ %s ?" % self.oi[lw]))
                 continue
             elided = b < len(s) and s[b] in "'’"
             # « a-t-il », « va-t-on » : seul le t euphonique, entre deux traits d'union, est admis.
@@ -383,6 +406,8 @@ class Reviewer:
         return len(w), "→ " + sugg + (" ?" if len(best) > 1 else "")
 
     def add(self, cat, doc, page, context, start, end, detail):
+        if cat in self.skip:
+            return
         lo = max(0, start - 45)
         hi = min(len(context), end + 45)
         self.items[cat].append({
@@ -419,7 +444,7 @@ class Reviewer:
                 s = getattr(holder, attr) or ""
                 if not s.strip():
                     continue
-                hits = self.suspects_in(s)
+                hits = [h for h in self.suspects_in(s) if h[2] not in self.skip]
                 for (a, b, cat, detail) in hits:
                     self.add(cat, doc, node_page, s, a, b, detail)
                 if hits and mark:
@@ -434,14 +459,14 @@ class Reviewer:
             normal = n == "p" and not (cls & {"marge", "note", "centre", "droite", "sommaire",
                                               "numero", "image"})
             if normal and full and len(full) >= 25:
-                lost = self.lost_lettrine(full)
+                lost = self.lost_lettrine(full) if "lettrines" not in self.skip else None
                 if lost:
                     self.add("lettrines", doc, first_page, full, 0, lost[0], lost[1])
                     if mark:
                         el.set("class", " ".join(sorted(cls | {MARK_CLASS})))
             if normal and full and len(full) < 25 and not re.search(r"[.!?:»)]$", full):
                 self.add("courts", doc, first_page, full, 0, len(full), "%d caractères" % len(full))
-                if mark:
+                if mark and "courts" not in self.skip:
                     el.set("class", " ".join(sorted(cls | {MARK_CLASS})))
             if normal and prev_block is not None:
                 pt = text_of(prev_block)
@@ -741,6 +766,8 @@ def main():
     ap.add_argument("--report", help="rapport HTML (défaut : <livre>-relecture.html)")
     ap.add_argument("--mark", metavar="EPUB", help="écrire une copie marquée pour Sigil")
     ap.add_argument("--unmark", action="store_true", help="retirer tous les marqueurs")
+    ap.add_argument("--fix-doctype", action="store_true",
+                    help="seulement mettre les DOCTYPE en XHTML 1.1 (EPUB 2), marqueurs conservés")
     ap.add_argument("-o", "--output", help="avec --unmark : EPUB de sortie (défaut : en place)")
     ap.add_argument("--dict-out", metavar="FICHIER", help="liste des mots du livre pour Sigil")
     ap.add_argument("--scan-url", help="modèle d'URL des pages scannées, avec {page} "
@@ -753,6 +780,10 @@ def main():
     ap.add_argument("--longs-tsv", metavar="FICHIER",
                     help="liste d'epub_longs.py : les formes laissées telles quelles (appliquer=0) "
                          "sont signalées une par une")
+    ap.add_argument("--sans", action="append", default=[], metavar="CATÉGORIE",
+                    help="ne pas signaler cette catégorie (slong, oi, ocr, cesures, colles…) ; répétable")
+    ap.add_argument("--oi-tsv", metavar="FICHIER",
+                    help="liste d'epub_modernise.py --mode oi : formes laissées au choix signalées")
     ap.add_argument("--max-items", type=int, default=400, help="cas affichés par catégorie")
     ap.add_argument("--css-path", default="Styles/livre.css")
     opts = ap.parse_args()
@@ -763,6 +794,8 @@ def main():
         container = zin.read("META-INF/container.xml").decode("utf-8", "replace")
         opf_path = re.search(r"""full-path\s*=\s*["']([^"']+)""", container).group(1)
         opf, _, _ = decode_text(zin.read(opf_path))
+        _ver = re.search(r"""<(?:[\w-]+:)?package\b[^>]*\sversion\s*=\s*["']([^"']+)""", opf)
+        EPUB2[0] = not (_ver and _ver.group(1).startswith("3"))
         items = {}
         for m in re.finditer(r"<(?:[\w-]+:)?item\b[^>]*>", opf):
             if get_attr(m.group(0), "href"):
@@ -786,13 +819,24 @@ def main():
         css_path = posixpath.normpath(posixpath.join(posixpath.dirname(opf_path), opts.css_path))
         css_text = zin.read(css_path).decode("utf-8") if css_path in names else None
 
+    # --- DOCTYPE seuls ---
+    if opts.fix_doctype:
+        new_data = {d.path: d.serialize() for d in docs if fix_doctype(d.prefix) != d.prefix}
+        out = opts.output or src
+        if new_data:
+            write_epub(src, out, new_data)
+        print("DOCTYPE mis en XHTML 1.1 : %d fichiers" % len(new_data))
+        if new_data:
+            print("EPUB écrit : %s" % out)
+        return
+
     # --- retrait des marqueurs ---
     if opts.unmark:
         new_data, n = {}, 0
         for d in docs:
             before = compact("".join(d.body.itertext()))
             k = unmark_doc(d)
-            if k:
+            if k or fix_doctype(d.prefix) != d.prefix:
                 assert compact("".join(d.body.itertext())) == before
                 new_data[d.path] = d.serialize()
                 n += k
@@ -831,7 +875,15 @@ def main():
             for r in csv.DictReader(f, delimiter="\t"):
                 if r.get("forme_lue") and (r.get("appliquer") or "0").strip() != "1":
                     longs[r["forme_lue"].lower()] = r.get("correction", "")
-    rv = Reviewer(vocab, scan, wordlist, opts.min_glued, longs)
+    oi = {}
+    if opts.oi_tsv and os.path.exists(opts.oi_tsv):
+        import csv
+        with open(opts.oi_tsv, encoding="utf-8", newline="") as f:
+            for r in csv.DictReader(f, delimiter="\t"):
+                if r.get("forme_lue") and (r.get("appliquer") or "0").strip() != "1":
+                    oi[r["forme_lue"].lower()] = r.get("correction", "")
+    rv = Reviewer(vocab, scan, wordlist, opts.min_glued, longs, oi)
+    rv.skip = set(opts.sans)
     page_state = [None]
     mark = bool(opts.mark)
     before = {}
