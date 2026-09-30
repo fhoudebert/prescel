@@ -810,6 +810,19 @@ VOCABULAIRE_17_18 = {
     # le participe s'écrivait déjà « ayant »
     "ayent": "aient",
     "envoiez": "envoyés",
+    "pluye": "pluie",
+    "pluyes": "pluies",
+    "haye": "haie",
+    "hayes": "haies",
+    "joy": "joie",
+    "proye": "proie",
+    "proyes": "proies",
+    "savans": "savants",
+    "beuvant": "buvant",
+    "loix": "lois",
+    "touteffois": "toutefois",
+    "iectoit": "jetait",
+    "souuentesfois": "souventes fois",
 }
 
 

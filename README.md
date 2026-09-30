@@ -108,7 +108,8 @@ laissées au choix dans une liste (onglets « oi → ai » et « Modernisation �
 - `--mode ez` : « les bontez » → « les bontés », « ils sont armez » → « armés ». Chaque occurrence
   précédée de « vous » (« vous avez », « vous les envoyez »), en inversion (« allez-vous », « où allez
   vous ») ou à l'impératif en tête de phrase (« Venez ») est gardée ; « nez », « chez », « assez »
-  ne sont jamais touchés.
+  ne sont jamais touchés. `dictionnaires/pluriels_ez.py` donne les formes qui ne suivent pas la règle
+  (« excez » → « excès », « extremitez » → « extrémités »).
 - `--mode vocab` : « luy » → « lui », « mesme » → « même », « aussi tost » → « aussitôt », d'après
   `dictionnaires/vocabulaire_17_18.py` ; les graphies qui sont aussi des mots modernes (« des » →
   « dès ») restent au choix. C'est un choix d'édition : l'étape n'est jamais cochée d'office.
@@ -124,3 +125,11 @@ de fragment non défini », playOrder identiques). `epub_pages.py` (et la relanc
 retire les id en double, sort de la liste des pages celles dont l'ancre a disparu, fait viser le
 début du fichier aux entrées de table orphelines et renumérote les playOrder. Les marqueurs de
 relecture sont conservés.
+
+## Relance après les listes de corrections
+
+Une fois les mots laissés au choix du s long et des imparfaits en « oi » tranchés, décochez ces
+étapes : à la relance sur le fichier marqué, leurs mots ne sont plus signalés ni surlignés (seules
+les listes des étapes cochées sont transmises au rapport). Le réglage avancé « Ne pas signaler » de
+l'étape « Préparer la relecture » (option `--sans` d'`epub_review.py`) retire de même les autres
+catégories déjà traitées.

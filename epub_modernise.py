@@ -184,11 +184,16 @@ def propose_oi(counts, caps, wordlist, verbs):
     return rows
 
 
-def propose_ez(counts, caps, wordlist):
+def propose_ez(counts, caps, wordlist, plurals=None):
     """Pluriels anciens en -ez : « bontez » → « bontés », « armez » → « armés »."""
     rows = []
     for w, n in counts.items():
         if not w.endswith("ez") or len(w) < 4 or w in EZ_KEEP:
+            continue
+        if plurals and w in plurals:
+            rows.append({"appliquer": "1", "forme_lue": w, "correction": plurals[w],
+                         "occurrences": str(n), "occ_correction": str(counts.get(plurals[w], 0)),
+                         "remarque": "dictionnaire des pluriels"})
             continue
         target = w[:-2] + "és"
         if w.endswith("iez") and wordlist is not None and target not in wordlist and \
@@ -259,7 +264,7 @@ def build_replacer(mapping, counts_out, ez_guard=None, kept=None):
         new = words.get(w.lower())
         if new is None:
             return w
-        if ez_guard is not None and ez_is_verb_here(m, w.lower() in ez_guard):
+        if ez_guard is not None and w.lower().endswith("ez") and ez_is_verb_here(m, w.lower() in ez_guard):
             if kept is not None:
                 kept[w.lower()] += 1
             return w
@@ -307,7 +312,7 @@ def main():
     dict_path = opts.dict or os.path.join(HERE, "dictionnaires",
                                           "verbes_oi.py" if opts.mode == "oi" else "vocabulaire_17_18.py")
     if opts.mode == "ez" and not opts.dict:
-        dict_path = ""
+        dict_path = os.path.join(HERE, "dictionnaires", "pluriels_ez.py")
     table = load_dict(dict_path, opts.mode) if dict_path and os.path.exists(dict_path) else {}
     if not table and opts.mode == "vocab":
         sys.exit("Dictionnaire de vocabulaire introuvable : %s" % dict_path)
@@ -340,7 +345,7 @@ def main():
         if opts.mode == "oi":
             rows = propose_oi(counts, caps, wordlist, table)
         elif opts.mode == "ez":
-            rows = propose_ez(counts, caps, wordlist)
+            rows = propose_ez(counts, caps, wordlist, table)
         else:
             rows = propose_vocab(counts, caps, text, wordlist, table)
         if opts.no_apply:

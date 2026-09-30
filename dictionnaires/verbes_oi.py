@@ -572,4 +572,33 @@ ANCIEN_FRANCAIS = {
     "suffisoient": "suffisaient",
     "suffifoit": "suffisait",
     "suffifoient": "suffisaient",
+    # -----------------------------------------------------------------
+    # ENVOYER (conditionnel ancien « envoyeroit »)
+    # -----------------------------------------------------------------
+    "envoyerois": "enverrais",
+    "envoyeroit": "enverrait",
+    "envoyeroient": "enverraient",
+    # -----------------------------------------------------------------
+    # AJOUTS (relecture) : graphies anciennes et fautes d'OCR fréquentes
+    # -----------------------------------------------------------------
+    "veoit": "voyait",
+    "auoient": "avaient",
+    "appelloit": "appelait",
+    "appelloient": "appelaient",
+    "vouldroit": "voudrait",
+    "scauroit": "saurait",
+    "sçauroit": "saurait",
+    "ennuyroit": "ennuierait",
+    "iasoit": "jasait",
+    "faifoient": "faisaient",
+    "jettoit": "jetait",
+    "esperois": "espérais",
+    "preparoit": "préparait",
+    "sçavois": "savais",
+    "sçavoit": "savait",
+    "reveroit": "reverrait",
+    "paroiffoient": "paraissaient",
+    "meritoit": "méritait",
+    "presentoit": "présentait",
+    "soûtenoient": "soutenaient",
 }

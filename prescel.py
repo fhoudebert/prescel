@@ -179,8 +179,9 @@ STEPS = [
         "summary": "« les bontez » → « les bontés », « ils sont armez » → « ils sont armés ». La 2ᵉ personne du "
                    "pluriel est gardée : après « vous » (« vous avez », « vous les envoyez »), en inversion "
                    "(« allez-vous », « où allez vous »), à l'impératif en tête de phrase (« Venez »). "
-                   "« nez », « chez », « assez » ne sont jamais touchés ; les formes inconnues restent au "
-                   "choix, dans l'onglet « ez → és ».",
+                   "« nez », « chez », « assez » ne sont jamais touchés. dictionnaires/pluriels_ez.py donne les "
+                   "formes qui ne suivent pas la règle (« excez » → « excès », « extremitez » → « extrémités ») ; "
+                   "les formes inconnues restent au choix, dans l'onglet « ez → és ».",
         "options": [
             {"key": "apply", "type": "bool", "default": True, "text": True,
              "label": "Appliquer les corrections sûres", "help": "Décoché : la liste est seulement établie."},
@@ -313,6 +314,16 @@ STEPS = [
              "help": "Liste des mots qui reviennent au moins 3 fois. Ajoutée aux dictionnaires "
                      "utilisateur de Sigil, elle évite que l'orthographe ancienne soit soulignée "
                      "partout : il ne reste que les vraies fautes."},
+            {"key": "sans_categories", "type": "multi", "advanced": True, "default": [],
+             "choices": [["colles", "mots collés"], ["coupes", "mots coupés"], ["cesures", "coupures par trait d'union"],
+                         ["casse", "casse mélangée"], ["chiffres", "chiffres dans un mot"],
+                         ["isolees", "lettres isolées"], ["ponctuation", "ponctuation"],
+                         ["lettrines", "lettrines perdues"], ["courts", "paragraphes très courts"],
+                         ["coupures", "paragraphes coupés"], ["ocr", "mots peu sûrs pour l'OCR"]],
+             "label": "Ne pas signaler",
+             "help": "Catégories déjà traitées : elles ne sont plus surlignées ni listées. Les mots laissés "
+                     "au choix du s long et des imparfaits en « oi » ne sont signalés que si leur étape est "
+                     "cochée dans ce passage."},
             {"flag": "--wordlist", "type": "text", "advanced": True, "label": "Liste de mots de référence",
              "help": "Chemin d'un fichier de mots (/usr/share/dict/french, .dic Hunspell) : "
                      "détection plus fine des mots collés."},
@@ -926,11 +937,17 @@ def pipeline(job, plan, check_mode, start=None):
         if step["id"] == "review":
             report = os.path.join(d, slug + "-relecture.html")
             cmd = [py, "-u", script, current, "--report", report] + build_args(step, opts)
-            if os.path.exists(tsv):
+            # Les mots laissés au choix d'une liste ne sont signalés (et surlignés) que si son
+            # étape fait partie de ce passage : une fois l'étape décochée (tout est tranché),
+            # la relance sur le fichier marqué ne remet plus ces marques.
+            planned = {e["id"] for e in plan}
+            if "longs" in planned and os.path.exists(tsv):
                 cmd += ["--longs-tsv", tsv]
             oi_tsv = os.path.join(d, slug + LIST_FILES["oi"])
-            if os.path.exists(oi_tsv):
+            if "oi" in planned and os.path.exists(oi_tsv):
                 cmd += ["--oi-tsv", oi_tsv]
+            for cat in opts.get("sans_categories") or []:
+                cmd += ["--sans", cat]
             marked = os.path.join(d, slug + "-a-relire.epub") if opts.get("mark", True) else None
             dico = os.path.join(d, slug + "-dictionnaire.txt") if opts.get("dict", True) else None
             if marked:
@@ -1352,6 +1369,8 @@ li.etape.inactive .corps { opacity: .5; }
   background: var(--papier); }
 .option .ctrl input[type=text] { font-family: var(--mono); font-size: .85rem; }
 .option .aide { margin: 0; color: var(--gris); font-size: .9rem; }
+.option fieldset.multi { border: none; padding: 0; margin: 0; }
+.option fieldset.multi legend { font-weight: 600; padding: 0; margin-bottom: .2rem; }
 .touche { display: inline-block; margin-top: .3rem; font-size: .75rem; font-weight: 600; color: var(--or);
   background: var(--or-clair); padding: .05rem .45rem; border-radius: 3px; }
 .recommande { font-size: .75rem; color: var(--vert); margin-left: .4rem; font-weight: 400; }
@@ -1591,6 +1610,10 @@ function renderOption(s, o) {
   let ctrl;
   if (o.type === "bool") {
     ctrl = el("label", {}, el("input", { type: "checkbox", id, checked: !!o.default }), o.label);
+  } else if (o.type === "multi") {
+    ctrl = el("fieldset", { id, class: "multi" }, el("legend", {}, o.label),
+      o.choices.map(([v, t]) => el("label", { style: "display:block;font-weight:400" },
+        el("input", { type: "checkbox", value: v, checked: (o.default || []).includes(v) }), " " + t)));
   } else if (o.type === "select") {
     ctrl = el("label", { for: id, style: "display:block" }, o.label,
       el("select", { id }, o.choices.map(([v, t]) => el("option", { value: v, selected: v === o.default }, t))));
@@ -1609,7 +1632,9 @@ function setStep(id, enabled, options = {}) {
   for (const o of s.options) {
     const k = o.flag || o.key; if (!(k in options)) continue;
     const input = $("#" + optId(s, o));
-    if (o.type === "bool") input.checked = !!options[k]; else input.value = options[k];
+    if (o.type === "bool") input.checked = !!options[k];
+    else if (o.type === "multi") input.querySelectorAll("input").forEach(x => { x.checked = (options[k] || []).includes(x.value); });
+    else input.value = options[k];
   }
 }
 function resetDefaults() {
@@ -1625,7 +1650,8 @@ function collect() {
     const options = {};
     for (const o of s.options) {
       const input = $("#" + optId(s, o)); const k = o.flag || o.key;
-      options[k] = o.type === "bool" ? input.checked : o.type === "int" ? (input.value === "" ? null : Number(input.value)) : input.value.trim();
+      options[k] = o.type === "bool" ? input.checked : o.type === "multi" ? [...input.querySelectorAll("input:checked")].map(x => x.value)
+        : o.type === "int" ? (input.value === "" ? null : Number(input.value)) : input.value.trim();
     }
     return { id: s.id, enabled: $("#on-" + s.id).checked, options };
   });

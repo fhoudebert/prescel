@@ -282,6 +282,7 @@ class Reviewer:
         self.vocab = vocab
         self.longs = longs or {}
         self.oi = oi or {}
+        self.skip = set()
         self.wordlist = wordlist
         self.min_glued = min_glued
         self.scan_template = scan_template
@@ -405,6 +406,8 @@ class Reviewer:
         return len(w), "→ " + sugg + (" ?" if len(best) > 1 else "")
 
     def add(self, cat, doc, page, context, start, end, detail):
+        if cat in self.skip:
+            return
         lo = max(0, start - 45)
         hi = min(len(context), end + 45)
         self.items[cat].append({
@@ -441,7 +444,7 @@ class Reviewer:
                 s = getattr(holder, attr) or ""
                 if not s.strip():
                     continue
-                hits = self.suspects_in(s)
+                hits = [h for h in self.suspects_in(s) if h[2] not in self.skip]
                 for (a, b, cat, detail) in hits:
                     self.add(cat, doc, node_page, s, a, b, detail)
                 if hits and mark:
@@ -456,14 +459,14 @@ class Reviewer:
             normal = n == "p" and not (cls & {"marge", "note", "centre", "droite", "sommaire",
                                               "numero", "image"})
             if normal and full and len(full) >= 25:
-                lost = self.lost_lettrine(full)
+                lost = self.lost_lettrine(full) if "lettrines" not in self.skip else None
                 if lost:
                     self.add("lettrines", doc, first_page, full, 0, lost[0], lost[1])
                     if mark:
                         el.set("class", " ".join(sorted(cls | {MARK_CLASS})))
             if normal and full and len(full) < 25 and not re.search(r"[.!?:»)]$", full):
                 self.add("courts", doc, first_page, full, 0, len(full), "%d caractères" % len(full))
-                if mark:
+                if mark and "courts" not in self.skip:
                     el.set("class", " ".join(sorted(cls | {MARK_CLASS})))
             if normal and prev_block is not None:
                 pt = text_of(prev_block)
@@ -777,6 +780,8 @@ def main():
     ap.add_argument("--longs-tsv", metavar="FICHIER",
                     help="liste d'epub_longs.py : les formes laissées telles quelles (appliquer=0) "
                          "sont signalées une par une")
+    ap.add_argument("--sans", action="append", default=[], metavar="CATÉGORIE",
+                    help="ne pas signaler cette catégorie (slong, oi, ocr, cesures, colles…) ; répétable")
     ap.add_argument("--oi-tsv", metavar="FICHIER",
                     help="liste d'epub_modernise.py --mode oi : formes laissées au choix signalées")
     ap.add_argument("--max-items", type=int, default=400, help="cas affichés par catégorie")
@@ -878,6 +883,7 @@ def main():
                 if r.get("forme_lue") and (r.get("appliquer") or "0").strip() != "1":
                     oi[r["forme_lue"].lower()] = r.get("correction", "")
     rv = Reviewer(vocab, scan, wordlist, opts.min_glued, longs, oi)
+    rv.skip = set(opts.sans)
     page_state = [None]
     mark = bool(opts.mark)
     before = {}
