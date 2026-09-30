@@ -5,7 +5,7 @@ epub_modernise.py — Modernise l'orthographe d'un livre des XVIᵉ-XVIIIᵉ si�
 sur le modèle de epub_longs.py : une liste TSV des corrections, modifiable,
 les cas sûrs appliqués d'office, les cas douteux laissés au choix.
 
-Trois modes :
+Quatre modes :
 
   --mode oi     imparfaits et conditionnels en -ois / -oit / -oient
                 (« il estoit » → « il était », « ils auroient » → « ils auraient »).
@@ -20,6 +20,11 @@ Trois modes :
                 envoyez »), à l'impératif avec pronom (« allez-vous ») ou en tête de phrase
                 (« Venez ») quand la forme est aussi un verbe moderne. Jamais : « nez »,
                 « chez », « assez ».
+
+  --mode ants   pluriels anciens en -ans / -ens (« charmans » → « charmants », « momens » →
+                « moments ») quand la forme en -ts existe et que l'ancienne n'est pas déjà un
+                mot moderne (« sens », « gens », « dans » ne bougent pas) ;
+                dictionnaires/pluriels_ants.py pour les accents (« presens » → « présents »).
 
   --mode vocab  vocabulaire (« luy » → « lui », « mesme » → « même », « faict » → « fait »,
                 « aussi tost » → « aussitôt ») : dictionnaires/vocabulaire_17_18.py.
@@ -217,6 +222,34 @@ def propose_ez(counts, caps, wordlist, plurals=None):
     return rows
 
 
+def propose_ants(counts, caps, wordlist, plurals=None):
+    """Pluriels anciens en -ans / -ens : « charmans » → « charmants », « momens » → « moments ».
+    Le mot ancien ne doit pas être un mot moderne (« sens », « gens », « dans » ne bougent pas)."""
+    rows = []
+    for w, n in counts.items():
+        if len(w) < 5 or not (w.endswith("ans") or w.endswith("ens")):
+            continue
+        if plurals and w in plurals:
+            rows.append({"appliquer": "1", "forme_lue": w, "correction": plurals[w],
+                         "occurrences": str(n), "occ_correction": str(counts.get(plurals[w], 0)),
+                         "remarque": "dictionnaire des pluriels"})
+            continue
+        if wordlist is not None and w in wordlist:
+            continue                             # « sens », « gens », « paysans » : rien à faire
+        target = w[:-1] + "ts"
+        known = (wordlist is not None and target in wordlist) or counts.get(target, 0) >= 2
+        if not known:
+            continue                             # pas d'équivalent moderne en -ts : pas proposé
+        if caps.get(w, 0) >= max(2, 0.6 * n):
+            ok, why = 0, "surtout avec une majuscule : nom propre ?"
+        else:
+            ok, why = 1, ""
+        rows.append({"appliquer": str(ok), "forme_lue": w, "correction": target,
+                     "occurrences": str(n), "occ_correction": str(counts.get(target, 0)), "remarque": why})
+    rows.sort(key=lambda r: (-int(r["occurrences"]), r["forme_lue"]))
+    return rows
+
+
 def propose_vocab(counts, caps, text, wordlist, vocab):
     rows = []
     low = text.lower().replace("’", "'")
@@ -301,7 +334,7 @@ def main():
     ap = argparse.ArgumentParser(description="Modernisation : imparfaits en oi, vocabulaire ancien.")
     ap.add_argument("epub")
     ap.add_argument("-o", "--output", help="EPUB modernisé (défaut : en place)")
-    ap.add_argument("--mode", choices=["oi", "ez", "vocab"], required=True)
+    ap.add_argument("--mode", choices=["oi", "ez", "ants", "vocab"], required=True)
     ap.add_argument("--tsv", required=True, help="liste des corrections (créée ou relue)")
     ap.add_argument("--use-tsv", action="store_true", help="respecter les choix d'un TSV existant")
     ap.add_argument("--no-apply", action="store_true", help="liste seulement, rien n'est corrigé")
@@ -311,8 +344,8 @@ def main():
 
     dict_path = opts.dict or os.path.join(HERE, "dictionnaires",
                                           "verbes_oi.py" if opts.mode == "oi" else "vocabulaire_17_18.py")
-    if opts.mode == "ez" and not opts.dict:
-        dict_path = os.path.join(HERE, "dictionnaires", "pluriels_ez.py")
+    if opts.mode in ("ez", "ants") and not opts.dict:
+        dict_path = os.path.join(HERE, "dictionnaires", "pluriels_%s.py" % opts.mode)
     table = load_dict(dict_path, opts.mode) if dict_path and os.path.exists(dict_path) else {}
     if not table and opts.mode == "vocab":
         sys.exit("Dictionnaire de vocabulaire introuvable : %s" % dict_path)
@@ -346,6 +379,8 @@ def main():
             rows = propose_oi(counts, caps, wordlist, table)
         elif opts.mode == "ez":
             rows = propose_ez(counts, caps, wordlist, table)
+        elif opts.mode == "ants":
+            rows = propose_ants(counts, caps, wordlist, table)
         else:
             rows = propose_vocab(counts, caps, text, wordlist, table)
         if opts.no_apply:
@@ -369,6 +404,7 @@ def main():
         chosen = {r["forme_lue"]: r["correction"] for r in rows if r.get("appliquer", "0").strip() == "1"}
         pending = [r for r in rows if r.get("appliquer", "0").strip() != "1"]
         label = {"oi": "Imparfaits et conditionnels en oi", "ez": "Pluriels en -ez",
+                 "ants": "Pluriels en -ans / -ens",
                  "vocab": "Vocabulaire ancien"}[opts.mode]
         print("%s : %d formes (%d occurrences) — %d à appliquer, %d laissées au choix"
               % (label, len(rows), sum(int(r["occurrences"]) for r in rows), len(chosen), len(pending)))

@@ -605,4 +605,7 @@ ANCIEN_FRANCAIS = {
     "regnoient": "régnaient",
     "aprochoit": "approchait",
     "aprochoient": "approchaient",
+    "acquiterois": "acquitterais",
+    "acquiteroit": "acquitterait",
+    "acquiteroient": "acquitteraient",
 }

@@ -847,6 +847,14 @@ VOCABULAIRE_17_18 = {
     "boëte": "boîte",
     "boëtes": "boîtes",
     "boiffons": "boissons",
+    "rabatre": "rabattre",
+    "difpofées": "disposées",
+    "fottement": "sottement",
+    "envoyerais": "enverrais",
+    "envoyerait": "enverrait",
+    "paisan": "paysan",
+    "paisans": "paysans",
+    "paisanne": "paysanne",
 }
 
 
