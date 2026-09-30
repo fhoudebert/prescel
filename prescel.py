@@ -200,8 +200,8 @@ STEPS = [
                    "tombait devant le s du pluriel. La règle n'est appliquée que si la forme en « ts » existe "
                    "en français et que l'ancienne n'est pas déjà un mot moderne (« sens », « gens », « dans » "
                    "ne bougent pas) ; dictionnaires/pluriels_ants.py donne les formes à accent (« presens » → "
-                   "« présents »). Les mots surtout écrits avec une majuscule restent au choix, dans l'onglet "
-                   "« ans → ants ».",
+                   "« présents »). Les accents manquants sont rétablis (« Penitens » → « Pénitents ») ; la "
+                   "liste se règle dans l'onglet « ans → ants ».",
         "options": [
             {"key": "apply", "type": "bool", "default": True, "text": True,
              "label": "Appliquer les corrections sûres", "help": "Décoché : la liste est seulement établie."},
@@ -1823,7 +1823,7 @@ const LISTS = {
   ez: { vide: "La liste apparaît après l'étape « Pluriels en ez ».",
     aide: "Pluriels anciens en « ez » et leur forme en « és ». Chaque occurrence précédée de « vous », en inversion (« allez-vous ») ou à l'impératif en tête de phrase est gardée telle quelle, même si la forme est cochée. Restent au choix les formes inconnues (souvent un s long ou un accent à corriger d'abord : « affiégez », « deputez ») et celles surtout écrites avec une majuscule." },
   ants: { vide: "La liste apparaît après l'étape « Pluriels en ans ».",
-    aide: "Pluriels anciens en « ans » / « ens » et leur forme moderne en « ts ». Seuls les mots dont la forme en « ts » existe sont proposés ; restent au choix ceux qui sont surtout écrits avec une majuscule (nom propre ?)." },
+    aide: "Pluriels anciens en « ans » / « ens » et leur forme moderne en « ts ». Seuls les mots dont la forme en « ts » existe sont proposés, avec l'accent rétabli s'il manque (« Negocians » → « Négociants ») ; décochez ceux à laisser tels quels." },
   moderne: { vide: "La liste apparaît après l'étape « Modernisation du vocabulaire ».",
     aide: "Graphies anciennes du dictionnaire de vocabulaire trouvées dans le livre. Celles qui sont aussi des mots modernes (« des » → « dès ») sont laissées au choix : décochez aussi ce que vous préférez garder tel quel." },
 };

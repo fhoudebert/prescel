@@ -97,7 +97,7 @@ respectée (« Estoit » → « Était ») ; seuls les mots listés changent.
 | **S long** (`epub_longs.py`) | « eft » → « est », « faifoit » → « faisoit » | mots qui existent sous les deux formes : « font »/« sont », « fait »/« sait » |
 | **oi → ai** (`--mode oi`) | « il estoit » → « il était », « auroient » → « auraient » | noms propres et nationalités (« François », « Anglois »), formes inconnues |
 | **ez → és** (`--mode ez`) | « les bontez » → « les bontés », « sont armez » → « armés » | formes inconnues ; « vous avez », « allez-vous », « Venez » sont toujours gardés |
-| **ans → ants** (`--mode ants`) | « charmans » → « charmants », « momens » → « moments » | mots surtout écrits avec une majuscule |
+| **ans → ants** (`--mode ants`) | « charmans » → « charmants », « Penitens » → « Pénitents » | rien d'office : décocher ce qu'on veut garder |
 | **Modernisation** (`--mode vocab`) | « luy » → « lui », « mesme » → « même », « aussi tost » → « aussitôt » | graphies qui sont aussi des mots modernes (« des » → « dès ») |
 
 Garde-fous communs :
@@ -106,6 +106,8 @@ Garde-fous communs :
   « force », « fleur », « trois », « droit », « sens », « gens » ne sont jamais touchés ;
 - les mots laissés au choix du s long et des imparfaits en « oi » sont signalés un par un dans le
   rapport, avec le lien vers la page scannée ;
+- les accents aigus qui manquent sont rétablis quand la forme accentuée existe (« deputez » →
+  « députés », « Residens » → « Résidents ») ;
 - la modernisation du vocabulaire est un choix d'édition : l'étape n'est jamais cochée d'office.
 
 Une fois une liste tranchée, décocher son étape : à la relance sur le fichier marqué, ses mots ne

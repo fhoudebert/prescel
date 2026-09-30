@@ -44,6 +44,7 @@ Usage :
 
 import argparse
 import collections
+import itertools
 import csv
 import os
 import re
@@ -205,6 +206,11 @@ def propose_ez(counts, caps, wordlist, plurals=None):
                 w[:-3] + "yés" in wordlist:
             target = w[:-3] + "yés"             # « envoiez » → « envoyés »
         known = (wordlist is not None and target in wordlist) or counts.get(target, 0) >= 2
+        accent_note = ""
+        if not known:
+            accented = with_accents(target, wordlist)
+            if accented is not None:             # « deputez » → « députés »
+                target, known, accent_note = accented, True, "accent rétabli"
         verb = wordlist is not None and w in wordlist
         if not known and verb:
             continue                             # « aviez », « étiez » : verbes, rien à proposer
@@ -215,11 +221,29 @@ def propose_ez(counts, caps, wordlist, plurals=None):
         elif verb:
             ok, why = 1, "aussi un verbe : gardé après « vous », à l'impératif"
         else:
-            ok, why = 1, ""
+            ok, why = 1, accent_note
         rows.append({"appliquer": str(ok), "forme_lue": w, "correction": target,
                      "occurrences": str(n), "occ_correction": str(counts.get(target, 0)), "remarque": why})
     rows.sort(key=lambda r: (-int(r["occurrences"]), r["forme_lue"]))
     return rows
+
+
+def with_accents(word, wordlist, counts=None):
+    """Forme moderne avec les accents aigus qui manquent : « penitents » → « pénitents »,
+    « deputés » → « députés ». On essaie « é » à la place d'un ou plusieurs « e » (le moins
+    possible), jamais sur la dernière syllabe muette. Renvoie None si rien n'existe."""
+    if wordlist is None:
+        return None
+    pos = [i for i, c in enumerate(word[:-2]) if c == "e"]
+    for k in range(1, min(3, len(pos)) + 1):
+        for combo in itertools.combinations(pos, k):
+            cand = list(word)
+            for i in combo:
+                cand[i] = "é"
+            cand = "".join(cand)
+            if cand in wordlist:
+                return cand
+    return None
 
 
 def propose_ants(counts, caps, wordlist, plurals=None):
@@ -238,12 +262,15 @@ def propose_ants(counts, caps, wordlist, plurals=None):
             continue                             # « sens », « gens », « paysans » : rien à faire
         target = w[:-1] + "ts"
         known = (wordlist is not None and target in wordlist) or counts.get(target, 0) >= 2
+        why = ""
         if not known:
-            continue                             # pas d'équivalent moderne en -ts : pas proposé
-        if caps.get(w, 0) >= max(2, 0.6 * n):
-            ok, why = 0, "surtout avec une majuscule : nom propre ?"
-        else:
-            ok, why = 1, ""
+            accented = with_accents(target, wordlist)
+            if accented is None:
+                continue                         # pas d'équivalent moderne en -ts : pas proposé
+            target, known, why = accented, True, "accent rétabli"
+        # Un pluriel en -ans/-ens avec majuscule (« Negocians », « Penitens ») est presque
+        # toujours un nom commun mis en valeur : la forme en -ts existant, on corrige.
+        ok = 1
         rows.append({"appliquer": str(ok), "forme_lue": w, "correction": target,
                      "occurrences": str(n), "occ_correction": str(counts.get(target, 0)), "remarque": why})
     rows.sort(key=lambda r: (-int(r["occurrences"]), r["forme_lue"]))

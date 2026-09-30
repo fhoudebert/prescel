@@ -855,6 +855,14 @@ VOCABULAIRE_17_18 = {
     "paisan": "paysan",
     "paisans": "paysans",
     "paisanne": "paysanne",
+    "onguens": "onguents",
+    "fauffe": "fausse",
+    "fauffes": "fausses",
+    "ausquelles": "auxquelles",
+    "ausquels": "auxquels",
+    # verbes hors imparfait (s long lu « f »)
+    "affiftent": "assistent",
+    "caffer": "casser",
 }
 
 
