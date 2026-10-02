@@ -1,7 +1,8 @@
 # Prescel
 
 Préparer un livre numérisé — EPUB issu d'OCR (Google Livres, Gallica…) ou PDF — avant sa
-relecture dans [Sigil](https://sigil-ebook.com/).
+relecture dans [Sigil](https://sigil-ebook.com/), puis le publier : EPUB relu, ou texte et HTML
+pour [Project Gutenberg](https://www.gutenberg.org/).
 
 Prescel enchaîne des scripts Python indépendants depuis une interface web locale : nettoyage du
 balisage, corrections propres aux imprimés anciens (s long, imparfaits en « oi », pluriels en
@@ -12,6 +13,7 @@ corrections douteuses restent au choix, dans des listes que l'on coche.
 
 ## Sommaire
 
+- [Réutiliser Prescel : de Gallica ou Google Livres à Gutenberg ou à une autre plateforme](#réutiliser-prescel--de-gallica-ou-google-livres-à-gutenberg-ou-à-une-autre-plateforme)
 - [Installation et lancement](#installation-et-lancement)
 - [Déroulement dans Prescel](#déroulement-dans-prescel)
 - [Les scripts](#les-scripts)
@@ -22,7 +24,130 @@ corrections douteuses restent au choix, dans des listes que l'on coche.
 - [Structure : titres, notes, tableaux et listes](#structure--titres-notes-tableaux-et-listes)
 - [Relecture dans Sigil](#relecture-dans-sigil)
 - [Après des retouches dans Sigil](#après-des-retouches-dans-sigil)
+- [Publier sur Project Gutenberg](#publier-sur-project-gutenberg)
+- [Typographie française](#typographie-française)
 - [Licence](#licence)
+
+## Réutiliser Prescel : de Gallica ou Google Livres à Gutenberg ou à une autre plateforme
+
+Les scripts ont été mis au point sur des récits de voyage des XVIᵉ–XVIIIᵉ siècles (Belon, Chardin,
+Thévenot, Dellon, Choisy, Carré) et un texte du XIXᵉ (Montluc, Hachette 1872). Ils servent tels
+quels pour tout livre ancien en français numérisé par Google Livres, Gallica ou Internet Archive.
+Les étapes ci-dessous peuvent se suivre dans l'interface Prescel ou en ligne de commande.
+
+### 1. Choisir la cible avant de corriger
+
+La plateforme visée décide de ce qu'on a le droit de changer : à trancher **avant** les étapes de
+modernisation.
+
+| Cible | Texte attendu | Étapes à éviter | Fichiers à produire |
+|---|---|---|---|
+| **Project Gutenberg** | fidèle à **une** édition du domaine public aux États-Unis (publiée il y a plus de 95 ans) ; orthographe d'origine | modernisation (oi, ez, erent, ans, vocabulaire) ; corrections tirées d'une édition moderne protégée, sauf erreurs d'OCR | `.txt` UTF-8 + `.html` HTML5 valide (`epub_gutenberg.py`) |
+| **Wikisource** | fidèle, page à page, aligné sur le fac-similé | modernisation ; découpage par chapitre | texte par page (l'EPUB sert de base de relecture) |
+| **Édition personnelle, site, bibliothèque numérique, liseuse** | libre : modernisation possible si elle est annoncée | — | EPUB relu (`…-relu.epub`), validé par epubcheck |
+| **Boutiques d'ebooks** (Kobo, Apple, Google Play, Amazon…) | conditions propres à chaque boutique pour le domaine public (certaines exigent un apport : notes, présentation, traduction) | à vérifier dans leurs conditions du moment | EPUB validé par epubcheck |
+
+Dans tous les cas : texte dans le domaine public dans le pays de diffusion (en France, auteur mort
+depuis plus de 70 ans) ; illustrations ajoutées (portrait de couverture…) de licence compatible ;
+une édition moderne utilisée comme référence (`epub_reference.py`) ne sert qu'à corriger l'OCR,
+pas à en reprendre les choix d'éditeur.
+
+### 2. Récupérer la source et ce qu'il faut garder
+
+| Source | À télécharger | À conserver tout au long du travail |
+|---|---|---|
+| **Google Livres** (affichage complet) | l'EPUB (« Télécharger EPUB ») ; le PDF pour comparer | l'EPUB d'origine : ses ancres et sa page-map sont la seule source sûre des numéros de page (`epub_pages.py --from`) |
+| **Gallica** | le PDF, **sans le renommer** (son nom contient l'identifiant `bpt6k…` / `btv1b…`) | l'identifiant : il donne l'OCR de la BnF (ALTO), la pagination et les liens vers chaque vue |
+| **Internet Archive** | le PDF (couche texte) ou l'EPUB | le PDF |
+| **Autre édition du même texte** (même moderne) | PDF ou texte | uniquement pour `epub_reference.py --apply ocr` |
+
+Pour la vérification des droits par Gutenberg, garder aussi les images de la page de titre et de
+son verso.
+
+### 3. Parcours A — Google Livres → EPUB relu → Gutenberg
+
+```
+# 1. préparation (ou bouton « Préparer le livre » dans Prescel, réglages préconisés)
+python3 epub_simplify.py  google.epub -o 1.epub --join-hyphens --flatten-br --lettrines
+python3 epub_longs.py     1.epub -o 2.epub --tsv livre-s-long.tsv --wordlist auto
+python3 epub_structure.py 2.epub -o 3.epub --merge-pages --drop-furniture --drop-google-notice \
+        --caps-titles --link-notes            # + --title-before, --date-titles selon le livre
+python3 epub_split_h1.py  3.epub -o 4.epub --tag h1,h2
+python3 epub_review.py    4.epub --report relecture.html --mark a-relire.epub \
+        --longs-tsv livre-s-long.tsv --dict-out dictionnaire.txt
+
+# 2. relecture dans Sigil (rechercher « a-verifier »), puis relance ciblée dans Prescel
+
+# 3. finalisation
+python3 epub_review.py a-relire.epub --unmark -o relu.epub
+python3 epub_pages.py  relu.epub -o relu.epub            # liens, id en double, liste des pages
+python3 epub_pages.py  relu.epub --from google.epub -o relu.epub   # si les numéros de page ont disparu
+python3 epub_typo.py   relu.epub -o relu.epub            # typographie française
+python3 epub_gutenberg.py relu.epub -o Mon_livre --title-file titre
+```
+
+Pour Gutenberg, **ne pas lancer** `epub_modernise.py` et limiter `epub_reference.py` à
+`--apply ocr`. Le s long rendu par « s » est l'usage de Gutenberg.
+
+### 4. Parcours B — Gallica (PDF) → EPUB relu → Gutenberg
+
+```
+python3 pdf_to_epub.py "Titre_[...]Auteur_bpt6k9627352r.pdf" -o brut.epub
+#   OCR de la BnF disponible : utilisé automatiquement (ALTO) ;
+#   sinon : --source ocr --lang fra (ou frm, fra+frm), et --pages 20-40 pour un essai
+python3 epub_longs.py brut.epub -o 2.epub --tsv livre-s-long.tsv --wordlist auto
+python3 epub_structure.py 2.epub -o 3.epub --drop-furniture --caps-titles --link-notes
+# puis comme le parcours A (découpage, rapport, Sigil, finalisation)
+```
+
+Le nettoyage (`epub_simplify.py`) est inutile : l'EPUB produit est déjà propre. Les liens du
+rapport de relecture ouvrent la vue Gallica de chaque page.
+
+### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
+
+Après le s long, ajouter les listes de modernisation, à trancher dans les onglets de Prescel :
+
+```
+python3 epub_modernise.py 2.epub -o 2b.epub --mode oi    --tsv livre-oi.tsv    --wordlist auto
+python3 epub_modernise.py 2b.epub -o 2c.epub --mode ez   --tsv livre-ez.tsv    --wordlist auto
+python3 epub_modernise.py 2c.epub -o 2d.epub --mode erent --tsv livre-erent.tsv --wordlist auto
+python3 epub_modernise.py 2d.epub -o 2e.epub --mode ants --tsv livre-ants.tsv  --wordlist auto
+python3 epub_modernise.py 2e.epub -o 2f.epub --mode vocab --tsv livre-moderne.tsv --wordlist auto
+```
+
+et, si une autre édition existe, une passe de comparaison :
+
+```
+python3 epub_reference.py relu.epub reference.pdf --from-page 118 \
+        --apply ocr,esperluette,apostrophes,casse,graphie,variante \
+        --keep "Ptolémée,Européens" -o relu2.epub --report ecarts.html
+```
+
+(la catégorie `variante` et les choix de graphie d'une édition moderne n'ont leur place que dans une
+édition destinée à un usage personnel ou autorisée par son éditeur).
+
+### 6. Ce qu'il faut adapter d'un livre à l'autre
+
+| Réglage | Où | Quand |
+|---|---|---|
+| Titres de chapitre | `--chapter-regex`, `--book-regex`, `--title-before`, `--date-titles`, `--caps-titles` | numérotation ou mise en page inhabituelle ; journal daté |
+| Page de titre | `epub_gutenberg.py --title-file NOM` | le fichier de la page de titre ne commence pas par « titre » |
+| Dictionnaires | `dictionnaires/*.py` | mots récurrents du livre (ils servent ensuite aux suivants) |
+| Mots à ne pas toucher | `epub_reference.py --keep` ; décocher dans les onglets | noms propres, graphies voulues |
+| Listes TSV | `<livre>-s-long.tsv`, `-oi.tsv`… dans le dossier du projet | à garder : vos choix sont repris à chaque relance |
+| Catégories du rapport | `epub_review.py --sans` | catégories déjà traitées |
+
+### 7. Avant de publier
+
+- [ ] epubcheck : 0 erreur (`epub_pages.py` répare liens, id en double, liste des pages) ;
+- [ ] plus aucun marqueur `a-verifier` (`epub_review.py --unmark`) ;
+- [ ] table des matières complète (titre + sommaire de chaque chapitre) ;
+- [ ] page de titre et date conformes au scan ;
+- [ ] note de transcription : corrections faites, notes renumérotées, modernisation éventuelle ;
+- [ ] pour Gutenberg : droits validés sur https://copy.pglaf.org, `.html` sans erreur sur
+      https://validator.w3.org/, `.txt` à 72 caractères par ligne, puis dépôt sur
+      https://upload.pglaf.org.
+
 
 ## Installation et lancement
 
