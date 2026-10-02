@@ -17,6 +17,7 @@ corrections douteuses restent au choix, dans des listes que l'on coche.
 - [Les scripts](#les-scripts)
 - [Imprimés anciens : listes de corrections](#imprimés-anciens--listes-de-corrections)
 - [Dictionnaires](#dictionnaires)
+- [Corriger d'après une autre édition](#corriger-daprès-une-autre-édition)
 - [PDF](#pdf)
 - [Structure : titres, notes, tableaux et listes](#structure--titres-notes-tableaux-et-listes)
 - [Relecture dans Sigil](#relecture-dans-sigil)
@@ -76,6 +77,7 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») |
 | `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), en « ans » (`--mode ants`), vocabulaire (`--mode vocab`) |
+| `epub_reference.py` | corrige l'EPUB d'après une autre édition du texte (PDF ou texte) : alignement mot à mot, catégories au choix, rapport d'écarts |
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
@@ -126,6 +128,37 @@ De simples fichiers Python `{"ancien": "moderne", …}`, à compléter librement
 | `dictionnaires/vocabulaire_17_18.py` | Modernisation | vocabulaire et expressions (« luy », « mesme », « païs », « aussi tost ») |
 
 Un dictionnaire passe toujours avant la règle générale de son étape.
+
+## Corriger d'après une autre édition
+
+Quand une autre édition du même texte existe (PDF ou texte), `epub_reference.py` (étape « Corriger
+d'après une autre édition ») retrouve chaque paragraphe de l'EPUB dans cette référence — même si
+l'une est en graphie ancienne et l'autre modernisée — et compare les deux mot à mot. Notes, appels
+de note et repères de pagination de la référence sont écartés.
+
+```
+python3 epub_reference.py livre.epub "Chardin voyages.pdf" --from-page 118 -o livre-corrige.epub
+```
+
+Seules les catégories demandées (`--apply`) sont appliquées ; toutes sont listées dans le rapport
+d'écarts (`…-ecarts.html`) :
+
+| Catégorie | Exemple | Par défaut |
+|---|---|---|
+| `ocr` | « font » → « sont », « vlande » → « viande », « Dadlan » → « Dadian », « Roy al » → « royal » | appliquée |
+| `esperluette` | « & » → « et » | non |
+| `apostrophes` | « qu'il » → « qu’il » | non |
+| `casse` | « Roi » → « roi » | non |
+| `graphie` | « par tout » → « partout », « Tiflis » → « Tifflis » | non |
+| `variante` | « leurs » / « leur », « Européens » / « Européans » (autre mot correct) | non |
+
+Les mots en plus ou en moins ne sont jamais appliqués. Les noms propres et abréviations dont la
+graphie diffère restent en variantes, sauf confusion évidente de l'OCR (l / i).
+
+**Droits** : une édition moderne (texte établi, modernisé, annoté) est une œuvre protégée même si
+le texte d'origine est libre. Corriger les erreurs d'OCR d'après elle revient à vérifier une
+lecture ; reprendre ses choix de modernisation, de ponctuation ou de majuscules reproduit son
+travail d'éditeur : demandez l'accord de l'éditeur avant de diffuser un tel résultat.
 
 ## PDF
 

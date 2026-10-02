@@ -230,6 +230,32 @@ STEPS = [
         ],
     },
     {
+        "id": "reference", "enabled": False, "script": "epub_reference.py", "suffix": "2g-reference",
+        "title": "Corriger d'après une autre édition",
+        "summary": "Chaque paragraphe est retrouvé dans une autre édition du même texte (PDF ou texte) et "
+                   "comparé mot à mot. Par défaut, seules les erreurs d'OCR sont corrigées : s long ambigu "
+                   "(« font » → « sont »), lettres mal lues (« vlande » → « viande »), mots coupés (« Roy al »). "
+                   "Les autres écarts (graphie, majuscules, « & », variantes de texte) sont listés dans le "
+                   "rapport d'écarts. Reprendre les choix d'un éditeur moderne reproduit son travail : "
+                   "demandez son accord avant de diffuser le résultat.",
+        "options": [
+            {"key": "ref_path", "type": "text", "label": "Fichier de référence (PDF ou .txt)",
+             "help": "Chemin complet sur cet ordinateur, par exemple /home/moi/Chardin voyages.pdf."},
+            {"flag": "--from-page", "type": "int", "default": 1, "label": "Première page utile",
+             "help": "Page du PDF où commence le texte (après introduction et notes de l'éditeur)."},
+            {"flag": "--to-page", "type": "int", "default": 0, "advanced": True, "label": "Dernière page utile",
+             "help": "0 : jusqu'à la fin."},
+            {"key": "ref_apply", "type": "multi", "default": ["ocr"],
+             "choices": [["ocr", "erreurs d'OCR"], ["esperluette", "« & » → « et »"],
+                         ["apostrophes", "apostrophes typographiques"], ["casse", "majuscules / minuscules"],
+                         ["graphie", "graphie et accents"], ["variante", "variantes de texte"]],
+             "label": "Corriger",
+             "help": "Les catégories cochées sont appliquées ; toutes sont listées dans le rapport d'écarts."},
+            {"flag": "--min-ratio", "type": "text", "advanced": True, "label": "Ressemblance minimale",
+             "help": "De 0 à 1 (défaut 0.8) : en dessous, le paragraphe n'est pas touché."},
+        ],
+    },
+    {
         "id": "structure", "enabled": True, "script": "epub_structure.py", "suffix": "3-structure",
         "title": "Structure du livre",
         "summary": "Reconnaît les livres et chapitres (h1, h2), les sommaires et les notes ; "
@@ -1007,6 +1033,18 @@ def pipeline(job, plan, check_mode, start=None):
         if os.path.exists(out):
             os.remove(out)
         cmd = [py, "-u", script, current, "-o", out] + build_args(step, opts)
+        if step["id"] == "reference":
+            ref = (opts.get("ref_path") or "").strip()
+            if not ref or not os.path.exists(os.path.expanduser(ref)):
+                job.log("reference", "Fichier de référence introuvable : %s — étape ignorée." % (ref or "(vide)"), "err")
+                shutil.copy2(current, out)
+                st["status"], st["output"], st["seconds"] = "done", os.path.basename(out), 0
+                current = final_epub = out
+                continue
+            report = os.path.join(d, slug + "-ecarts.html")
+            cmd = [py, "-u", script, current, os.path.expanduser(ref), "-o", out, "--report", report,
+                   "--apply", ",".join(opts.get("ref_apply") or []) or "aucune"] + build_args(step, opts)
+            job.result["ecarts"] = os.path.basename(report)
         if step["id"] in ("oi", "ez", "ants", "moderne"):
             cmd += ["--mode", {"oi": "oi", "ez": "ez", "ants": "ants", "moderne": "vocab"}[step["id"]],
                     "--tsv", list_tsv]
@@ -1926,6 +1964,7 @@ function finish(j) {
     "epubcheck (final) : " + (r.epubcheck.errors + r.epubcheck.fatals) + " erreur(s), " + r.epubcheck.warnings + " avertissement(s)"));
   if (r.toc) renderToc(r.toc);
   if (r.longs) loadList("longs");
+  if (r.ecarts) act.append(el("a", { class: "bouton", href: "/files/" + slug + "/" + r.ecarts, target: "_blank" }, "Rapport d'écarts avec la référence"));
   for (const k of r.lists || []) loadList(k);
   if (r.report) {
     const v = $("#vue-rapport"); v.innerHTML = "";
