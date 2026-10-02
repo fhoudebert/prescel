@@ -17,6 +17,7 @@ corrections douteuses restent au choix, dans des listes que l'on coche.
 - [Les scripts](#les-scripts)
 - [Imprimés anciens : listes de corrections](#imprimés-anciens--listes-de-corrections)
 - [Dictionnaires](#dictionnaires)
+- [Corriger d'après une autre édition](#corriger-daprès-une-autre-édition)
 - [PDF](#pdf)
 - [Structure : titres, notes, tableaux et listes](#structure--titres-notes-tableaux-et-listes)
 - [Relecture dans Sigil](#relecture-dans-sigil)
@@ -75,13 +76,14 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») |
-| `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), en « ans » (`--mode ants`), vocabulaire (`--mode vocab`) |
+| `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), passé simple en « erent » (`--mode erent`), pluriels en « ans » (`--mode ants`), vocabulaire (`--mode vocab`) |
+| `epub_reference.py` | corrige l'EPUB d'après une autre édition du texte (PDF ou texte) : alignement mot à mot, catégories au choix, rapport d'écarts |
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
 | `epub_pages.py` | liste des pages du livre papier rétablie ou réparée ; `--purge` |
 
-Ordre des étapes : import PDF → nettoyage → s long → oi → ez → ans → vocabulaire → structure →
+Ordre des étapes : import PDF → nettoyage → s long → oi → ez → erent → ans → vocabulaire → référence → structure →
 découpage → rapport. Le s long passe en premier : les autres listes supposent « estoit », pas
 « eftoit ».
 
@@ -97,7 +99,8 @@ respectée (« Estoit » → « Était ») ; seuls les mots listés changent.
 | **S long** (`epub_longs.py`) | « eft » → « est », « faifoit » → « faisoit » | mots qui existent sous les deux formes : « font »/« sont », « fait »/« sait » |
 | **oi → ai** (`--mode oi`) | « il estoit » → « il était », « auroient » → « auraient » | noms propres et nationalités (« François », « Anglois »), formes inconnues |
 | **ez → és** (`--mode ez`) | « les bontez » → « les bontés », « sont armez » → « armés » | formes inconnues ; « vous avez », « allez-vous », « Venez » sont toujours gardés |
-| **ans → ants** (`--mode ants`) | « charmans » → « charmants », « momens » → « moments » | mots surtout écrits avec une majuscule |
+| **erent → èrent** (`--mode erent`) | « ils allerent » → « allèrent », « donnérent » → « donnèrent » | forme aussi adjectif (« different »), forme inconnue (s long à corriger d'abord) |
+| **ans → ants** (`--mode ants`) | « charmans » → « charmants », « Penitens » → « Pénitents » | rien d'office : décocher ce qu'on veut garder |
 | **Modernisation** (`--mode vocab`) | « luy » → « lui », « mesme » → « même », « aussi tost » → « aussitôt » | graphies qui sont aussi des mots modernes (« des » → « dès ») |
 
 Garde-fous communs :
@@ -106,6 +109,8 @@ Garde-fous communs :
   « force », « fleur », « trois », « droit », « sens », « gens » ne sont jamais touchés ;
 - les mots laissés au choix du s long et des imparfaits en « oi » sont signalés un par un dans le
   rapport, avec le lien vers la page scannée ;
+- les accents aigus qui manquent sont rétablis quand la forme accentuée existe (« deputez » →
+  « députés », « Residens » → « Résidents ») ;
 - la modernisation du vocabulaire est un choix d'édition : l'étape n'est jamais cochée d'office.
 
 Une fois une liste tranchée, décocher son étape : à la relance sur le fichier marqué, ses mots ne
@@ -121,9 +126,40 @@ De simples fichiers Python `{"ancien": "moderne", …}`, à compléter librement
 | `dictionnaires/verbes_oi.py` | oi → ai | imparfaits et conditionnels, avec la forme moderne complète (« estoit » → « était », « envoyeroit » → « enverrait ») |
 | `dictionnaires/pluriels_ez.py` | ez → és | formes qui ne suivent pas la règle (« excez » → « excès », « extremitez » → « extrémités ») |
 | `dictionnaires/pluriels_ants.py` | ans → ants | formes à accent ou abîmées (« presens » → « présents ») |
-| `dictionnaires/vocabulaire_17_18.py` | Modernisation | vocabulaire et expressions (« luy », « mesme », « païs », « aussi tost ») |
+| `dictionnaires/vocabulaire_17_18.py` | Modernisation | vocabulaire et expressions (« luy », « mesme », « païs », « aussi tost »), et erreurs d'OCR fréquentes relevées par comparaison avec une édition moderne (« vlande » → « viande », « fubtil » → « subtil ») |
 
 Un dictionnaire passe toujours avant la règle générale de son étape.
+
+## Corriger d'après une autre édition
+
+Quand une autre édition du même texte existe (PDF ou texte), `epub_reference.py` (étape « Corriger
+d'après une autre édition ») retrouve chaque paragraphe de l'EPUB dans cette référence — même si
+l'une est en graphie ancienne et l'autre modernisée — et compare les deux mot à mot. Notes, appels
+de note et repères de pagination de la référence sont écartés.
+
+```
+python3 epub_reference.py livre.epub "Chardin voyages.pdf" --from-page 118 -o livre-corrige.epub
+```
+
+Seules les catégories demandées (`--apply`) sont appliquées ; toutes sont listées dans le rapport
+d'écarts (`…-ecarts.html`) :
+
+| Catégorie | Exemple | Par défaut |
+|---|---|---|
+| `ocr` | « font » → « sont », « vlande » → « viande », « Dadlan » → « Dadian », « Roy al » → « royal » | appliquée |
+| `esperluette` | « & » → « et » | non |
+| `apostrophes` | « qu'il » → « qu’il » | non |
+| `casse` | « Roi » → « roi » | non |
+| `graphie` | « par tout » → « partout », « Tiflis » → « Tifflis » | non |
+| `variante` | « leurs » / « leur », « Européens » / « Européans » (autre mot correct) | non |
+
+Les mots en plus ou en moins ne sont jamais appliqués. Les noms propres et abréviations dont la
+graphie diffère restent en variantes, sauf confusion évidente de l'OCR (l / i).
+
+**Droits** : une édition moderne (texte établi, modernisé, annoté) est une œuvre protégée même si
+le texte d'origine est libre. Corriger les erreurs d'OCR d'après elle revient à vérifier une
+lecture ; reprendre ses choix de modernisation, de ponctuation ou de majuscules reproduit son
+travail d'éditeur : demandez l'accord de l'éditeur avant de diffuser un tel résultat.
 
 ## PDF
 
@@ -145,6 +181,11 @@ vers ligne à ligne, à reconnaître tableaux et listes. Les mots peu sûrs pour
   livres (« Le second liure ») ; titres composés en capitales sur plusieurs lignes ; titre placé
   avant « Chapitre N » (éditions anciennes) ; dates d'un journal (« 6. Mars. »). Les titres
   courants répétés (« PREFACE » en tête de chaque page) sont retirés.
+- **Sommaires** : le paragraphe court qui suit « Chapitre N » (« Des Images. ») reçoit la classe
+  `sommaire` et complète l'entrée de la table : « Chapitre IX — Des Images ». Une classe `sommaire`
+  posée à la main dans Sigil juste sous un titre est conservée à la relance. Le `toc.ncx` étant
+  régénéré à chaque relance, c'est dans le texte (titre + sommaire) qu'il faut corriger, pas dans
+  le `toc.ncx`.
 - **Notes** : « bonneter1 » devient un appel en exposant relié à « 1. Saluer en ôtant le bonnet »,
   aller-retour par liens ; les notes dont l'appel est perdu sont listées dans le rapport.
 - **Table des matières** reconstruite depuis les titres ; **liste des pages** du livre papier
@@ -179,9 +220,18 @@ python3 epub_review.py livre-a-relire.epub --unmark -o livre-relu.epub
   python3 epub_pages.py livre-relu.epub -o livre-pages.epub            # rétablir / réparer
   python3 epub_pages.py livre-relu.epub -o livre-sans-pages.epub --purge   # ou retirer les ancres
   ```
+  Si les ancres ont disparu du texte (purge, nettoyage dans Sigil), elles peuvent être reportées
+  depuis une autre version du livre, même en graphie ancienne — typiquement l'EPUB de Google
+  d'origine, dont la page-map donne aussi les numéros imprimés :
+  ```
+  python3 epub_pages.py livre-relu.epub --from livre-google.epub -o livre-pages.epub
+  ```
 - **Id en double** (couper un paragraphe dans Sigil recopie son `id`), **ancres disparues**
   encore visées par le `toc.ncx`, **playOrder identiques** : réparés par `epub_pages.py` et par la
   relance ciblée, marqueurs conservés.
+- **Liens cassés** après un renommage ou un déplacement dans Sigil (« Styles/livre.css » au lieu de
+  « ../Styles/livre.css », image introuvable) : refaits vers le fichier du même nom par
+  `epub_pages.py` et par la relance ciblée.
 - **DOCTYPE** : Google écrit en XHTML 1.0 Strict, refusé par epubcheck dans un EPUB 2 (`HTM-004`).
   Toutes les étapes le corrigent ; pour un fichier en cours de relecture :
   `python3 epub_review.py livre-a-relire.epub --fix-doctype`.

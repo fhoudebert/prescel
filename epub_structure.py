@@ -381,9 +381,14 @@ class Structurer:
 
     # -- titres, sommaires, notes -----------------------------------------
     def mark_structure(self, doc):
+        # Un sommaire juste sous un titre est gardé (posé par une passe précédente ou à la main
+        # dans Sigil) ; ailleurs la classe est réévaluée.
+        prev = None
         for el in doc.body:
-            if el.get("class") == "sommaire":
+            if el.get("class") == "sommaire" and not (prev is not None and lname(prev) in ("h1", "h2")):
                 del el.attrib["class"]
+            if not is_bare_anchor(el):
+                prev = el
         kids = list(doc.body)
         for idx, el in enumerate(kids):
             if lname(el) not in ("p",) and lname(el) not in HEAD_TAGS:
@@ -432,10 +437,15 @@ class Structurer:
                     el.set("id", self.new_id())
                 if level == "h2" and not self.table_re.match(t):
                     for nxt in kids[idx + 1:idx + 4]:
+                        if "sommaire" in classes(nxt):
+                            self.st["sommaires"] += 1
+                            break
+                        # « Des Images. », « De la Messe. » : court, mais au moins deux mots
                         if is_normal_p(nxt) and len(text_of(nxt)) < self.opts.summary_max and \
                                 (" - " in text_of(nxt) or len(text_of(nxt)) <= 160) and \
                                 re.match(r"[A-ZÀ-Þ]", text_of(nxt)) and \
-                                text_of(nxt).rstrip().endswith(".") and len(text_of(nxt)) >= 15:
+                                text_of(nxt).rstrip().endswith(".") and len(text_of(nxt)) >= 8 and \
+                                len(text_of(nxt).split()) >= 2:
                             nxt.set("class", "sommaire")
                             self.st["sommaires"] += 1
                             break
@@ -1164,6 +1174,32 @@ def reorder_adjacent_anchors(text):
     return run.sub(fix, text)
 
 
+def fix_broken_links(text, path, names):
+    """Liens vers une ressource introuvable (« Styles/livre.css » au lieu de
+    « ../Styles/livre.css » après un renommage dans Sigil) : si un seul fichier de l'EPUB
+    porte ce nom, le lien est refait vers lui. Renvoie (texte, liens réparés)."""
+    by_name = collections.defaultdict(list)
+    for n in names:
+        by_name[posixpath.basename(n)].append(n)
+    fixed = [0]
+
+    def repl(m):
+        url = m.group(2)
+        if re.match(r"[a-z][a-z0-9+.-]*:|#|/", url, re.I):
+            return m.group(0)
+        target, _, frag = url.partition("#")
+        if not target or resolve(path, target) in names:
+            return m.group(0)
+        cands = by_name.get(posixpath.basename(unquote(target)), [])
+        if len(cands) != 1:
+            return m.group(0)
+        fixed[0] += 1
+        new = rel_href(path, cands[0]) + ("#" + frag if frag else "")
+        return m.group(1) + new + m.group(3)
+    out = re.sub(r"""(\s(?:href|src|xlink:href)\s*=\s*["'])([^"']+)(["'])""", repl, text)
+    return out, fixed[0]
+
+
 def dedupe_ids(text):
     """Id en double dans un même fichier (Sigil recopie l'id quand on coupe un paragraphe en
     deux) : le premier est gardé ; une ancre vide en double disparaît, ailleurs seul l'attribut
@@ -1221,7 +1257,7 @@ def fix_nav_targets(ncx_text, ncx_path, texts):
     return ncx_text, dropped[0], fixed[0]
 
 
-def anchors_to_pagelist(ncx_text, ncx_path, spine, texts, stats):
+def anchors_to_pagelist(ncx_text, ncx_path, spine, texts, stats, labels=None):
     """Liste des pages du toc.ncx reconstruite à partir des ancres de page restées dans le
     texte (GBS.PA31…, page-12), quand la page-map et la liste des pages ont disparu
     (Sigil régénère le toc.ncx sans elles)."""
@@ -1235,6 +1271,9 @@ def anchors_to_pagelist(ncx_text, ncx_path, spine, texts, stats):
     max_num = 0
     for n, (path, pid) in enumerate(targets, 1):
         label, ptype = page_label(pid)
+        if labels and pid in labels:            # numéro imprimé repris de la page-map d'origine
+            label = labels[pid]
+            ptype = "normal" if label.isdigit() else ("front" if re.fullmatch(r"[ivxlcdm]+", label) else "special")
         value = ""
         if ptype == "normal":
             value = ' value="%s"' % label
@@ -1385,6 +1424,9 @@ def main():
             txt, dup = dedupe_ids(reorder_adjacent_anchors(raw.decode(d.enc)))
             if dup:
                 stats["id en double retirés"] += dup
+            txt, nlinks = fix_broken_links(txt, d.path, names)
+            if nlinks:
+                stats["liens réparés (fichier déplacé)"] += nlinks
             fixed = txt.encode(d.enc, "xmlcharrefreplace")
             new_data[d.path] = fixed
         if entries and not opts.no_toc:

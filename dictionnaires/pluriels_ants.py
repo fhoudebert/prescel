@@ -18,4 +18,10 @@ PLURIELS_ANTS = {
     "etablissemens": "établissements",
     "evenemens": "événements",
     "événemens": "événements",
+    "negocians": "négociants",
+    "négocians": "négociants",
+    "penitens": "pénitents",
+    "pénitens": "pénitents",
+    "residens": "résidents",
+    "résidens": "résidents",
 }
