@@ -31,6 +31,23 @@ import sys
 import textwrap
 import zipfile
 import xml.etree.ElementTree as ET
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from typo_fr import typo_pieces  # noqa: E402
+
+TYPO = [True]
+
+
+def typo_runs(runs):
+    """Typographie française sur tout le bloc, par-dessus les changements de style."""
+    if not TYPO[0]:
+        return runs
+    idx = [i for i, (t, s) in enumerate(runs) if not isinstance(s, tuple)]
+    pieces = typo_pieces([runs[i][0] if runs[i][1] != "br" else "\n" for i in idx])
+    out = list(runs)
+    for i, p in zip(idx, pieces):
+        out[i] = (p if runs[i][1] != "br" else "\n", runs[i][1])
+    return out
 from urllib.parse import unquote
 import posixpath
 
@@ -208,7 +225,7 @@ def read_epub(path):
                     last = re.sub(r"\s*[,;]\s*$", ".", runs[-1][0])
                     last = re.sub(r"\.{2}$", ".", last)
                     runs[-1] = (last, runs[-1][1])
-                runs = clean_runs(runs)
+                runs = typo_runs(clean_runs(runs))
                 if num is None:
                     order += 1
                     num = order
@@ -218,7 +235,7 @@ def read_epub(path):
             if n == "hr":
                 book.blocks.append((chapter, {"kind": "hr", "cls": set(), "runs": []}))
                 continue
-            runs = clean_runs(runs_of(el, notemap))
+            runs = typo_runs(clean_runs(runs_of(el, notemap)))
             if not runs:
                 continue
             kind = n if n in ("h1", "h2", "h3", "h4") else "p"
@@ -244,7 +261,9 @@ def plain_runs(runs, italic="_"):
             out.append(t)
         else:
             out.append(t)
-    text = "".join(out).replace("\u00a0", " ").replace("\u202f", " ")
+    text = "".join(out)
+    if not TYPO[0]:
+        text = text.replace("\u00a0", " ").replace("\u202f", " ")
     return re.sub(r"_(\s*)_", r"\1", text)            # italiques contiguës fusionnées
 
 
@@ -457,11 +476,18 @@ def main():
     ap.add_argument("--width", type=int, default=72, help="longueur maximale des lignes du texte (défaut 72)")
     ap.add_argument("--title-file", default="titre",
                     help="fichier de la page de titre dans l'EPUB (début du nom ; défaut « titre »)")
+    ap.add_argument("--no-typo", action="store_true",
+                    help="ne pas appliquer la typographie française (espaces insécables avant ; : ! ? », "
+                         "après «, aucune avant . , …, « ... » → « … », tirets)")
     ap.add_argument("--note", action="append", default=[],
                     help="paragraphe de la note de transcription (répétable)")
     opts = ap.parse_args()
 
+    TYPO[0] = not opts.no_typo
     book = read_epub(opts.epub)
+    if book.lang != "fr":
+        TYPO[0] = False
+        book = read_epub(opts.epub)
     # page de titre : blocs du fichier de titre
     title_lines = []
     for chapter, b in book.blocks:

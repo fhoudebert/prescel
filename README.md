@@ -82,6 +82,7 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
 | `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide |
+| `epub_typo.py` | typographie française : espaces insécables avant ; : ! ? » et après «, aucune avant . , …, « ... » → « … », tirets |
 | `epub_pages.py` | liste des pages du livre papier rétablie ou réparée ; `--purge` |
 
 Ordre des étapes : import PDF → nettoyage → s long → oi → ez → erent → ans → vocabulaire → référence → structure →
@@ -255,6 +256,25 @@ python3 epub_gutenberg.py livre-relu.epub -o Mon_livre      # → Mon_livre.txt,
 
 Avant l'envoi : faire vérifier les droits (scans de la page de titre et de son verso) sur
 https://copy.pglaf.org, puis déposer les fichiers sur https://upload.pglaf.org.
+
+## Typographie française
+
+`typo_fr.py` applique les règles d'espacement françaises ; `epub_typo.py` les applique à un EPUB,
+et `epub_gutenberg.py` aux fichiers pour Project Gutenberg (sauf `--no-typo`, et seulement pour
+un livre en français) :
+
+| Signe | Avant | Après |
+|---|---|---|
+| `. , … ) ]` | aucune espace | une espace si un mot suit |
+| `; : ! ?` | espace insécable | une espace si un mot suit |
+| `«` | — | espace insécable |
+| `»` | espace insécable | une espace si un mot suit |
+| `( [` | — | aucune espace |
+| `...` | devient `…` | |
+| ` - ` entre deux espaces, `-` en tête de paragraphe | devient le tiret `—` | une espace |
+
+Les règles passent par-dessus l'italique (« _mea culpa_ ; »), ne touchent pas aux nombres
+(« 10:30 », « 1,5 ») et sont vérifiées : seules les espaces, `...` et le tiret changent.
 
 ## Licence
 
