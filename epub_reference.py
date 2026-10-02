@@ -232,6 +232,12 @@ def main():
     ap.add_argument("--apply", default="ocr",
                     help="catégories à appliquer, séparées par des virgules "
                          "(ocr, esperluette, apostrophes, casse, graphie ; « aucune » pour le rapport seul)")
+    ap.add_argument("--keep", default="",
+                    help="mots de l'EPUB à ne jamais remplacer, séparés par des virgules "
+                         "(ex. « Ptolémée, Européens, l'économie ») ; casse, accents et apostrophes ignorés")
+    ap.add_argument("--max-variant-words", type=int, default=3,
+                    help="une variante n'est appliquée que si elle remplace au plus ce nombre de mots, "
+                         "et par au plus ce nombre de mots (défaut 3)")
     ap.add_argument("--min-ratio", type=float, default=0.8,
                     help="ressemblance minimale d'un paragraphe avec la référence (défaut 0,8)")
     ap.add_argument("--report", help="rapport HTML des écarts (défaut : <sortie>-ecarts.html)")
@@ -245,6 +251,7 @@ def main():
         sys.exit("Catégorie inconnue : %s" % ", ".join(sorted(bad)))
     apply -= {"absent", "enplus"}
 
+    keep = {plain(w.strip()) for w in opts.keep.split(",") if w.strip()}
     ref = reference_words(opts.reference, opts.from_page, opts.to_page)
     if len(ref) < 50:
         sys.exit("Référence presque vide (%d mots) : vérifiez --from-page / le fichier." % len(ref))
@@ -280,6 +287,7 @@ def main():
         found = collections.Counter()           # (catégorie, epub, référence) -> occurrences
         examples = {}
         applied = collections.Counter()
+        guarded, guarded_ex = collections.Counter(), {}
         stats = collections.Counter()
         changed_docs = set()
 
@@ -330,7 +338,19 @@ def main():
                         if key not in examples:
                             ctx_i = ei[0] if ei else min(i1, len(E) - 1)
                             examples[key] = (d.path, " ".join(E[max(0, ctx_i - 6):ctx_i + 7]))
-                        if cat in apply and ei and rw:
+                        blocked = any(plain(w) in keep for w in ew)
+                        if cat == "variante" and (len(ew) > opts.max_variant_words or
+                                                  len(rw) > opts.max_variant_words):
+                            blocked = True       # phrase entière remplacée : à voir à la main
+                        if cat == "variante" and not blocked:
+                            why = variant_guard(ew, rw, wordlist, vocab)
+                            if why:
+                                blocked = True
+                                guarded[why] += 1
+                                guarded_ex.setdefault(why, collections.Counter())[(" ".join(ew), " ".join(rw))] += 1
+                        if blocked and cat in apply:
+                            stats["écarts gardés (--keep, longueur)"] += 1
+                        if cat in apply and ei and rw and not blocked:
                             # la majuscule de l'EPUB est gardée, sauf « casse » hors début de phrase :
                             # « … royaume. Ils » reste « Ils » même si la référence ponctue « ; ils »
                             new = " ".join(rw)
@@ -369,6 +389,9 @@ def main():
             n = sum(v for k, v in found.items() if k[0] == cat)
             if n:
                 print("  %-58s %6d%s" % (label, n, ("  → %d appliqués" % applied[cat]) if cat in apply else ""))
+        for why, n in guarded.items():
+            ex = ", ".join("%s → %s" % kv for kv, _ in guarded_ex[why].most_common(6))
+            print("  variantes gardées (%s) : %d — %s" % (why, n, ex))
         print("Rapport : %s" % report)
         if opts.dry_run or not applied:
             if not applied:
@@ -395,6 +418,27 @@ def main():
                 os.unlink(tmp)
             raise
     print("EPUB écrit : %s" % out_path)
+
+
+def variant_guard(ew, rw, wordlist, vocab):
+    """Raison de ne pas appliquer une variante, ou None.
+    - archaïsme : l'EPUB a un mot moderne, la référence une graphie qui ne l'est pas
+      (« enverrait » → « envoyerait », « Vizir » → « Visir », « Caravansérail » → « Caravanserai ») ;
+    - abréviation : un mot entier remplacé par une abréviation (« Révérends Pères » → « RR PP ») ;
+    - nom propre : deux noms propres différents et tous deux corrects (« Grèce » → « Grève »)."""
+    if wordlist is None:
+        return None
+    e, r = " ".join(ew), " ".join(rw)
+    if all(len(w) <= 2 for w in rw) and any(len(w) > 3 for w in ew):
+        return "abréviation"
+    if len(ew) == len(rw) == 1:
+        if is_word(e, wordlist, vocab) and not is_word(r, wordlist, vocab) and \
+                difflib.SequenceMatcher(None, plain(e), plain(r)).ratio() >= 0.7:
+            return "archaïsme de la référence"
+        if e[:1].isupper() and r[:1].isupper() and len(e) >= 5 and \
+                is_word(e, wordlist, vocab) and is_word(r, wordlist, vocab):
+            return "nom propre"
+    return None
 
 
 def merge_across(block, first, second, new):
