@@ -36,6 +36,18 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from typo_fr import typo_pieces  # noqa: E402
 
 TYPO = [True]
+APOS = [None]       # None : laisser ; "’" ou "'" : une seule forme d'apostrophe
+AMP = [False]       # True : « & » → « et » dans le texte courant
+
+
+def uniform(t):
+    if APOS[0] == "’":
+        t = re.sub(r"(?<=\w)'(?=\w)", "’", t)
+    elif APOS[0] == "'":
+        t = t.replace("’", "'")
+    if AMP[0]:
+        t = re.sub(r"(?<!\S)&(?!\S)", "et", t)
+    return t.replace(" • ", " ").replace("•", "")
 
 
 def typo_runs(runs):
@@ -139,7 +151,7 @@ def clean_runs(runs):
         if s == "br" or isinstance(s, tuple):
             out.append((t, s))
             continue
-        t = fix_ocr_quotes(re.sub(r"[ \t\r\n]+", " ", t))
+        t = uniform(fix_ocr_quotes(re.sub(r"[ \t\r\n]+", " ", t)))
         if t:
             out.append((t, s))
     # pas d'espace en tête / en fin de bloc ni autour d'un saut de ligne
@@ -476,6 +488,10 @@ def main():
     ap.add_argument("--width", type=int, default=72, help="longueur maximale des lignes du texte (défaut 72)")
     ap.add_argument("--title-file", default="titre",
                     help="fichier de la page de titre dans l'EPUB (début du nom ; défaut « titre »)")
+    ap.add_argument("--apostrophes", choices=["garder", "courbes", "droites", "auto"], default="auto",
+                    help="une seule forme d'apostrophe (auto : la plus fréquente du livre)")
+    ap.add_argument("--esperluette", action="store_true",
+                    help="« & » → « et » dans tout le texte (quand le reste du livre l'écrit déjà « et »)")
     ap.add_argument("--no-typo", action="store_true",
                     help="ne pas appliquer la typographie française (espaces insécables avant ; : ! ? », "
                          "après «, aucune avant . , …, « ... » → « … », tirets)")
@@ -484,6 +500,15 @@ def main():
     opts = ap.parse_args()
 
     TYPO[0] = not opts.no_typo
+    AMP[0] = opts.esperluette
+    if opts.apostrophes == "auto":
+        z = zipfile.ZipFile(opts.epub)
+        raw = "".join(z.read(n).decode("utf-8", "replace") for n in z.namelist() if n.endswith((".xml", ".xhtml", ".html")))
+        body = re.sub(r"<[^>]+>", " ", raw)
+        straight, curly = len(re.findall(r"\w'\w", body)), body.count("’")
+        APOS[0] = "’" if curly > straight else ("'" if straight > curly else None)
+    else:
+        APOS[0] = {"garder": None, "courbes": "’", "droites": "'"}[opts.apostrophes]
     book = read_epub(opts.epub)
     if book.lang != "fr":
         TYPO[0] = False

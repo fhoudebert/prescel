@@ -251,6 +251,9 @@ python3 epub_gutenberg.py livre-relu.epub -o Mon_livre      # → Mon_livre.txt,
   vide, quatre lignes vides avant chaque chapitre et deux après, italique en `_soulignés_`,
   notes `[1]` en fin de chapitre ;
 - HTML : une seule page, CSS intégrée, notes reliées dans les deux sens, aucun script ;
+- `--title-file NOM` désigne la page de titre de l'EPUB (défaut « titre ») ; `--apostrophes auto`
+  garde une seule forme d'apostrophe (la plus fréquente) ; `--esperluette` remplace les « & » restants
+  par « et » quand le reste du livre l'écrit ainsi ;
 - numéros de page, marqueurs de relecture et classes de Prescel disparaissent ; les notes sont
   renumérotées de 1 à N ; une note de transcription l'indique (`--note` pour en ajouter).
 
