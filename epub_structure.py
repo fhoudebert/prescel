@@ -1244,6 +1244,16 @@ def fix_nav_targets(ncx_text, ncx_path, texts):
         return m.group(0)
     ncx_text = re.sub(r"[ \t]*<pageTarget\b.*?</pageTarget>[ \t]*\r?\n?", drop_page, ncx_text, flags=re.S)
 
+    # entrée de table vers un fichier disparu (« couverture.xml » renommé dans Sigil) : retirée
+    def drop_point(m):
+        src = re.search(r"""<content\s+src\s*=\s*["']([^"']+)["']""", m.group(0))
+        if src and resolve(ncx_path, src.group(1).split("#", 1)[0]) not in ids:
+            fixed[0] += 1
+            return ""
+        return m.group(0)
+    ncx_text = re.sub(r"[ \t]*<navPoint\b(?:(?!<navPoint\b).)*?</navPoint>[ \t]*\r?\n?", drop_point, ncx_text,
+                      flags=re.S)
+
     def fix_point(m):
         src = m.group(2)
         if target_ok(src):

@@ -1,0 +1,48 @@
+﻿unzipping /htdocs/ebookmaker/cache/20261002084333/montluc-html-txt.zip
+Archive:  /htdocs/ebookmaker/cache/20261002084333/montluc-html-txt.zip
+  inflating: /htdocs/ebookmaker/cache/20261002084333/Commentaires_de_Montluc.html
+  inflating: /htdocs/ebookmaker/cache/20261002084333/Commentaires_de_Montluc.txt
+
+Input file: /htdocs/ebookmaker/cache/20261002084333/Commentaires_de_Montluc.html
+
+Validating your uploaded file
+/htdocs/ebookmaker/cache/20261002084333/Commentaires_de_Montluc.html
+Validation complete
+
+
+--- Starting ebookmaker processing
+EbookMaker 0.14.6
+Command: ebookmaker --verbose --validate --max-depth 3 --output-dir /htdocs/ebookmaker/cache/20261002084333 --make 'txt.utf-8' --make 'epub' --make 'epub3' --make 'kf8' --make 'kindle' --make 'html' --ebook 10001 --title 'Commentaires de Montluc' --author 'Blaise de Montluc' file:///htdocs/ebookmaker/cache/20261002084333/Commentaires_de_Montluc.html
+INFO:root:using an HTML5 parser
+INFO:root:No PG header marker found.
+INFO:root:No PG footer marker found.
+INFO:root:picsdir.images output in 10001-images.picsdir
+INFO:root:picsdir.images completed in 0:00:00.002587
+INFO:root:Plain text file /htdocs/ebookmaker/cache/20261002084333/10001-0.txt aborted due to html input
+INFO:root:txt.utf-8 output in 10001-0.txt
+INFO:root:txt.utf-8 completed in 0:00:00.001918
+INFO:root:using an HTML5 parser
+INFO:root:No PG header marker found.
+INFO:root:No PG footer marker found.
+INFO:root:validating...
+INFO:root:10001-h.html validates ok.
+INFO:root:html.images output in 10001-h.html
+INFO:root:html.images completed in 0:00:02.087044
+INFO:root:validating...
+INFO:root:10001-epub.epub validates ok.
+INFO:root:epub.noimages output in 10001-epub.epub
+INFO:root:epub.noimages completed in 0:00:05.543950
+INFO:root:validating...
+INFO:root:10001-images-epub.epub validates ok.
+INFO:root:epub.images output in 10001-images-epub.epub
+INFO:root:epub.images completed in 0:00:04.816601
+INFO:root:kindle.images output in 10001-images-kindle.mobi
+INFO:root:kindle.images completed in 0:00:02.750815
+INFO:root:validating...
+INFO:root:10001-images-epub3.epub validates ok.
+INFO:root:epub3.images output in 10001-images-epub3.epub
+INFO:root:epub3.images completed in 0:00:04.010500
+INFO:root:kf8.images output in 10001-kf8-kindle.mobi
+INFO:root:kf8.images completed in 0:00:02.266127
+INFO:root: Finished jobs. Total time: 0:00:22.010060
+--- ebookmaker complete

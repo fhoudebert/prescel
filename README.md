@@ -81,6 +81,7 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
+| `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide |
 | `epub_pages.py` | liste des pages du livre papier rétablie ou réparée ; `--purge` |
 
 Ordre des étapes : import PDF → nettoyage → s long → oi → ez → erent → ans → vocabulaire → référence → structure →
@@ -235,6 +236,25 @@ python3 epub_review.py livre-a-relire.epub --unmark -o livre-relu.epub
 - **DOCTYPE** : Google écrit en XHTML 1.0 Strict, refusé par epubcheck dans un EPUB 2 (`HTM-004`).
   Toutes les étapes le corrigent ; pour un fichier en cours de relecture :
   `python3 epub_review.py livre-a-relire.epub --fix-doctype`.
+
+## Publier sur Project Gutenberg
+
+Project Gutenberg demande deux fichiers « maîtres » : un texte brut UTF-8 et un HTML5 qui passe le
+validateur du W3C (https://validator.w3.org/). Il ajoute lui-même son en-tête et sa licence.
+
+```
+python3 epub_gutenberg.py livre-relu.epub -o Mon_livre      # → Mon_livre.txt, Mon_livre.html
+```
+
+- texte : lignes de 72 caractères au plus, fins de ligne CRLF, paragraphes séparés par une ligne
+  vide, quatre lignes vides avant chaque chapitre et deux après, italique en `_soulignés_`,
+  notes `[1]` en fin de chapitre ;
+- HTML : une seule page, CSS intégrée, notes reliées dans les deux sens, aucun script ;
+- numéros de page, marqueurs de relecture et classes de Prescel disparaissent ; les notes sont
+  renumérotées de 1 à N ; une note de transcription l'indique (`--note` pour en ajouter).
+
+Avant l'envoi : faire vérifier les droits (scans de la page de titre et de son verso) sur
+https://copy.pglaf.org, puis déposer les fichiers sur https://upload.pglaf.org.
 
 ## Licence
 
