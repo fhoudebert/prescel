@@ -187,12 +187,19 @@ def classify(e_words, r_words, wordlist, vocab):
         return "casse"
     if len(e_words) == len(r_words) == 1:
         if s_long_swap(e, r):
-            return "ocr"                         # « font » → « sont », « sois » → « fois »
+            # « font » → « sont » : f lu pour un s long. Dans l'autre sens (« Jessé » → « Jeffe »),
+            # la référence peut elle-même garder une graphie ancienne : il faut un vrai mot.
+            back = any(x == "s" and y == "f" for x, y in zip(plain(e), plain(r)))
+            if not back or wordlist is None or is_word(r, wordlist, vocab):
+                return "ocr"                     # « font » → « sont », « sois » → « fois »
+            return "variante"
         if plain(e) == plain(r):
             return "casse" if e.lower() == r.lower() else "graphie"
         if letter_confusion(e, r):
             return "ocr"                         # « Dadlan » → « Dadian », « II » → « Il »
         if skel(e) == skel(r):
+            if wordlist is not None and is_word(e, wordlist, vocab) and is_word(r, wordlist, vocab):
+                return "variante"                # deux vrais mots : « nez » / « nés », « fond » / « fonds »
             return "graphie"                     # « Tiflis » / « Tifflis », « pié » / « pied »
         if e[:1].isupper() or len(e) <= 3:
             # nom propre (« Ptolémée » / « Ptolomée ») ou abréviation (« Ste ») : la graphie
@@ -319,10 +326,16 @@ def main():
                             ctx_i = ei[0] if ei else min(i1, len(E) - 1)
                             examples[key] = (d.path, " ".join(E[max(0, ctx_i - 6):ctx_i + 7]))
                         if cat in apply and ei and rw:
-                            # la majuscule de début de mot de l'EPUB est gardée, sauf catégorie « casse »
+                            # la majuscule de l'EPUB est gardée, sauf « casse » hors début de phrase :
+                            # « … royaume. Ils » reste « Ils » même si la référence ponctue « ; ils »
                             new = " ".join(rw)
-                            if cat != "casse" and ew[0][:1].isupper() and new[:1].islower():
-                                new = new[:1].upper() + new[1:]
+                            if ew[0][:1].isupper() and new[:1].islower():
+                                h0, a0, st0 = slots[ei[0]][0], slots[ei[0]][1], slots[ei[0]][2]
+                                before = (getattr(h0, a0) or "")[:st0]
+                                sentence_start = (not before.strip() and h0 is el and a0 == "text") or \
+                                    re.search(r"[.!?»:]\s*$", before)
+                                if cat != "casse" or sentence_start:
+                                    new = new[:1].upper() + new[1:]
                             edits.append((ei, new, cat))
                 # application, de la fin vers le début ; plusieurs mots EPUB → le premier reçoit le
                 # texte, les suivants sont vidés (s'ils sont dans le même nœud, l'espace entre eux part)
