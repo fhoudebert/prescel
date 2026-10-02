@@ -311,7 +311,12 @@ def main():
                     continue
                 stats["blocs alignés"] += 1
                 edits = []                       # (indices EPUB, texte de remplacement)
-                for op, i1, i2, j1, j2 in sm.get_opcodes():
+                codes = sm.get_opcodes()
+                for k_op, (op, i1, i2, j1, j2) in enumerate(codes):
+                    # la fenêtre de la référence déborde de 10 mots de chaque côté : ce qui
+                    # dépasse au début ou à la fin du paragraphe n'est pas un mot absent
+                    if op == "insert" and (k_op == 0 or k_op == len(codes) - 1):
+                        continue
                     pairs = []
                     if op == "equal":
                         pairs = [([i], [a + j]) for i, j in zip(range(i1, i2), range(j1, j2)) if E[i] != al.R[a + j]]
@@ -343,7 +348,11 @@ def main():
                     first = slots[ei[0]]
                     same_node = all(slots[i][0] is first[0] and slots[i][1] == first[1] for i in ei)
                     if not same_node:
-                        continue                 # écart à cheval sur deux nœuds (italique…) : laissé
+                        # mot coupé par une balise d'italique : « <i>Nac</i>chivan », « <i>Mingre</i> <i>lie</i> »
+                        if len(ei) == 2 and merge_across(el, slots[ei[0]], slots[ei[1]], new):
+                            applied[cat] += 1
+                            changed_docs.add(d.path)
+                        continue
                     holder, attr = first[0], first[1]
                     s = getattr(holder, attr)
                     start, end = first[2], slots[ei[-1]][3]
@@ -386,6 +395,35 @@ def main():
                 os.unlink(tmp)
             raise
     print("EPUB écrit : %s" % out_path)
+
+
+def merge_across(block, first, second, new):
+    """Recolle un mot coupé entre deux nœuds de texte voisins d'un même élément en ligne
+    (italique) : le mot entier passe dans le premier élément. Vrai si fait."""
+    h1, a1, s1, e1 = first[0], first[1], first[2], first[3]
+    h2, a2, s2, e2 = second[0], second[1], second[2], second[3]
+    t1 = getattr(h1, a1) or ""
+    if a1 != "text" or t1[e1:].strip():
+        return False                              # le 1er morceau doit finir l'élément
+    if h2 is h1 and a2 == "tail" and not (h1.tail or "")[:s2].strip():
+        h1.text = t1[:s1] + new                   # <i>Nac</i>chivan → <i>Nacchivan</i>
+        h1.tail = h1.tail[e2:]
+        return True
+    parent = next((p for p in block.iter() if h1 in list(p)), None)
+    if parent is None or a2 != "text" or (getattr(h2, "text") or "")[:s2].strip():
+        return False
+    kids = list(parent)
+    i = kids.index(h1)
+    if i + 1 >= len(kids) or kids[i + 1] is not h2 or (h1.tail or "").strip() or h2.tag != h1.tag:
+        return False
+    # <i>Mingre</i> <i>lie</i> → <i>Mingrélie</i> (les deux éléments fusionnent)
+    h1.text = t1[:s1] + new + (h2.text or "")[e2:]
+    for ch in list(h2):
+        h2.remove(ch)
+        h1.append(ch)
+    h1.tail = h2.tail
+    parent.remove(h2)
+    return True
 
 
 def write_report(path, found, examples, applied, stats, apply, refname):

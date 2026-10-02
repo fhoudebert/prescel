@@ -220,9 +220,18 @@ python3 epub_review.py livre-a-relire.epub --unmark -o livre-relu.epub
   python3 epub_pages.py livre-relu.epub -o livre-pages.epub            # rétablir / réparer
   python3 epub_pages.py livre-relu.epub -o livre-sans-pages.epub --purge   # ou retirer les ancres
   ```
+  Si les ancres ont disparu du texte (purge, nettoyage dans Sigil), elles peuvent être reportées
+  depuis une autre version du livre, même en graphie ancienne — typiquement l'EPUB de Google
+  d'origine, dont la page-map donne aussi les numéros imprimés :
+  ```
+  python3 epub_pages.py livre-relu.epub --from livre-google.epub -o livre-pages.epub
+  ```
 - **Id en double** (couper un paragraphe dans Sigil recopie son `id`), **ancres disparues**
   encore visées par le `toc.ncx`, **playOrder identiques** : réparés par `epub_pages.py` et par la
   relance ciblée, marqueurs conservés.
+- **Liens cassés** après un renommage ou un déplacement dans Sigil (« Styles/livre.css » au lieu de
+  « ../Styles/livre.css », image introuvable) : refaits vers le fichier du même nom par
+  `epub_pages.py` et par la relance ciblée.
 - **DOCTYPE** : Google écrit en XHTML 1.0 Strict, refusé par epubcheck dans un EPUB 2 (`HTM-004`).
   Toutes les étapes le corrigent ; pour un fichier en cours de relecture :
   `python3 epub_review.py livre-a-relire.epub --fix-doctype`.
