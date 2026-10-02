@@ -381,9 +381,14 @@ class Structurer:
 
     # -- titres, sommaires, notes -----------------------------------------
     def mark_structure(self, doc):
+        # Un sommaire juste sous un titre est gardé (posé par une passe précédente ou à la main
+        # dans Sigil) ; ailleurs la classe est réévaluée.
+        prev = None
         for el in doc.body:
-            if el.get("class") == "sommaire":
+            if el.get("class") == "sommaire" and not (prev is not None and lname(prev) in ("h1", "h2")):
                 del el.attrib["class"]
+            if not is_bare_anchor(el):
+                prev = el
         kids = list(doc.body)
         for idx, el in enumerate(kids):
             if lname(el) not in ("p",) and lname(el) not in HEAD_TAGS:
@@ -432,10 +437,15 @@ class Structurer:
                     el.set("id", self.new_id())
                 if level == "h2" and not self.table_re.match(t):
                     for nxt in kids[idx + 1:idx + 4]:
+                        if "sommaire" in classes(nxt):
+                            self.st["sommaires"] += 1
+                            break
+                        # « Des Images. », « De la Messe. » : court, mais au moins deux mots
                         if is_normal_p(nxt) and len(text_of(nxt)) < self.opts.summary_max and \
                                 (" - " in text_of(nxt) or len(text_of(nxt)) <= 160) and \
                                 re.match(r"[A-ZÀ-Þ]", text_of(nxt)) and \
-                                text_of(nxt).rstrip().endswith(".") and len(text_of(nxt)) >= 15:
+                                text_of(nxt).rstrip().endswith(".") and len(text_of(nxt)) >= 8 and \
+                                len(text_of(nxt).split()) >= 2:
                             nxt.set("class", "sommaire")
                             self.st["sommaires"] += 1
                             break

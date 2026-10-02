@@ -76,14 +76,14 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») |
-| `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), en « ans » (`--mode ants`), vocabulaire (`--mode vocab`) |
+| `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), passé simple en « erent » (`--mode erent`), pluriels en « ans » (`--mode ants`), vocabulaire (`--mode vocab`) |
 | `epub_reference.py` | corrige l'EPUB d'après une autre édition du texte (PDF ou texte) : alignement mot à mot, catégories au choix, rapport d'écarts |
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
 | `epub_pages.py` | liste des pages du livre papier rétablie ou réparée ; `--purge` |
 
-Ordre des étapes : import PDF → nettoyage → s long → oi → ez → ans → vocabulaire → structure →
+Ordre des étapes : import PDF → nettoyage → s long → oi → ez → erent → ans → vocabulaire → référence → structure →
 découpage → rapport. Le s long passe en premier : les autres listes supposent « estoit », pas
 « eftoit ».
 
@@ -99,6 +99,7 @@ respectée (« Estoit » → « Était ») ; seuls les mots listés changent.
 | **S long** (`epub_longs.py`) | « eft » → « est », « faifoit » → « faisoit » | mots qui existent sous les deux formes : « font »/« sont », « fait »/« sait » |
 | **oi → ai** (`--mode oi`) | « il estoit » → « il était », « auroient » → « auraient » | noms propres et nationalités (« François », « Anglois »), formes inconnues |
 | **ez → és** (`--mode ez`) | « les bontez » → « les bontés », « sont armez » → « armés » | formes inconnues ; « vous avez », « allez-vous », « Venez » sont toujours gardés |
+| **erent → èrent** (`--mode erent`) | « ils allerent » → « allèrent », « donnérent » → « donnèrent » | forme aussi adjectif (« different »), forme inconnue (s long à corriger d'abord) |
 | **ans → ants** (`--mode ants`) | « charmans » → « charmants », « Penitens » → « Pénitents » | rien d'office : décocher ce qu'on veut garder |
 | **Modernisation** (`--mode vocab`) | « luy » → « lui », « mesme » → « même », « aussi tost » → « aussitôt » | graphies qui sont aussi des mots modernes (« des » → « dès ») |
 
@@ -125,7 +126,7 @@ De simples fichiers Python `{"ancien": "moderne", …}`, à compléter librement
 | `dictionnaires/verbes_oi.py` | oi → ai | imparfaits et conditionnels, avec la forme moderne complète (« estoit » → « était », « envoyeroit » → « enverrait ») |
 | `dictionnaires/pluriels_ez.py` | ez → és | formes qui ne suivent pas la règle (« excez » → « excès », « extremitez » → « extrémités ») |
 | `dictionnaires/pluriels_ants.py` | ans → ants | formes à accent ou abîmées (« presens » → « présents ») |
-| `dictionnaires/vocabulaire_17_18.py` | Modernisation | vocabulaire et expressions (« luy », « mesme », « païs », « aussi tost ») |
+| `dictionnaires/vocabulaire_17_18.py` | Modernisation | vocabulaire et expressions (« luy », « mesme », « païs », « aussi tost »), et erreurs d'OCR fréquentes relevées par comparaison avec une édition moderne (« vlande » → « viande », « fubtil » → « subtil ») |
 
 Un dictionnaire passe toujours avant la règle générale de son étape.
 
@@ -180,6 +181,11 @@ vers ligne à ligne, à reconnaître tableaux et listes. Les mots peu sûrs pour
   livres (« Le second liure ») ; titres composés en capitales sur plusieurs lignes ; titre placé
   avant « Chapitre N » (éditions anciennes) ; dates d'un journal (« 6. Mars. »). Les titres
   courants répétés (« PREFACE » en tête de chaque page) sont retirés.
+- **Sommaires** : le paragraphe court qui suit « Chapitre N » (« Des Images. ») reçoit la classe
+  `sommaire` et complète l'entrée de la table : « Chapitre IX — Des Images ». Une classe `sommaire`
+  posée à la main dans Sigil juste sous un titre est conservée à la relance. Le `toc.ncx` étant
+  régénéré à chaque relance, c'est dans le texte (titre + sommaire) qu'il faut corriger, pas dans
+  le `toc.ncx`.
 - **Notes** : « bonneter1 » devient un appel en exposant relié à « 1. Saluer en ôtant le bonnet »,
   aller-retour par liens ; les notes dont l'appel est perdu sont listées dans le rapport.
 - **Table des matières** reconstruite depuis les titres ; **liste des pages** du livre papier

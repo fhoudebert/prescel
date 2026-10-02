@@ -5,7 +5,7 @@ epub_modernise.py — Modernise l'orthographe d'un livre des XVIᵉ-XVIIIᵉ si�
 sur le modèle de epub_longs.py : une liste TSV des corrections, modifiable,
 les cas sûrs appliqués d'office, les cas douteux laissés au choix.
 
-Quatre modes :
+Cinq modes :
 
   --mode oi     imparfaits et conditionnels en -ois / -oit / -oient
                 (« il estoit » → « il était », « ils auroient » → « ils auraient »).
@@ -20,6 +20,9 @@ Quatre modes :
                 envoyez »), à l'impératif avec pronom (« allez-vous ») ou en tête de phrase
                 (« Venez ») quand la forme est aussi un verbe moderne. Jamais : « nez »,
                 « chez », « assez ».
+
+  --mode erent  passé simple en -erent (« ils allerent » → « allèrent ») ; au choix quand
+                la forme ancienne est aussi un adjectif (« different »).
 
   --mode ants   pluriels anciens en -ans / -ens (« charmans » → « charmants », « momens » →
                 « moments ») quand la forme en -ts existe et que l'ancienne n'est pas déjà un
@@ -277,6 +280,38 @@ def propose_ants(counts, caps, wordlist, plurals=None):
     return rows
 
 
+def propose_erent(counts, caps, wordlist):
+    """Passé simple, 3ᵉ personne du pluriel : « ils allerent » → « allèrent », « donnérent » →
+    « donnèrent ». Laissé au choix quand la forme ancienne est aussi un adjectif ou un nom
+    (« different » : « différent » ou « diffèrent » ?)."""
+    rows = []
+    for w, n in counts.items():
+        if len(w) < 6 or not (w.endswith("erent") or w.endswith("érent")):
+            continue
+        if wordlist is not None and w in wordlist:
+            continue                             # « cohérent », « adhérent » : déjà justes
+        target = w[:-5] + "èrent"
+        why = ""
+        if wordlist is None or target not in wordlist:
+            accented = with_accents(target, wordlist)
+            if accented is None:
+                if wordlist is not None:
+                    rows.append({"appliquer": "0", "forme_lue": w, "correction": target,
+                                 "occurrences": str(n), "occ_correction": "0",
+                                 "remarque": "« %s » inconnu : forme à vérifier (s long ?)" % target})
+                continue
+            target, why = accented, "accent rétabli"
+        other = with_accents(w, wordlist) if wordlist is not None else None
+        if other is not None:
+            ok, why = 0, "aussi « %s » : à vérifier au cas par cas" % other
+        else:
+            ok = 1
+        rows.append({"appliquer": str(ok), "forme_lue": w, "correction": target,
+                     "occurrences": str(n), "occ_correction": str(counts.get(target, 0)), "remarque": why})
+    rows.sort(key=lambda r: (-int(r["occurrences"]), r["forme_lue"]))
+    return rows
+
+
 def propose_vocab(counts, caps, text, wordlist, vocab):
     rows = []
     low = text.lower().replace("’", "'")
@@ -361,7 +396,7 @@ def main():
     ap = argparse.ArgumentParser(description="Modernisation : imparfaits en oi, vocabulaire ancien.")
     ap.add_argument("epub")
     ap.add_argument("-o", "--output", help="EPUB modernisé (défaut : en place)")
-    ap.add_argument("--mode", choices=["oi", "ez", "ants", "vocab"], required=True)
+    ap.add_argument("--mode", choices=["oi", "ez", "erent", "ants", "vocab"], required=True)
     ap.add_argument("--tsv", required=True, help="liste des corrections (créée ou relue)")
     ap.add_argument("--use-tsv", action="store_true", help="respecter les choix d'un TSV existant")
     ap.add_argument("--no-apply", action="store_true", help="liste seulement, rien n'est corrigé")
@@ -371,6 +406,8 @@ def main():
 
     dict_path = opts.dict or os.path.join(HERE, "dictionnaires",
                                           "verbes_oi.py" if opts.mode == "oi" else "vocabulaire_17_18.py")
+    if opts.mode == "erent" and not opts.dict:
+        dict_path = ""
     if opts.mode in ("ez", "ants") and not opts.dict:
         dict_path = os.path.join(HERE, "dictionnaires", "pluriels_%s.py" % opts.mode)
     table = load_dict(dict_path, opts.mode) if dict_path and os.path.exists(dict_path) else {}
@@ -408,6 +445,8 @@ def main():
             rows = propose_ez(counts, caps, wordlist, table)
         elif opts.mode == "ants":
             rows = propose_ants(counts, caps, wordlist, table)
+        elif opts.mode == "erent":
+            rows = propose_erent(counts, caps, wordlist)
         else:
             rows = propose_vocab(counts, caps, text, wordlist, table)
         if opts.no_apply:
@@ -431,7 +470,7 @@ def main():
         chosen = {r["forme_lue"]: r["correction"] for r in rows if r.get("appliquer", "0").strip() == "1"}
         pending = [r for r in rows if r.get("appliquer", "0").strip() != "1"]
         label = {"oi": "Imparfaits et conditionnels en oi", "ez": "Pluriels en -ez",
-                 "ants": "Pluriels en -ans / -ens",
+                 "ants": "Pluriels en -ans / -ens", "erent": "Passé simple en -erent",
                  "vocab": "Vocabulaire ancien"}[opts.mode]
         print("%s : %d formes (%d occurrences) — %d à appliquer, %d laissées au choix"
               % (label, len(rows), sum(int(r["occurrences"]) for r in rows), len(chosen), len(pending)))

@@ -16,4 +16,6 @@ PLURIELS_EZ = {
     "liberalitez": "libéralités",
     "séveritez": "sévérités",
     "severitez": "sévérités",
+    "paffionnez": "passionnés",
+    "passionnez": "passionnés",
 }
