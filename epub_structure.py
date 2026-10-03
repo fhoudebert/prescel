@@ -92,7 +92,7 @@ IMPRINT = re.compile(r"\bchez\b|^(?:A|À)\s+[A-ZÀ-Þ]+\s*[,.]?$|^M[DCLXVI]{2,}\
                      r"AVEC PRIVIL|APPROBATION ET PRIVIL", re.I)
 FRONT_WORDS = re.compile(r"^(?:PR[EÉ]FACE|AVERTISSEMENT|AVIS(?: AU LECTEUR)?|AU LECTEUR|[EÉ]P[IÎ]TRE"
                          r"(?: D[EÉ]DICATOIRE)?|D[EÉ]DICACE|INTRODUCTION|DISCOURS PR[EÉ]LIMINAIRE"
-                         r"|PROLOGUE|APPROBATION|PRIVIL[EÈ]GE(?: DU ROY)?)\s*[.,]?$")
+                         r"|PROLOGUE|NOTES|[EÉ]CLAIRCISSEMENTS|APPENDICE|ERRATA|APPROBATION|PRIVIL[EÈ]GE(?: DU ROY)?)\s*[.,]?$")
 # Mots anglais qui n'existent pas en français (ni en latin) : « a », « on », « as »… sont exclus
 EN_STOP = set("the and of to is that it you this for be are with we our your by not or from "
               "have has these its any can use they was which please us".split())

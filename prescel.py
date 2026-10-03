@@ -81,6 +81,18 @@ STEPS = [
             {"flag": "--keep-furniture", "type": "bool", "advanced": True,
              "label": "Garder titres courants et signatures",
              "help": "Par défaut ils sont retirés (et listés dans le journal)."},
+            {"flag": "--variantes", "type": "select", "default": "auto",
+             "choices": [["auto", "automatique"], ["oui", "oui"], ["non", "non"]],
+             "label": "Variantes en bas de page (éditions savantes)",
+             "help": "Éditions comme celle de Kervyn de Lettenhove : l'apparat (« 1-2 Gens. 3-4 Viel. »), "
+                     "reconnu à son interligne plus serré sous un blanc, est mis à part dans un paragraphe "
+                     "« variantes » et les appels (« ses 1 princes ») passent en exposant. Pour Gutenberg, "
+                     "les variantes sont regroupées en fin de volume, page par page. Automatique : si le "
+                     "livre en a."},
+            {"flag": "--garder-guillemets-de-ligne", "type": "bool", "advanced": True,
+             "label": "Garder les « en tête de chaque ligne des citations",
+             "help": "L'imprimé répète « au début de chaque ligne d'une citation. Par défaut ces "
+                     "répétitions sont retirées (l'ouvrant et le fermant restent) ; le nombre est indiqué."},
         ],
     },
     {
@@ -249,15 +261,17 @@ STEPS = [
     {
         "id": "reference", "enabled": False, "script": "epub_reference.py", "suffix": "2g-reference",
         "title": "Corriger d'après une autre édition",
-        "summary": "Chaque paragraphe est retrouvé dans une autre édition du même texte (PDF ou texte) et "
+        "summary": "Chaque paragraphe est retrouvé dans une autre édition du même texte (PDF, EPUB ou texte) et "
                    "comparé mot à mot. Par défaut, seules les erreurs d'OCR sont corrigées : s long ambigu "
                    "(« font » → « sont »), lettres mal lues (« vlande » → « viande »), mots coupés (« Roy al »). "
                    "Les autres écarts (graphie, majuscules, « & », variantes de texte) sont listés dans le "
                    "rapport d'écarts. Reprendre les choix d'un éditeur moderne reproduit son travail : "
                    "demandez son accord avant de diffuser le résultat.",
         "options": [
-            {"key": "ref_path", "type": "text", "label": "Fichier de référence (PDF ou .txt)",
-             "help": "Chemin complet sur cet ordinateur, par exemple /home/moi/Chardin voyages.pdf."},
+            {"key": "ref_path", "type": "text", "label": "Fichier de référence (PDF, EPUB ou .txt)",
+             "help": "Chemin complet sur cet ordinateur, par exemple /home/moi/Chardin voyages.pdf. Une "
+                     "autre numérisation de la même édition (EPUB de Google Livres) convient très bien : "
+                     "cochez alors aussi « ponctuation »."},
             {"flag": "--from-page", "type": "int", "default": 1, "label": "Première page utile",
              "help": "Page du PDF où commence le texte (après introduction et notes de l'éditeur)."},
             {"flag": "--to-page", "type": "int", "default": 0, "advanced": True, "label": "Dernière page utile",
@@ -265,7 +279,8 @@ STEPS = [
             {"key": "ref_apply", "type": "multi", "default": ["ocr"],
              "choices": [["ocr", "erreurs d'OCR"], ["esperluette", "« & » → « et »"],
                          ["apostrophes", "apostrophes typographiques"], ["casse", "majuscules / minuscules"],
-                         ["graphie", "graphie et accents"], ["variante", "variantes de texte"]],
+                         ["graphie", "graphie et accents"], ["variante", "variantes de texte"],
+                         ["ponctuation", "ponctuation (même édition seulement)"]],
              "label": "Corriger",
              "help": "Les catégories cochées sont appliquées ; toutes sont listées dans le rapport d'écarts."},
             {"flag": "--min-ratio", "type": "text", "advanced": True, "label": "Ressemblance minimale",
@@ -335,6 +350,21 @@ STEPS = [
              "label": "Motif de la table imprimée",
              "help": "Après ce titre (« TABLE »), plus aucun chapitre n'est détecté, pour ne pas "
                      "doubler la table des matières."},
+        ],
+    },
+    {
+        "id": "errata", "enabled": False, "script": "epub_errata.py", "suffix": "3b-errata",
+        "title": "Appliquer l'errata du livre",
+        "summary": "L'errata imprimé (« ERRATA. » : « P. 24, l. 30, sont — font ») est lu dans le livre et "
+                   "chaque correction est faite à la page indiquée, variantes de bas de page comprises. "
+                   "La liste est écrite dans <livre>-errata.tsv : l'OCR d'un errata est souvent fautive "
+                   "(« demanda. » pour « demanda : »), relisez-la sur le scan, ajoutez quelques mots de "
+                   "la ligne dans « contexte » pour les mots courts (« si », « ou ») et relancez : vos "
+                   "corrections sont reprises. Ce qui n'a pas pu être fait est listé avec le lien vers la page.",
+        "options": [
+            {"flag": "--retirer", "type": "bool", "label": "Retirer l'errata une fois appliqué",
+             "help": "Seulement si toutes les corrections ont été faites. Pour Gutenberg, l'indiquer dans "
+                     "la note de transcription."},
         ],
     },
     {
@@ -1076,6 +1106,8 @@ def pipeline(job, plan, check_mode, start=None):
                 cmd.append("--no-apply")
             if opts.get("french_list", True):
                 cmd += ["--wordlist", "auto"]
+        if step["id"] == "errata":
+            cmd += ["--tsv", os.path.join(d, slug + "-errata.tsv")]
         if step["id"] == "longs":
             cmd += ["--tsv", tsv]
             if opts.get("use_tsv", True):

@@ -36,6 +36,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from typo_fr import typo_pieces  # noqa: E402
 
 TYPO = [True]
+FOLIOS = [False]    # numéros de page du livre papier gardés (renvois des variantes)
+PAGES = {}          # id d'ancre de page → numéro imprimé (pageList du toc.ncx)
+VARPAGES = set()    # pages imprimées qui ont des variantes
+SUPER = str.maketrans("0123456789", "⁰¹²³⁴⁵⁶⁷⁸⁹")
 APOS = [None]       # None : laisser ; "’" ou "'" : une seule forme d'apostrophe
 AMP = [False]       # True : « & » → « et » dans le texte courant
 
@@ -106,6 +110,7 @@ class Book:
         self.title = ""
         self.author = ""
         self.lang = "fr"
+        self.variants = []        # [(numéro de page imprimé, runs)] : apparat critique
 
 
 def runs_of(el, notemap, out=None, style=""):
@@ -124,7 +129,11 @@ def runs_of(el, notemap, out=None, style=""):
             else:
                 out.append(("".join(ch.itertext()), "sup"))
         elif n == "a" and not ch.get("href"):
+            if FOLIOS[0] and ch.get("id") in PAGES:
+                out.append(("", ("page", PAGES[ch.get("id")])))
             runs_of(ch, notemap, out, style)          # ancre de page : on garde son texte éventuel
+        elif n == "sup" and "var" in classes(ch):
+            out.append(("".join(ch.itertext()).strip(), "var"))   # appel de variante
         elif n in ("i", "em", "cite"):
             runs_of(ch, notemap, out, "i")
         elif n in ("b", "strong"):
@@ -178,6 +187,8 @@ def read_epub(path):
     book.title = html.unescape(t.group(1).strip()).rstrip(" .…") if t else ""
     book.author = html.unescape(a.group(1).strip()) if a else ""
     book.lang = (l.group(1).strip() if l else "fr")[:2]
+    er = re.search(r'name="prescel:errata"\s+content="(\d+)/(\d+)"', opf)
+    book.errata = (int(er.group(1)), int(er.group(2))) if er else None
     items = {}
     for m in re.finditer(r"<item\b[^>]*>", opf):
         tag = m.group(0)
@@ -186,6 +197,13 @@ def read_epub(path):
         if i and h:
             items[i.group(1)] = posixpath.normpath(posixpath.join(posixpath.dirname(opf_path), unquote(h.group(1))))
     spine = [items[i] for i in re.findall(r'<itemref\b[^>]*\sidref="([^"]+)"', opf) if i in items]
+
+    PAGES.clear()
+    ncx = next((n for n in z.namelist() if n.endswith(".ncx")), None)
+    if ncx:
+        t = decode(z.read(ncx))
+        for m in re.finditer(r"<pageTarget\b.*?<text>(.*?)</text>.*?<content\s+src=\"[^\"#]*#([^\"]+)\"", t, re.S):
+            PAGES[html.unescape(m.group(2))] = html.unescape(m.group(1)).strip()
 
     docs = []
     for p in spine:
@@ -247,6 +265,16 @@ def read_epub(path):
             if n == "hr":
                 book.blocks.append((chapter, {"kind": "hr", "cls": set(), "runs": []}))
                 continue
+            if n == "p" and "variantes" in classes(el):
+                page = re.sub(r"^p\.\s*", "", el.get("title") or "")
+                runs = [r for r in clean_runs(runs_of(el, notemap)) if not (isinstance(r[1], tuple) and r[1][0] == "page")]
+                runs = typo_runs(clean_runs(runs))
+                if runs:
+                    if book.variants and book.variants[-1][0] == page:
+                        book.variants[-1][1].extend([(" ", "")] + runs)
+                    else:
+                        book.variants.append((page, runs))
+                continue
             runs = typo_runs(clean_runs(runs_of(el, notemap)))
             if not runs:
                 continue
@@ -264,8 +292,13 @@ def plain_runs(runs, italic="_"):
     for t, s in runs:
         if s == "br":
             out.append("\n")
+        elif isinstance(s, tuple) and s[0] == "page":
+            if s[1].isdigit():
+                out.append("\x01{%s}\x01" % s[1])
         elif isinstance(s, tuple):
             out.append("[%d]" % s[1])
+        elif s == "var":
+            out.append(t.translate(SUPER))
         elif s == "i" and t.strip():
             lead, core, trail = re.match(r"^(\s*)(.*?)(\s*)$", t, re.S).groups()
             out.append("%s%s%s%s%s" % (lead, italic, core, italic, trail))
@@ -274,6 +307,10 @@ def plain_runs(runs, italic="_"):
         else:
             out.append(t)
     text = "".join(out)
+    # numéro de page : séparé des mots par une espace, jamais deux
+    text = re.sub(r"\s*\x01(\{\d+\})\x01\s*", lambda m: " %s " % m.group(1), text)
+    text = re.sub(r"^ (\{\d+\}) ", r"\1 ", text)
+    text = text.strip(" ") if text.startswith(" {") else text
     if not TYPO[0]:
         text = text.replace("\u00a0", " ").replace("\u202f", " ")
     return re.sub(r"_(\s*)_", r"\1", text)            # italiques contiguës fusionnées
@@ -285,6 +322,16 @@ def wrap(text, width, indent=""):
         lines += textwrap.wrap(part, width=width, initial_indent=indent, subsequent_indent=indent,
                                break_long_words=False, break_on_hyphens=False) or [""]
     return lines
+
+
+def hanging(text, width, indent="    "):
+    """Première ligne à la marge, suite en retrait, sans jamais dépasser width."""
+    first = textwrap.wrap(text, width=width, break_long_words=False, break_on_hyphens=False)
+    if not first:
+        return [""]
+    rest = text[len(first[0]):].strip()
+    return [first[0]] + (textwrap.wrap(rest, width=width, initial_indent=indent, subsequent_indent=indent,
+                                       break_long_words=False, break_on_hyphens=False) if rest else [])
 
 
 def center(text, width):
@@ -311,10 +358,7 @@ def to_text(book, width, note_txt, title_lines):
             return
         blank(1)
         for n in pending_notes:
-            text = "[%d] %s" % (n, plain_runs(book.notes[n]))
-            first, *rest = wrap(text, width) or [""]
-            out.append(first)
-            out.extend(("    " + l.strip()) if l else l for l in rest)
+            out += hanging("[%d] %s" % (n, plain_runs(book.notes[n])), width)
             out.append("")
         pending_notes.clear()
 
@@ -326,7 +370,7 @@ def to_text(book, width, note_txt, title_lines):
             current = chapter
         k = b["kind"]
         text = plain_runs(b["runs"])
-        notes_here = [s[1] for _, s in b["runs"] if isinstance(s, tuple)]
+        notes_here = [s[1] for _, s in b["runs"] if isinstance(s, tuple) and s[0] == "note"]
         if k in ("h1", "h2"):
             blank(4)
             out += center(text, width)
@@ -346,13 +390,21 @@ def to_text(book, width, note_txt, title_lines):
             out += center(text, width)
             out.append("")
         elif "vers" in b["cls"]:
-            out += ["    " + l for l in text.split("\n")]
+            for l in text.split("\n"):              # un vers trop long continue en retrait
+                out += hanging("    " + l, width, "        ") if len(l) + 4 > width else ["    " + l]
             out.append("")
         else:
             out += wrap(text, width)
             out.append("")
         pending_notes.extend(notes_here)
     flush_notes()
+    if book.variants:
+        blank(4)
+        out += center("VARIANTES", width)
+        blank(2)
+        for page, runs in book.variants:
+            out += hanging("P. %s : %s" % (page, plain_runs(runs).replace("\n", " ")), width)
+            out.append("")
     if note_txt:
         blank(4)
         out.append("NOTE DE TRANSCRIPTION".center(width).rstrip())
@@ -388,6 +440,11 @@ hr.chap { width: 60%; margin: 3em auto 1em; clear: both; }
 .footnote .label { margin-left: -2em; display: inline-block; width: 2em; }
 .transnote { background-color: #eee; border: 1px dashed #999; margin: 3em 10%; padding: 0.5em 1em; }
 .transnote p { text-indent: 0; }
+.pagenum { position: absolute; right: 2%; font-size: 0.75em; font-style: normal; text-indent: 0;
+           color: #777; }
+.pagenum a { color: #777; text-decoration: none; }
+sup.var { font-size: 0.6em; color: #777; }
+p.variante { text-indent: -2em; margin: 0.3em 0 0.3em 2em; font-size: 0.9em; }
 """
 
 
@@ -396,9 +453,19 @@ def html_runs(runs):
     for t, s in runs:
         if s == "br":
             out.append("<br>\n")
+        elif isinstance(s, tuple) and s[0] == "page":
+            lab = s[1]
+            pid = "page_" + re.sub(r"[^\w-]", "_", lab)
+            if lab in VARPAGES:
+                out.append('<span class="pagenum" id="%s">[<a href="#var_%s">%s</a>]</span>'
+                           % (pid, pid[5:], html.escape(lab)))
+            elif lab.isdigit():
+                out.append('<span class="pagenum" id="%s">[%s]</span>' % (pid, html.escape(lab)))
         elif isinstance(s, tuple):
             n = s[1]
             out.append('<a id="FNanchor_%d" href="#Footnote_%d" class="fnanchor">[%d]</a>' % (n, n, n))
+        elif s == "var":
+            out.append('<sup class="var">%s</sup>' % html.escape(t, quote=False))
         elif s == "i":
             out.append("<i>%s</i>" % html.escape(t, quote=False))
         elif s == "b":
@@ -449,7 +516,7 @@ def to_html(book, title_lines, note_txt):
             current = chapter
         k = b["kind"]
         body = html_runs(b["runs"])
-        notes_here = [s[1] for _, s in b["runs"] if isinstance(s, tuple)]
+        notes_here = [s[1] for _, s in b["runs"] if isinstance(s, tuple) and s[0] == "note"]
         if k in ("h1", "h2"):
             out.append('<hr class="chap">')
             out.append("<h2>%s</h2>" % body)
@@ -467,6 +534,13 @@ def to_html(book, title_lines, note_txt):
             out.append("<p>%s</p>" % body)
         pending.extend(notes_here)
     flush()
+    if book.variants:
+        out.append('<hr class="chap">')
+        out.append('<h2 id="variantes">VARIANTES</h2>')
+        for page, runs in book.variants:
+            pid = re.sub(r"[^\w-]", "_", page)
+            out.append('<p class="variante" id="var_%s"><a href="#page_%s">P. %s</a> : %s</p>'
+                       % (pid, pid, e(page), html_runs(runs)))
     if note_txt:
         out.append('<div class="transnote">')
         out.append("<p><b>Note de transcription</b></p>")
@@ -495,6 +569,9 @@ def main():
     ap.add_argument("--no-typo", action="store_true",
                     help="ne pas appliquer la typographie française (espaces insécables avant ; : ! ? », "
                          "après «, aucune avant . , …, « ... » → « … », tirets)")
+    ap.add_argument("--folios", choices=["auto", "oui", "non"], default="auto",
+                    help="numéros de page du livre papier : [12] dans la marge du HTML, {12} dans le texte "
+                         "(auto : seulement si le livre a des variantes, qui renvoient aux pages)")
     ap.add_argument("--note", action="append", default=[],
                     help="paragraphe de la note de transcription (répétable)")
     opts = ap.parse_args()
@@ -510,6 +587,10 @@ def main():
     else:
         APOS[0] = {"garder": None, "courbes": "’", "droites": "'"}[opts.apostrophes]
     book = read_epub(opts.epub)
+    FOLIOS[0] = opts.folios == "oui" or (opts.folios == "auto" and bool(book.variants))
+    if FOLIOS[0]:
+        book = read_epub(opts.epub)
+    VARPAGES.update(p for p, _ in book.variants)
     if book.lang != "fr":
         TYPO[0] = False
         book = read_epub(opts.epub)
@@ -529,6 +610,15 @@ def main():
         notes.append("Les notes, numérotées page par page dans l'imprimé, sont numérotées de 1 à %d "
                      "et placées à la fin de chaque chapitre." % len(book.notes))
 
+    if book.errata:
+        done_, total_ = book.errata
+        notes.append("Les corrections indiquées dans l'errata du volume ont été faites dans le texte"
+                     + ("." if done_ == total_ else " (%d sur %d)." % (done_, total_)))
+    if book.variants:
+        notes.append("Les variantes, imprimées au bas des pages, sont regroupées à la fin du volume, "
+                     "page par page ; leurs appels sont en exposant dans le texte. Les numéros de page "
+                     "du livre imprimé sont indiqués entre accolades {12} dans le texte brut, en marge "
+                     "dans le HTML (un clic mène aux variantes de la page).")
     txt = to_text(book, opts.width, notes, title_lines)
     with open(opts.output + ".txt", "w", encoding="utf-8", newline="") as f:
         f.write(txt)
@@ -539,7 +629,8 @@ def main():
     lines = txt.split("\r\n")
     longest = max(len(l) for l in lines)
     print("Texte : %s.txt — %d lignes, la plus longue : %d caractères" % (opts.output, len(lines), longest))
-    print("HTML  : %s.html — %d blocs, %d notes" % (opts.output, len(book.blocks), len(book.notes)))
+    print("HTML  : %s.html — %d blocs, %d notes, variantes de %d pages"
+          % (opts.output, len(book.blocks), len(book.notes), len(book.variants)))
 
 
 if __name__ == "__main__":
