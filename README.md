@@ -133,6 +133,11 @@ python3 epub_gutenberg.py 6.epub -o Mon_livre
   `<p class="note">`, `epub_structure.py --link-notes` les relie aux appels « (1) » du texte ;
 - `epub_recolle.py` sépare aussi les mots collés (« chambredu » → « chambre du ») ;
 - `livres/` : finitions propres à un volume (page de titre, chapitres, table), à lancer après la structure ;
+  pour l'édition Kervyn, `livres/froissart-kervyn-finitions.py` sert à tous les tomes :
+  `--tome XIV --ordinal QUATORZIÈME --annees 1389-1392 --sous-titre "(…)" --date 1872`, et
+  `--table-fix tome.json` pour les mots perdus par l'OCR de la table (relus sur le scan) ;
+- `epub_review.py` signale les guillemets non refermés (citation ouverte que le paragraphe suivant
+  ne poursuit pas, ou » sans « avant) ;
 - pour Gutenberg, les variantes sont regroupées en fin de volume page par page, les numéros de page
   sont en marge du HTML (lien vers les variantes) et entre accolades `{12}` dans le texte.
 

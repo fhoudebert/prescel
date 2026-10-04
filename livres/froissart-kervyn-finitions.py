@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Finitions du tome XIII des Œuvres de Froissart, Chroniques (éd. Kervyn de Lettenhove,
-Bruxelles, Devaux, 1871 ; Gallica bpt6k389349, fac-similé d'Osnabrück 1967), à passer après
-epub_errata.py --retirer et avant la relecture :
+Finitions d'un tome des Œuvres de Froissart, Chroniques (éd. Kervyn de Lettenhove, Bruxelles,
+Devaux ; fac-similé d'Osnabrück 1967 sur Gallica), à passer après epub_errata.py --retirer et
+avant la relecture :
 
 - page de titre de l'édition de 1871 (d'après la numérisation Google Livres) ; page de titre de
   la réimpression, plats de reliure et pages blanches retirés (les ancres de page restent) ;
@@ -12,14 +12,26 @@ epub_errata.py --retirer et avant la relecture :
   en colonne, entrées lues en un paragraphe séparées ; l'entrée « Errata » part avec l'errata ;
 - métadonnées de l'édition.
 
-Usage : froissart-t13-kervyn-finitions.py entree.epub sortie.epub
+Usage :
+  froissart-kervyn-finitions.py entree.epub sortie.epub --tome XIII --ordinal TREIZIÈME \
+      --annees 1386-1389 --sous-titre "(Depuis la mort de Charles le Mauvais jusqu'à la trêve de Lelinghen)." \
+      --date 1871 [--table-fix corrections.json]
+--table-fix : {"titre lu par l'OCR": ["titre juste", "page ou null"], …} vérifié sur le scan.
 """
+import argparse
 import html
+import json
 import re
 import sys
 import zipfile
 
-src, dst = sys.argv[1], sys.argv[2]
+ap = argparse.ArgumentParser()
+ap.add_argument("src"); ap.add_argument("dst")
+ap.add_argument("--tome", required=True); ap.add_argument("--ordinal", required=True)
+ap.add_argument("--annees", required=True); ap.add_argument("--sous-titre", required=True)
+ap.add_argument("--date", required=True); ap.add_argument("--table-fix")
+A = ap.parse_args()
+src, dst = A.src, A.dst
 zin = zipfile.ZipFile(src)
 files = {n: zin.read(n) for n in zin.namelist()}
 T = lambda n: files[n].decode("utf-8")
@@ -30,7 +42,7 @@ HEAD = """<?xml version="1.0" encoding="utf-8"?>
   "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml">
 <head>
-  <title>Œuvres de Froissart. Chroniques, tome XIII</title>
+  <title>Œuvres de Froissart. Chroniques, tome %(tome)s</title>
   <link href="../Styles/livre.css" rel="stylesheet" type="text/css" />
 </head>
 <body>
@@ -46,7 +58,7 @@ t = re.sub(r'(<h1 id="titre-3">(?:<a id="page-\d+" />)?)CHRONIQUES DE FRANCE[^<]
            r"\1CHRONIQUES DE FRANCE, D'ENGLETERRE, D'ESCOCE, DE BRETAIGNE, D'ESPAIGNE, D'YTALIE, "
            r"DE FLANDRE ET D'ALEMAIGNE.</h1>", t)
 files[texts[0]] = t.encode("utf-8")
-files["OEBPS/Text/titre.xhtml"] = (HEAD + """  <div class="titre">%s
+files["OEBPS/Text/titre.xhtml"] = ((HEAD + """  <div class="titre">%(front)s
   <p class="centre titre-livre">ŒUVRES<br />DE<br />FROISSART</p>
   <p class="centre">publiées</p>
   <p class="centre">AVEC LES VARIANTES DES DIVERS MANUSCRITS</p>
@@ -55,16 +67,17 @@ files["OEBPS/Text/titre.xhtml"] = (HEAD + """  <div class="titre">%s
   <p class="centre">Membre de l'Académie royale de Belgique,<br />Correspondant de l'Institut de France, de l'Académie de Munich, etc.</p>
   <hr />
   <p class="centre">CHRONIQUES</p>
-  <p class="centre">TOME TREIZIÈME</p>
-  <p class="centre">1386-1389</p>
-  <p class="centre">(Depuis la mort de Charles le Mauvais jusqu'à la trêve de Lelinghen).</p>
+  <p class="centre">TOME %(ordinal)s</p>
+  <p class="centre">%(annees)s</p>
+  <p class="centre">%(sous)s</p>
   <hr />
   <p class="centre">BRUXELLES<br />COMPTOIR UNIVERSEL D'IMPRIMERIE ET DE LIBRAIRIE<br />VICTOR DEVAUX ET C<sup>ie</sup><br />RUE SAINT-JEAN, 26</p>
-  <p class="centre">1871</p>
+  <p class="centre">%(date)s</p>
   </div>
 </body>
 </html>
-""" % front).encode("utf-8")
+""").replace("%(front)s", front) % {"tome": A.tome, "ordinal": A.ordinal, "annees": A.annees,
+                                     "sous": html.escape(A.sous_titre, quote=False), "date": A.date}).encode("utf-8")
 
 # 2. pages blanches et plats : l'ancre de page reste, l'image part
 for n in texts:
@@ -101,14 +114,16 @@ for title, page in segs:
         entries.append([title, page])
 entries = [e for e in entries if not re.fullmatch(r"Errata\.?", e[0])]
 # mots que l'OCR de la table a perdus (vérifiés sur le scan, vue 387)
-FIX = {"Testament de Tête-Noire": ("Testament de Geoffroy Tête-Noire", None),
-       "Le duc de prisonnier en Prusse.": ("Le duc de Gueldre prisonnier en Prusse.", "290"),
-       "Joute deJeandesBarres et de Thomas d'Harpingham": ("Joute de Jean des Barres et de Thomas d'Harpingham", None)}
+FIX = {k: tuple(v) for k, v in json.load(open(A.table_fix, encoding="utf-8")).items()} if A.table_fix else {}
 for e in entries:
-    e[0] = e[0].replace("de Brayant", "de Brabant")
     if e[0] in FIX:
         e[0], pg = FIX[e[0]]
         e[1] = e[1] or pg
+    else:                                     # sinon, correction d'un morceau du titre
+        for k, (v, pg) in FIX.items():
+            if k in e[0]:
+                e[0] = e[0].replace(k, v)
+                e[1] = e[1] or pg
 pages = [int(p) for _, p in entries if p]
 bad = [i for i in range(1, len(pages)) if pages[i] < pages[i - 1]]
 rows = []
@@ -124,12 +139,12 @@ files[tf] = t.encode("utf-8")
 
 # 4. métadonnées, sommaire, CSS
 o = T("OEBPS/content.opf")
-o = re.sub(r"<dc:title>.*?</dc:title>", "<dc:title>Œuvres de Froissart. Chroniques, tome XIII (1386-1389)</dc:title>", o, flags=re.S)
+o = re.sub(r"<dc:title>.*?</dc:title>", "<dc:title>Œuvres de Froissart. Chroniques, tome %s (%s)</dc:title>" % (A.tome, A.annees), o, flags=re.S)
 o = re.sub(r'<dc:creator[^>]*>.*?</dc:creator>',
            '<dc:creator opf:role="aut" opf:file-as="Froissart, Jean">Jean Froissart</dc:creator>\n'
            '    <dc:contributor opf:role="edt" opf:file-as="Kervyn de Lettenhove, Joseph">Joseph Kervyn de Lettenhove</dc:contributor>\n'
            '    <dc:publisher>Bruxelles : Victor Devaux et Cie</dc:publisher>', o, flags=re.S)
-o = re.sub(r"<dc:date>.*?</dc:date>", "<dc:date>1871</dc:date>", o)
+o = re.sub(r"<dc:date>.*?</dc:date>", "<dc:date>%s</dc:date>" % A.date, o)
 o = re.sub(r'\s*<item id="[^"]+" href="Images/[^"]+"[^>]*/>', "", o)
 for n in [k for k in files if k.startswith("OEBPS/Images/")]:
     del files[n]
@@ -150,7 +165,7 @@ pts = "\n".join('    <navPoint id="nav-%d" playOrder="%d"><navLabel><text>%s</te
                 % (i, i, html.escape(l, quote=False), s_) for i, (l, s_) in enumerate(nav, 1))
 n = re.sub(r"<navMap>.*?</navMap>", "<navMap>\n%s\n  </navMap>" % pts, n, flags=re.S)
 n = re.sub(r"<docTitle><text>.*?</text></docTitle>",
-           "<docTitle><text>Œuvres de Froissart. Chroniques, tome XIII (1386-1389)</text></docTitle>", n, flags=re.S)
+           "<docTitle><text>Œuvres de Froissart. Chroniques, tome %s (%s)</text></docTitle>" % (A.tome, A.annees), n, flags=re.S)
 k = [len(nav)]
 
 

@@ -276,6 +276,7 @@ def main():
                 pg["len"] += len(s) + 1            # « \n » entre deux nœuds : pas de mot à cheval
 
         done, todo, changed = [], [], set()
+        removed_ids = set()
         for e in entries:
             faux, juste = e["faux"].strip(), e["juste"].strip()
             where = "p. %s%s" % (e["page"], ", l. %d" % e["ligne"] if e["ligne"] else "")
@@ -405,6 +406,7 @@ def main():
                 print("Section ERRATA gardée : %d corrections restent à faire." % len(todo))
             else:
                 for d, el in section:
+                    removed_ids.update(x.get("id") for x in el.iter() if x.get("id") and lname(x) != "a")
                     kids = list(d.body)
                     if el in kids:
                         # les ancres de page restent (liste des pages du toc.ncx, liens Gallica)
@@ -427,6 +429,21 @@ def main():
         opf2 = re.sub(r'\s*<meta name="prescel:errata"[^>]*/>', "", opf)
         opf2 = re.sub(r"(</(?:[\w-]+:)?metadata>)", "    " + meta + "\n  \\1", opf2, count=1)
         new_data[opf_path] = opf2.encode("utf-8")
+        # sommaire : l'entrée du titre « ERRATA » retiré disparaît avec lui
+        if removed_ids:
+            for name in names:
+                if name.endswith(".ncx"):
+                    t_ = decode_text(zin.read(name))[0]
+                    t2 = t_
+                    for rid in removed_ids:
+                        t2 = re.sub(r'\s*<navPoint\b(?:(?!<navPoint\b).)*?#%s"\s*/>\s*</navPoint>' % re.escape(rid),
+                                    "", t2, flags=re.S)
+                    if t2 != t_:
+                        # playOrder sans trou, dans le même ordre
+                        vals = sorted({int(v) for v in re.findall(r'playOrder="(\d+)"', t2)})
+                        rank = {v: i for i, v in enumerate(vals, 1)}
+                        t2 = re.sub(r'playOrder="(\d+)"', lambda m_: 'playOrder="%d"' % rank[int(m_.group(1))], t2)
+                        new_data[name] = t2.encode("utf-8")
         fd, tmp = tempfile.mkstemp(suffix=".epub", dir=os.path.dirname(os.path.abspath(out_path)))
         os.close(fd)
         try:

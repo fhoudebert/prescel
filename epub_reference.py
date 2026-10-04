@@ -596,6 +596,10 @@ def ocr_guard(ew, rw, wordlist, vocab):
         known = lambda w: is_word(w, wordlist, vocab) or vocab.get(w.lower(), 0) >= 2
         if all(known(w) for w in ew) and not all(known(w) for w in rw):
             return False
+        # la référence colle souvent des mots (texte de PDF Google sans espaces) : le mot recollé
+        # doit exister ailleurs dans le livre ou dans la langue, sans majuscule en son milieu
+        if not all(known(w) and not re.search(r"[a-zà-ÿ][A-ZÀ-Þ]", w) for w in rw):
+            return False
     if len(rw) > len(ew):
         if not all(is_word(w, wordlist, vocab) or vocab.get(w.lower(), 0) for w in rw):
             return False
