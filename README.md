@@ -112,7 +112,9 @@ python3 epub_reference.py brut.epub google.epub --apply ocr,ponctuation -o 2.epu
 python3 epub_structure.py 2.epub -o 3.epub --merge-pages --drop-furniture --caps-titles --link-notes
 python3 epub_errata.py 3.epub -o 4.epub --tsv livre-errata.tsv --retirer   # liste relue sur le scan
 python3 epub_recolle.py 4.epub -o 5.epub --tsv livre-recolle.tsv
-python3 epub_typo.py 5.epub -o 6.epub
+python3 epub_guillemets.py 5.epub -o 5b.epub
+python3 epub_apparat.py 5b.epub -o 5c.epub
+python3 epub_typo.py 5c.epub -o 6.epub
 python3 epub_gutenberg.py 6.epub -o Mon_livre
 ```
 
@@ -122,6 +124,9 @@ python3 epub_gutenberg.py 6.epub -o Mon_livre
 - Gallica refuse parfois les requêtes trop rapprochées (« too many requests ») : `pdf_to_epub.py`
   ralentit et réessaie ; une page encore refusée vient de la couche texte du PDF et est listée, une
   relance ne redemande que les pages manquantes (le cache garde les autres) ;
+- référence elle-même issue d'une OCR médiocre (PDF Internet Archive…) : `epub_reference.py --prudent`
+  ne corrige qu'un mot inconnu de l'EPUB en un mot connu, jamais une terminaison ni une première
+  lettre, et n'ajoute aucune ponctuation ; les PDF numérisés sont reconnus (césures recollées) ;
 - `--apply ponctuation` rétablit les virgules, points-virgules et deux-points perdus par l'OCR, d'après
   l'autre numérisation ; à réserver à la **même** édition ;
 - notes de l'éditeur en bas de page (« (1) … », Buchon) : `--notes auto|oui|non` les met à part dans
@@ -234,10 +239,14 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_errata.py` | applique l'errata imprimé du livre (« P. 24, l. 30, sont — font ») à la page indiquée ; liste à relire dans `<livre>-errata.tsv` |
 | `epub_recolle.py` | recolle les mots coupés d'une espace (« Portin gal », « autre ment ») quand le mot entier est ailleurs dans le livre ; liste dans `<livre>-recolle.tsv` |
+| `epub_guillemets.py` | guillemets que l'OCR a lus « u » (« ) et « n » (») ; guillemets répétés en tête de ligne supprimés |
+| `epub_apparat.py` | numéros d'appel de l'apparat de variantes lus « U », déduits des numéros voisins |
 | `epub_typo.py` | typographie française de la ponctuation (insécables, espaces, « — », « … ») ; seules les espaces changent |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
 | `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide |
+| `epub_guillemets.py` | guillemets que l'OCR a lus « u » (« ) et « n » (») ; guillemets répétés en tête de ligne supprimés |
+| `epub_apparat.py` | numéros d'appel de l'apparat de variantes lus « U », déduits des numéros voisins |
 | `epub_typo.py` | typographie française : espaces insécables avant ; : ! ? » et après «, aucune avant . , …, « ... » → « … », tirets |
 | `epub_pages.py` | liste des pages du livre papier rétablie ou réparée ; `--purge` |
 

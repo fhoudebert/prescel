@@ -122,6 +122,22 @@ def reference_text(path, from_page, to_page):
                 sys.exit("Lire un PDF demande PyMuPDF : pip install pymupdf")
         d = pymupdf.open(path)
         a, b = max(0, from_page - 1), min(d.page_count, to_page or d.page_count)
+        # PDF de numérisation (Internet Archive, Google, Gallica) : une image par page et un texte
+        # d'OCR invisible, aux tailles de police sans signification ; les mots y sont coupés en fin
+        # de ligne. Pas de tri par taille, césures recollées.
+        def scanned(pg):
+            area = pg.rect.width * pg.rect.height
+            for info in pg.get_image_info():
+                r = pymupdf.Rect(info["bbox"])
+                if r.width * r.height > 0.6 * area:
+                    return True
+            return False
+        probe = [i for i in range(a, b, max(1, (b - a) // 15))][:15]
+        if probe and sum(scanned(d[i]) for i in probe) > len(probe) / 2:
+            text = "\n".join(d[i].get_text("text") for i in range(a, b))
+            text = re.sub(r"(?<=[^\W\d_])[-¬]\s*\n\s*(?=[a-zà-ÿ])", "", text)
+            text = re.sub(r"[ \t]*\n[ \t]*", " ", text)
+            return re.sub(r"\[(?:[IVXLC]+,\s*)?\d+\]", " ", text)
         sizes = collections.Counter()
         for i in range(a, min(b, a + 40)):
             for blk in d[i].get_text("dict")["blocks"]:
@@ -306,6 +322,9 @@ def main():
                          "et par au plus ce nombre de mots (défaut 3)")
     ap.add_argument("--min-ratio", type=float, default=0.8,
                     help="ressemblance minimale d'un paragraphe avec la référence (défaut 0,8)")
+    ap.add_argument("--prudent", action="store_true",
+                    help="référence d'OCR médiocre (Internet Archive…) : ne corriger qu'un mot inconnu de "
+                         "l'EPUB en un mot connu du livre ou de la langue ; ponctuation jamais appliquée")
     ap.add_argument("--report", help="rapport HTML des écarts (défaut : <sortie>-ecarts.html)")
     ap.add_argument("--wordlist", default="auto", help="liste de mots français (fichier ou « auto »)")
     ap.add_argument("--dry-run", action="store_true", help="rapport seulement, aucun EPUB écrit")
@@ -318,6 +337,9 @@ def main():
     apply -= {"absent", "enplus"}
 
     keep = {plain(w.strip()) for w in opts.keep.split(",") if w.strip()}
+    PRUDENT[0] = opts.prudent
+    if opts.prudent:
+        apply.discard("ponctuation")
     ref, ref_gaps = reference_words(opts.reference, opts.from_page, opts.to_page)
     if len(ref) < 50:
         sys.exit("Référence presque vide (%d mots) : vérifiez --from-page / le fichier." % len(ref))
@@ -534,11 +556,32 @@ def main():
     print("EPUB écrit : %s" % out_path)
 
 
+PRUDENT = [False]
+
+
 def ocr_guard(ew, rw, wordlist, vocab):
     """Faux si la « correction d'OCR » est douteuse :
     - mot tronqué par la référence (« voulenu » → « voulen », « avenc » → « aven ») : la
       référence a coupé le mot en fin de ligne ;
     - mot éclaté en morceaux qui ne sont pas des mots (« dommaige » → « dom maige »)."""
+    if PRUDENT[0]:
+        # référence elle-même issue d'une OCR médiocre : on ne corrige qu'un non-mot de l'EPUB en
+        # un mot connu (du livre ou de la langue), jamais l'inverse
+        known = lambda w: vocab.get(w.lower(), 0) >= 3 or (wordlist is not None and is_word(w, wordlist, vocab))
+        if any(known(w) for w in ew) or not all(known(w) for w in rw):
+            return False
+        if len(ew) == len(rw) == 1:
+            e, r = ew[0], rw[0]
+            if e[:1].isupper() != r[:1].isupper():
+                return False                     # « Ilme » → « Lime », « l'évêqae » → « l'évOque »
+            diff = [k for k in range(min(len(e), len(r))) if e[k] != r[k]]
+            if len(e) == len(r) and diff and min(diff) >= len(e) - 3:
+                return False                     # terminaison : « donnerois » / « donnerons »
+            if diff and min(diff) == 0 and len(e) == len(r):
+                return False                     # première lettre : « feurre » / « leurre »
+            end = re.search(r"o(?:i|y)(?:ent|t|s)$", e)
+            if end and not r.endswith(end.group(0)):
+                return False                     # « visiteroient » → « visiteraient », « verrois » → « vermis »
     if len(ew) == len(rw) == 1:
         e, r = plain(ew[0]), plain(rw[0])
         if vocab.get(ew[0].lower(), 0) >= 3 and not s_long_swap(ew[0], rw[0]) and \

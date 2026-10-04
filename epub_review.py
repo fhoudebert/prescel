@@ -319,8 +319,12 @@ class Reviewer:
                 out.append((a, b, "casse", w))
                 continue
             # lettre isolée (les chiffres romains en minuscules sont admis)
+            # abréviations de l'éditeur : « (n. s.) », « (v. st.) », « p. 45 », « n° 8354 »,
+            # « 15e jour » (ordinal collé à un nombre)
+            abbrev = (b < len(s) and s[b] in ".°" and re.match(r"[.°]\s*(?:\d|[a-z]{1,2}\.)", s[b:])) or \
+                (a > 0 and s[a - 1].isdigit())
             if len(w) == 1 and w not in ALLOWED_SINGLE and not elided and not hyphenated \
-                    and not w.isupper() \
+                    and not w.isupper() and not abbrev \
                     and w not in "ivxlc":
                 out.append((a, b, "isolees", w))
                 continue

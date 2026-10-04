@@ -378,6 +378,21 @@ STEPS = [
         "options": [],
     },
     {
+        "id": "guillemets", "enabled": False, "script": "epub_guillemets.py", "suffix": "3c2-guillemets",
+        "title": "Guillemets lus « u » / « n »",
+        "summary": "L'OCR de Gallica lit souvent « comme « u » et » comme « n ». Chaque lettre isolée est "
+                   "décidée d'après l'équilibre des guillemets du paragraphe : fermant, ouvrant, ou guillemet "
+                   "répété en tête de ligne (supprimé). Tout est listé dans le journal.",
+        "options": [],
+    },
+    {
+        "id": "apparat", "enabled": False, "script": "epub_apparat.py", "suffix": "3c3-apparat",
+        "title": "Numéros de l'apparat lus « U »",
+        "summary": "Dans l'apparat de variantes (« 1-2 Gens. — U Chose. »), le numéro lu « U » est déduit de "
+                   "ses voisins (« 3-4 Viel. — 5-6 Chose. »). Sans appui sûr, le « U » reste et est listé.",
+        "options": [],
+    },
+    {
         "id": "typo", "enabled": False, "script": "epub_typo.py", "suffix": "3d-typo",
         "title": "Typographie française de la ponctuation",
         "summary": "Espace insécable avant ; : ! ? » et après «, aucune espace avant . , ) ], une espace après "
