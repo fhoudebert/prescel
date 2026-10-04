@@ -375,10 +375,11 @@ def table_text(b, width):
         if tr:
             title = plain_runs(tr[0]).strip()
             lines = textwrap.wrap(title, width - 8) or [""]
+            lines = [lines[0]] + ["    " + l for l in lines[1:]]       # suite en retrait
             last = lines[-1]
             dots = width - len(last) - len(tr[1]) - 2
             lines[-1] = last + " " + "." * max(1, dots) + " " + tr[1] if dots > 2 else last + " " + tr[1]
-            out += [lines[0]] + ["    " + l for l in lines[1:]]
+            out += lines
         else:
             out += hanging("   ".join(plain_runs(c).strip() for c in cells if c), width)
     return out

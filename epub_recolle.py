@@ -42,6 +42,8 @@ from epub_longs import (Doc, EPUB2, decode_text, fix_doctype, get_attr, load_wor
 WORD = re.compile(r"[^\W\d_]+")
 # terminaisons qu'une espace sépare souvent de leur mot (« autre ment », « parle ment ») et qui
 # ne sont presque jamais des mots à elles seules dans ces textes
+OPENERS = {"si", "et", "au", "aux", "en", "le", "la", "les", "de", "du", "des", "que", "quant", "or",
+           "puis", "ce", "il", "ils", "on", "car", "mais", "à", "a", "ne", "se", "sur", "par", "pour"}
 SUFFIXES = {"ment", "mens", "ments", "ent", "ient", "oient", "rent", "oit", "tion", "tions",
             "ance", "ances", "ité", "eur", "eurs", "ture", "tures"}
 # deux morceaux séparés par une seule espace, sans apostrophe ni trait d'union autour
@@ -213,6 +215,13 @@ def main():
             if len(cand) != 1:
                 return w
             parts = cand[0]
+            # mot à majuscule : nom propre (« Pasque ») sauf s'il commence par un petit mot de
+            # début de phrase (« Siprindrent », « Auroi », « Etsi »)
+            if w[:1].isupper() and parts[0].lower() not in OPENERS:
+                return w
+            # forme ancienne d'un mot de la langue : « passans » (passants), « faisans »
+            if wordlist and re.search(r"[ae]ns$", lw) and (lw[:-1] + "ts") in wordlist:
+                return w
             if any(p_[:1].isupper() for p_ in parts[1:]) and not all(
                     p_[:1].isupper() or p_.islower() for p_ in parts):
                 return w

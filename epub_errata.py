@@ -293,6 +293,16 @@ def main():
             if not pg:
                 todo.append((e, where, "page introuvable"))
                 continue
+            # une longue variante commencée sur la page précédente est rangée sous cette page-là :
+            # si le contexte n'est pas sur la page indiquée, on le cherche sur la précédente
+            if e.get("contexte") and e["page"].isdigit() and str(int(e["page"]) - 1) in pages:
+                cp_ = loose_pattern(e["contexte"], span=True)
+                here = "\n".join(getattr(h, a) or "" for h, a, _, _ in pg["slots"])
+                if cp_ and not cp_.search(here):
+                    prev = pages[str(int(e["page"]) - 1)]
+                    there = "\n".join(getattr(h, a) or "" for h, a, _, _ in prev["slots"])
+                    if len(list(cp_.finditer(there))) == 1:
+                        pg = prev
             # positions recalculées à chaque correction : une correction précédente sur la même
             # page a pu changer la longueur d'un nœud (« grans » → « grant »)
             pos, acc = [], 0
@@ -400,9 +410,10 @@ def main():
                         # les ancres de page restent (liste des pages du toc.ncx, liens Gallica)
                         ids = [a.get("id") for a in el.iter() if lname(a) == "a" and a.get("id")]
                         if ids:
-                            keep = ET.Element(el.tag.replace(lname(el), "div") if "}" in el.tag else "div")
+                            ns = el.tag[:el.tag.index("}") + 1] if el.tag.startswith("{") else ""
+                            keep = ET.Element(ns + "div")
                             for i in ids:
-                                ET.SubElement(keep, keep.tag.replace("div", "a"), {"id": i})
+                                ET.SubElement(keep, ns + "a", {"id": i})
                             d.body.insert(kids.index(el), keep)
                         d.body.remove(el)
                     changed.add(d.path)
