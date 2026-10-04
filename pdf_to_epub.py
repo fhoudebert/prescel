@@ -67,6 +67,15 @@ TERMINAL = re.compile(r"[.!?:»]\s*$")
 # apparat critique en bas de page (éditions savantes : Kervyn de Lettenhove, Luce…) :
 # « 1-2 Gens. 3-4 Viel. 5-6 Chose. » — l'OCR lit souvent le tiret « _ » ou « . »
 APPARATUS = re.compile(r"(?:^|\s)(?<!pp\.\s)(?<!p\.\s)\d{1,2}\s?[-_–—]\s?\d{1,2}\b|^\d{1,2}\s+[A-ZÀ-Ý]")
+# note de bas de page numérotée « (1) … », que l'OCR lit souvent « (i) », « (I) », « (l) », « (2") »
+NOTE_START = re.compile(r"""^\(\s*([0-9iIl]{1,2})\s*["”'’]?\s*\)""")
+NOTE_CALL = re.compile(r"""^\(([0-9iIl]{1,2})["”'’]?\)([.,;:!?»]*)$""")
+
+
+def note_num(s):
+    return re.sub(r"[iIl]", "1", s)
+
+
 # appel de variante : nombre isolé de 1 ou 2 chiffres dans le texte courant (« ses 1 princes »)
 CALL = re.compile(r"^(\d{1,2})([.,;:!?»)]*)$")
 # appel collé au mot par l'OCR : « jours10 », « Or3 », « porteroient6plus »
@@ -454,6 +463,8 @@ class Builder:
         self.variantes = variantes      # apparat en bas de page → <p class="variantes">, appels en exposant
         self.line_quotes = line_quotes  # retirer les « répétés en tête de ligne dans une citation
         self.n_variantes = self.n_calls = self.n_quotes = 0
+        self.footnotes = False          # notes « (1) … » en bas de page → <p class="note">
+        self.n_notes = 0
         self.blocks = []            # {"type": p|centre|marge|image, "parts": [...]}
         self.open_p = None          # paragraphe en cours (peut continuer page suivante)
         self.hyphen = None          # fragment de mot coupé en fin de ligne, ou "\x00" (ALTO)
@@ -507,6 +518,14 @@ class Builder:
 
     def add_words(self, block, words, calls=False):
         for t, conf in words:
+            nc = NOTE_CALL.match(t) if self.footnotes and block.get("type") == "p" else None
+            if nc:
+                # « (i) » → « (1) », collé au mot qui précède pour que l'appel soit reconnu
+                if block["parts"] and block["parts"][-1][0] in ("text", "doubt"):
+                    block["parts"].append(("text", " (%s)%s" % (note_num(nc.group(1)), nc.group(2))))
+                else:
+                    block["parts"].append(("text", "(%s)%s" % (note_num(nc.group(1)), nc.group(2))))
+                continue
             g = GLUED_CALL.match(t) if calls else None
             if g:
                 # le mot, l'appel, puis l'éventuel mot suivant collé
@@ -787,6 +806,12 @@ class Builder:
         left, right, h, colw = getattr(page, "col", (0, page.width, 10, page.width))
         cw = colw / 60.0                       # largeur approximative d'un caractère
         body = sorted([l for l in page.lines if l.zone == "body"], key=lambda l: (l.y0, l.x0))
+        notes = []
+        if self.footnotes:
+            grp = self.apparatus_lines(body, h, getattr(self, "pitch", None))
+            if grp and NOTE_START.match(grp[0].text.strip()):
+                notes = grp
+                body = [l for l in body if l not in notes]
         app = []
         self.page_var = self.variantes and page.index not in getattr(self, "no_apparatus", ())
         if self.page_var:
@@ -904,6 +929,32 @@ class Builder:
             if target is None or target["type"] == "image":
                 target = self.emit({"type": "p", "parts": []})
             target["parts"].append(self.anchor(page))
+        if notes:
+            cur, carry = None, None
+            for ln in notes:
+                m = NOTE_START.match(ln.text.strip())
+                ws = [(w.text, w.conf) for w in ln.words]
+                if m or cur is None:
+                    cur = {"type": "note", "parts": []}
+                    if m:
+                        # « (i) » en tête de note → « (1) »
+                        k = 0
+                        acc = ""
+                        while k < len(ws) and not acc.endswith(")"):
+                            acc += ws[k][0]
+                            k += 1
+                        ws = [("(%s)" % note_num(m.group(1)), 1.0)] + ws[k:]
+                    self.n_notes += 1
+                    if self.open_p is None:
+                        self.emit(cur)
+                    else:
+                        self.margin_queue.append(cur)
+                if carry and ws:
+                    ws[0] = (carry + ws[0][0], ws[0][1])
+                    carry = None
+                if ws and re.search(r"[A-Za-zÀ-ÿ][-¬]$", ws[-1][0]):
+                    carry = ws.pop()[0][:-1]
+                self.add_words(cur, ws)
         if app:
             blk = {"type": "variantes", "page": page.label, "parts": []}
             words, carry = [], None
@@ -1007,6 +1058,8 @@ def render_block(b, img_names):
         return '<div class="image">%s<img src="../Images/%s" alt="" /></div>' % (inner, name)
     if not re.sub(r"<[^>]+>", "", inner).strip():
         return '<div>%s</div>' % inner if inner else ""
+    if b["type"] == "note":
+        return '<p class="note">%s</p>' % inner
     if b["type"] == "variantes":
         return '<p class="variantes" title="p. %s">%s</p>' % (html.escape(str(b.get("page", ""))), inner)
     cls = {"marge": ' class="marge"', "centre": ' class="centre"', "vers": ' class="vers"'}.get(b["type"], "")
@@ -1232,6 +1285,8 @@ def main():
     ap.add_argument("--variantes", choices=["auto", "oui", "non"], default="auto",
                     help="apparat critique en bas de page (« 1-2 Gens. 3-4 Viel. ») mis à part dans "
                          "<p class=\"variantes\">, appels de variante en exposant (auto : si le livre en a)")
+    ap.add_argument("--notes", choices=["auto", "oui", "non"], default="auto",
+                    help="notes « (1) … » en bas de page mises à part dans <p class=\"note\"> (auto : si le livre en a)")
     ap.add_argument("--garder-guillemets-de-ligne", action="store_true",
                     help="garder les « répétés en tête de chaque ligne d'une citation "
                          "(par défaut retirés : seuls restent l'ouvrant et le fermant)")
@@ -1369,9 +1424,21 @@ def main():
             if group and any(APPARATUS.search(l.text) for l in group):
                 app_pages.append(p.index)
     ntext = sum(1 for p in pages if p.kind == "text")
+    note_pages = 0
+    if opts.notes != "non":
+        for p in pages:
+            if p.kind != "text" or not hasattr(p, "col"):
+                continue
+            body = sorted([l for l in p.lines if l.zone == "body"], key=lambda l: (l.y0, l.x0))
+            group = Builder.apparatus_lines(body, p.col[2], pitch)
+            if group and NOTE_START.match(group[0].text.strip()):
+                note_pages += 1
     use_var = opts.variantes == "oui" or (opts.variantes == "auto" and len(app_pages) >= max(3, 0.15 * ntext))
     b = Builder(mark, variantes=use_var, line_quotes=not opts.garder_guillemets_de_ligne)
     b.pitch = pitch
+    b.footnotes = opts.notes == "oui" or (opts.notes == "auto" and note_pages >= 3)
+    if b.footnotes:
+        print("Notes en bas de page repérées sur %d pages" % note_pages)
     if use_var and app_pages and opts.variantes == "auto":
         # avant la première et après la dernière page à variantes (introduction, notes de
         # l'éditeur, table), un blanc en bas de page n'est pas un apparat
@@ -1401,6 +1468,8 @@ def main():
     if use_var:
         print("Variantes : %d blocs mis à part (<p class=\"variantes\">), %d appels en exposant "
               "(<sup class=\"var\">)" % (b.n_variantes, b.n_calls))
+    if b.footnotes:
+        print("Notes mises à part : %d (<p class=\"note\">)" % b.n_notes)
     if b.n_quotes:
         print("Guillemets répétés en tête de ligne retirés : %d" % b.n_quotes)
     paras = sum(1 for x in b.blocks if x["type"] in ("p", "centre"))

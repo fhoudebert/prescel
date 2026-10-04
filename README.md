@@ -110,8 +110,10 @@ numérisation de la même édition (EPUB de Google Livres) :
 python3 pdf_to_epub.py "Oeuvres_de_Froissart_[...]_bpt6k38933z.pdf" -o brut.epub   # --variantes auto
 python3 epub_reference.py brut.epub google.epub --apply ocr,ponctuation -o 2.epub
 python3 epub_structure.py 2.epub -o 3.epub --merge-pages --drop-furniture --caps-titles --link-notes
-python3 epub_errata.py 3.epub -o 4.epub --tsv livre-errata.tsv   # relire la liste sur le scan, relancer
-python3 epub_gutenberg.py 4.epub -o Mon_livre
+python3 epub_errata.py 3.epub -o 4.epub --tsv livre-errata.tsv --retirer   # liste relue sur le scan
+python3 epub_recolle.py 4.epub -o 5.epub --tsv livre-recolle.tsv
+python3 epub_typo.py 5.epub -o 6.epub
+python3 epub_gutenberg.py 6.epub -o Mon_livre
 ```
 
 - l'apparat (« 1-2 Gens. 3-4 Viel. ») est reconnu à son interligne plus serré et mis à part
@@ -122,6 +124,10 @@ python3 epub_gutenberg.py 4.epub -o Mon_livre
   relance ne redemande que les pages manquantes (le cache garde les autres) ;
 - `--apply ponctuation` rétablit les virgules, points-virgules et deux-points perdus par l'OCR, d'après
   l'autre numérisation ; à réserver à la **même** édition ;
+- notes de l'éditeur en bas de page (« (1) … », Buchon) : `--notes auto|oui|non` les met à part dans
+  `<p class="note">`, `epub_structure.py --link-notes` les relie aux appels « (1) » du texte ;
+- `epub_recolle.py` sépare aussi les mots collés (« chambredu » → « chambre du ») ;
+- `livres/` : finitions propres à un volume (page de titre, chapitres, table), à lancer après la structure ;
 - pour Gutenberg, les variantes sont regroupées en fin de volume page par page, les numéros de page
   sont en marge du HTML (lien vers les variantes) et entre accolades `{12}` dans le texte.
 
@@ -227,6 +233,8 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_reference.py` | corrige l'EPUB d'après une autre édition du texte (PDF ou texte) : alignement mot à mot, catégories au choix, rapport d'écarts |
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_errata.py` | applique l'errata imprimé du livre (« P. 24, l. 30, sont — font ») à la page indiquée ; liste à relire dans `<livre>-errata.tsv` |
+| `epub_recolle.py` | recolle les mots coupés d'une espace (« Portin gal », « autre ment ») quand le mot entier est ailleurs dans le livre ; liste dans `<livre>-recolle.tsv` |
+| `epub_typo.py` | typographie française de la ponctuation (insécables, espaces, « — », « … ») ; seules les espaces changent |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
 | `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide |

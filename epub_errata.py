@@ -293,11 +293,32 @@ def main():
             if not pg:
                 todo.append((e, where, "page introuvable"))
                 continue
+            # positions recalculées à chaque correction : une correction précédente sur la même
+            # page a pu changer la longueur d'un nœud (« grans » → « grant »)
+            pos, acc = [], 0
+            for h, a, _, path_ in pg["slots"]:
+                pos.append((h, a, acc, path_))
+                acc += len(getattr(h, a) or "") + 1
+            pg["slots"] = pos
             text = "\n".join(getattr(h, a) or "" for h, a, _, _ in pg["slots"]) + "\n"
             lo, hi = 0, len(text)
             if e.get("contexte"):
                 cp = loose_pattern(e["contexte"], span=True)
                 cm = list(cp.finditer(text)) if cp else []
+                if not cm:
+                    # relance : la correction est peut-être déjà faite (le contexte contient « lisez »)
+                    cw, fw, jw = WORDS.findall(e["contexte"]), WORDS.findall(faux), WORDS.findall(juste)
+                    low = [w.lower() for w in cw]
+                    k = next((i for i in range(len(cw) - len(fw) + 1)
+                              if fw and low[i:i + len(fw)] == [w.lower() for w in fw]), None)
+                    cp2 = None
+                    if k is not None:
+                        cp2 = loose_pattern(" ".join(cw[:k] + jw + cw[k + len(fw):]), span=True)
+                        cp2 = re.compile(cp2.pattern, re.I) if cp2 else None
+                    if cp2 and len(list(cp2.finditer(text))) == 1:
+                        status[id(e)] = "déjà conforme"
+                        done.append((where, "déjà conforme : « %s »" % juste))
+                        continue
                 if len(cm) != 1:
                     todo.append((e, where, "contexte « %s » trouvé %d fois" % (e["contexte"], len(cm))))
                     continue
@@ -374,7 +395,15 @@ def main():
                 print("Section ERRATA gardée : %d corrections restent à faire." % len(todo))
             else:
                 for d, el in section:
-                    if el in list(d.body):
+                    kids = list(d.body)
+                    if el in kids:
+                        # les ancres de page restent (liste des pages du toc.ncx, liens Gallica)
+                        ids = [a.get("id") for a in el.iter() if lname(a) == "a" and a.get("id")]
+                        if ids:
+                            keep = ET.Element(el.tag.replace(lname(el), "div") if "}" in el.tag else "div")
+                            for i in ids:
+                                ET.SubElement(keep, keep.tag.replace("div", "a"), {"id": i})
+                            d.body.insert(kids.index(el), keep)
                         d.body.remove(el)
                     changed.add(d.path)
                 print("Section ERRATA retirée.")

@@ -368,6 +368,24 @@ STEPS = [
         ],
     },
     {
+        "id": "recolle", "enabled": False, "script": "epub_recolle.py", "suffix": "3c-recolle",
+        "title": "Recoller les mots coupés par une espace",
+        "summary": "« mar eschal » → « mareschal », « Portin gal » → « Portingal » : le mot entier doit se "
+                   "trouver ailleurs dans le livre et un des morceaux n'y jamais apparaître seul. Deux vrais "
+                   "mots côte à côte ne sont jamais recollés (« je n'en vis », « de rue en rue », « si tost »). "
+                   "La liste est écrite dans <livre>-recolle.tsv : changez « auto-oui » / « auto-non » en "
+                   "« oui » / « non » pour imposer votre choix à la relance.",
+        "options": [],
+    },
+    {
+        "id": "typo", "enabled": False, "script": "epub_typo.py", "suffix": "3d-typo",
+        "title": "Typographie française de la ponctuation",
+        "summary": "Espace insécable avant ; : ! ? » et après «, aucune espace avant . , ) ], une espace après "
+                   "la ponctuation quand un mot suit, une espace autour du tiret « — », « ... » → « … ». "
+                   "Seules les espaces changent : le texte est vérifié lettre à lettre.",
+        "options": [],
+    },
+    {
         "id": "split", "enabled": True, "script": "epub_split_h1.py", "suffix": "4-decoupe",
         "title": "Un fichier par chapitre",
         "summary": "Coupe les gros fichiers à chaque titre. Manifest, ordre de lecture, liens, table "
@@ -1108,6 +1126,8 @@ def pipeline(job, plan, check_mode, start=None):
                 cmd += ["--wordlist", "auto"]
         if step["id"] == "errata":
             cmd += ["--tsv", os.path.join(d, slug + "-errata.tsv")]
+        if step["id"] == "recolle":
+            cmd += ["--tsv", os.path.join(d, slug + "-recolle.tsv")]
         if step["id"] == "longs":
             cmd += ["--tsv", tsv]
             if opts.get("use_tsv", True):

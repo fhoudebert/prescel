@@ -85,6 +85,7 @@ NOTE_RE = re.compile(r"^\(?\d{1,3}[.)]\s+\S|^[*†‡]\s*\S")
 # Sans mots : ponctuation/chiffres seuls, ou signature de cahier AVEC chiffre (« IV-1 », « C3 »).
 # Une lettre seule (« L », « C ») n'en fait pas partie : c'est souvent une lettrine.
 # Appel de note collé au mot : « bonneter1 », « frère1, », « resul1. » (pas « 1er », « 2e »)
+CALL_PAREN = re.compile(r"(?<=\w ) ?\((\d{1,2})\)(?=[\s,.;:!?»]|$)|(?<=\w)\((\d{1,2})\)(?=[\s,.;:!?»]|$)")      # « viage (1) étoit »
 CALL_RE = re.compile(r"([A-Za-zÀ-ÖØ-öø-ÿ»)])(\d{1,2})(?=[\s,.;:!?»)]|$|[a-zà-ÿ]{2,})")   # « brouillard1ne »
 FURNITURE_RE = re.compile(r"^(?:[^\w]|[\d_])*$|^[A-Z]{1,5}[\s.\-]*\d{1,3}\s*[.,]?$")
 # Adresse typographique d'une page de titre (lieu, libraire, date, devise)
@@ -631,6 +632,10 @@ class Structurer:
                 for m in CALL_RE.finditer(txt):
                     calls.append({"idx": idx, "holder": holder, "attr": attr, "parent": el,
                                   "start": m.start(2), "end": m.end(2), "num": m.group(2), "used": False})
+                for m in CALL_PAREN.finditer(txt):          # « viage (1) étoit » (Buchon)
+                    calls.append({"idx": idx, "holder": holder, "attr": attr, "parent": el,
+                                  "start": txt.index("(", m.start()), "end": m.end(),
+                                  "num": m.group(1) or m.group(2), "used": False})
         links = []
         for nidx, note, num, m in notes:
             cands = [c for c in calls if not c["used"] and c["num"] == num and nidx - 15 <= c["idx"] <= nidx + 3]

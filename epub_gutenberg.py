@@ -233,16 +233,37 @@ def read_epub(path):
         note_of_el[id(note_ids[tgt])] = n
 
     # 2. blocs
+    ancestors = {}
+    for p_, body in docs:
+        def walk(e, up):
+            for ch in e:
+                ancestors[id(ch)] = up
+                walk(ch, up + (e,))
+        walk(body, ())
     chapter = 0
     for p, body in docs:
         if not any(("".join(e.itertext())).strip() for e in body.iter()):
             continue                                   # page d'image seule (couverture)
         for el in body.iter():
             n = lname(el)
-            if n not in BLOCK or n in ("div", "ul", "ol", "table"):
+            if n == "table":
+                rows = []
+                for tr in el.iter():
+                    if lname(tr) != "tr":
+                        continue
+                    cells = [typo_runs(clean_runs(runs_of(td, notemap))) for td in tr if lname(td) in ("td", "th")]
+                    if any(cells):
+                        rows.append(cells)
+                if rows:
+                    book.blocks.append((chapter, {"kind": "table", "cls": classes(el), "runs": [], "rows": rows,
+                                                  "src": p}))
+                continue
+            if n not in BLOCK or n in ("div", "ul", "ol"):
                 continue
             if any(lname(c) in ("p", "h1", "h2", "h3", "li") for c in el):
                 continue                               # conteneur : ses enfants sont traités
+            if any(lname(a) in ("td", "th") for a in ancestors.get(id(el), ())):
+                continue                               # déjà rendu avec son tableau
             if n in ("h1", "h2"):
                 chapter += 1
             if n == "p" and "note" in classes(el):
@@ -263,7 +284,7 @@ def read_epub(path):
                 book.note_chapter[num] = chapter
                 continue
             if n == "hr":
-                book.blocks.append((chapter, {"kind": "hr", "cls": set(), "runs": []}))
+                book.blocks.append((chapter, {"kind": "hr", "cls": set(), "runs": [], "src": p}))
                 continue
             if n == "p" and "variantes" in classes(el):
                 page = re.sub(r"^p\.\s*", "", el.get("title") or "")
@@ -338,6 +359,31 @@ def center(text, width):
     return [l.strip().center(width).rstrip() for l in wrap(text, width - 4)]
 
 
+def toc_row(cells):
+    """Ligne de table imprimée « titre … page » : (titre, page) ou None."""
+    if len(cells) == 2:
+        last = "".join(t for t, st in cells[1] if not isinstance(st, tuple)).strip()
+        if re.fullmatch(r"\d{1,4}", last):
+            return cells[0], last
+    return None
+
+
+def table_text(b, width):
+    out = []
+    for cells in b["rows"]:
+        tr = toc_row(cells)
+        if tr:
+            title = plain_runs(tr[0]).strip()
+            lines = textwrap.wrap(title, width - 8) or [""]
+            last = lines[-1]
+            dots = width - len(last) - len(tr[1]) - 2
+            lines[-1] = last + " " + "." * max(1, dots) + " " + tr[1] if dots > 2 else last + " " + tr[1]
+            out += [lines[0]] + ["    " + l for l in lines[1:]]
+        else:
+            out += hanging("   ".join(plain_runs(c).strip() for c in cells if c), width)
+    return out
+
+
 def to_text(book, width, note_txt, title_lines):
     out = []
 
@@ -383,11 +429,17 @@ def to_text(book, width, note_txt, title_lines):
             blank(1)
             out.append("*       *       *       *       *".center(width).rstrip())
             blank(1)
+        elif k == "table":
+            out += table_text(b, width)
+            out.append("")
         elif "sommaire" in b["cls"]:
             out += wrap(text, width - 8, "    ")
             out.append("")
         elif b["cls"] & {"centre", "place", "publisher", "year"} or re.fullmatch(r"FIN\b.*", text.strip()):
             out += center(text, width)
+            out.append("")
+        elif "droite" in b["cls"]:
+            out += [l.rjust(width) for l in wrap(text, width)]
             out.append("")
         elif "vers" in b["cls"]:
             for l in text.split("\n"):              # un vers trop long continue en retrait
@@ -429,6 +481,7 @@ h2 { font-size: 1.5em; margin-top: 3em; margin-bottom: 1em; page-break-before: a
 h3 { font-size: 1.2em; }
 p { margin: 0.75em 0; text-indent: 1.5em; text-align: justify; }
 p.center, p.titlepage { text-indent: 0; text-align: center; }
+p.right { text-indent: 0; text-align: right; }
 p.summary { text-indent: 0; margin: 0 10% 2em; font-style: italic; font-size: 0.95em; }
 p.verse { text-indent: 0; margin-left: 3em; text-align: left; }
 hr.tb { width: 30%; margin: 2em auto; }
@@ -444,6 +497,9 @@ hr.chap { width: 60%; margin: 3em auto 1em; clear: both; }
            color: #777; }
 .pagenum a { color: #777; text-decoration: none; }
 sup.var { font-size: 0.6em; color: #777; }
+table.tableau { margin: 1em auto; border-collapse: collapse; }
+table.tableau td { padding: 0.1em 0.5em; vertical-align: top; }
+table.tableau td.num { text-align: right; }
 p.variante { text-indent: -2em; margin: 0.3em 0 0.3em 2em; font-size: 0.9em; }
 """
 
@@ -524,12 +580,25 @@ def to_html(book, title_lines, note_txt):
             out.append("<h3>%s</h3>" % body)
         elif k == "hr":
             out.append('<hr class="tb">')
+        elif k == "table":
+            rows = []
+            for cells in b["rows"]:
+                tr = toc_row(cells)
+                if tr:
+                    pg = tr[1]
+                    num = ('<a href="#page_%s">%s</a>' % (pg, pg)) if FOLIOS[0] and pg in PAGES.values() else pg
+                    rows.append('<tr><td>%s</td><td class="num">%s</td></tr>' % (html_runs(tr[0]), num))
+                else:
+                    rows.append("<tr>%s</tr>" % "".join("<td>%s</td>" % html_runs(c) for c in cells))
+            out.append('<table class="tableau">\n%s\n</table>' % "\n".join(rows))
         elif "sommaire" in b["cls"]:
             out.append('<p class="summary">%s</p>' % body)
         elif "vers" in b["cls"]:
             out.append('<p class="verse">%s</p>' % body)
         elif b["cls"] & {"centre", "place", "publisher", "year"} or re.fullmatch(r"FIN\b.*", "".join(t for t, _ in b["runs"]).strip()):
             out.append('<p class="center">%s</p>' % body)
+        elif "droite" in b["cls"]:
+            out.append('<p class="right">%s</p>' % body)
         else:
             out.append("<p>%s</p>" % body)
         pending.extend(notes_here)
