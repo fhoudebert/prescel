@@ -21,6 +21,7 @@ droits sur https://copy.pglaf.org.
 Usage :
   python3 epub_gutenberg.py livre.epub -o livre            # → livre.txt, livre.html
   python3 epub_gutenberg.py livre.epub -o livre --width 70 --note "Orthographe de l'édition conservée."
+  python3 epub_gutenberg.py Oeuvres_de_Froissart_Chroniques_Tome_12-relu.epub -o Oeuvres_de_Froissart_Chroniques_Tome_12-relu   --note "Texte établi d'après le fac-similé publié sur Gallica."
 """
 
 import argparse
