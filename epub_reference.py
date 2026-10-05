@@ -490,7 +490,10 @@ def main():
                             # référence se trouve aussi dans la confirmation, pas celle de l'EPUB
                             known_ = lambda w: vocab.get(w.lower(), 0) >= 2 or (wordlist is not None and is_word(w, wordlist, vocab))
                             noacc = lambda w: unicodedata.normalize("NFD", w).encode("ascii", "ignore").decode().lower()
-                            if cwin is None or not all(cwin[w] for w in rw) or \
+                            if any(re.fullmatch(r"[A-ZÀ-Þ]{3,}[.,;:]?", w) for w in rw) and \
+                                    not any(re.fullmatch(r"[A-ZÀ-Þ]{3,}[.,;:]?", w) for w in ew):
+                                blocked = True        # titre courant de la référence (« NOTES », « DE VENDAT »)
+                            elif cwin is None or not all(cwin[w] for w in rw) or \
                                     (len(ew) == len(rw) and all(cwin[w] for w in ew)):
                                 blocked = True
                             elif len(rw) < len(ew) and not all(known_(w) for w in rw):
@@ -501,6 +504,15 @@ def main():
                                 # graphie confirmée : accents seulement, même découpage, pas les petits
                                 # mots que la grammaire décide (« a »/« à », « la »/« là », « ou »/« où »)
                                 blocked = True
+                            if not blocked and cat in ("variante", "ocr"):
+                                kn = lambda w: vocab.get(w.lower(), 0) >= 3 or (wordlist is not None and is_word(w, wordlist, vocab))
+                                if len(ew) != len(rw) and any(kn(w) for w in ew):
+                                    blocked = True    # « descouverte » → « des sire couverte »
+                                elif any(re.fullmatch(r"(?:[IVXLCM]+|\d+)(?:[a-zA-Z8]{1,2})[.,;:]?", x) and y != x
+                                         for x, y in zip(ew, rw)):
+                                    blocked = True    # « IIIIxx », « VIIIm », « Vc » : exposant (mille, cents, e)
+                                elif any(kn(x) and len(x) <= 3 for x in ew):
+                                    blocked = True    # « est »/« et », « un »/« en » : à la relecture
                             if not blocked and cat in ("graphie", "casse"):
                                 # deux OCR perdent souvent le même accent pâle (« Français » →
                                 # « Francais », « remède » → « remede ») : retirer un accent n'est
