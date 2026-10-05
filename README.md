@@ -127,6 +127,12 @@ python3 epub_gutenberg.py 6.epub -o Mon_livre
 - référence elle-même issue d'une OCR médiocre (PDF Internet Archive…) : `epub_reference.py --prudent`
   ne corrige qu'un mot inconnu de l'EPUB en un mot connu, jamais une terminaison ni une première
   lettre, et n'ajoute aucune ponctuation ; les PDF numérisés sont reconnus (césures recollées) ;
+- seconde lecture indépendante : `pdf_tesseract.py` lit avec Tesseract un PDF d'images (Google,
+  Internet Archive) ; `epub_reference.py … --confirm livre-tesseract.txt` n'applique alors une
+  correction que si les deux OCR lisent la même chose (accents seulement pour la graphie, jamais
+  un accent retiré sans appui, jamais de mots recollés inconnus) et rétablit les guillemets
+  fermants lus aux deux endroits (`--apply guillemets`) ; `--keep @livre-errata.tsv` empêche de
+  rendre aux mots corrigés par l'errata la faute imprimée ;
 - `--apply ponctuation` rétablit les virgules, points-virgules et deux-points perdus par l'OCR, d'après
   l'autre numérisation ; à réserver à la **même** édition ;
 - notes de l'éditeur en bas de page (« (1) … », Buchon) : `--notes auto|oui|non` les met à part dans
