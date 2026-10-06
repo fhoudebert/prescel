@@ -82,6 +82,12 @@ def page_lines(page):
     return lines
 
 
+def unit(page):
+    """Les seuils sont pensés pour une page de 350 points de large (PDF Internet Archive) ;
+    ils sont mis à l'échelle de chaque PDF (Gallica : 1024)."""
+    return page.rect.width / 350.0
+
+
 def column(doc, first, last):
     """Bord gauche le plus fréquent du texte des vers, et bord droit (95ᵉ centile)."""
     lefts, rights = [], []
@@ -96,7 +102,8 @@ def column(doc, first, last):
         bins.setdefault(round(v / 3), []).append(v)
     left = statistics.median(max(bins.values(), key=len))
     # bord droit des vers seulement (pas des notes, qui commencent plus à gauche et vont plus loin)
-    rights = [r for l_, r in zip(lefts, rights) if abs(l_ - left) < 15]
+    u = unit(doc[first])
+    rights = [r for l_, r in zip(lefts, rights) if abs(l_ - left) < 15 * u]
     right = sorted(rights)[int(0.95 * (len(rights) - 1))]
     return left, right
 
@@ -110,6 +117,8 @@ def main():
     ap.add_argument("--pas", type=int, default=4, help="numéro de vers affiché tous les N vers (défaut 4)")
     ap.add_argument("--debut", type=int, help="page du PDF où commence le poème (défaut : détectée)")
     ap.add_argument("--title", help="titre (défaut : métadonnées du PDF)")
+    ap.add_argument("--cache", help="dossier de cache de la pagination Gallica")
+    ap.add_argument("--no-gallica", action="store_true", help="ne pas demander la pagination à Gallica")
     opts = ap.parse_args()
 
     try:
@@ -131,6 +140,21 @@ def main():
                 start = i
                 break
         start = a if start is None else start
+    # PDF Gallica : numéros de page et vues d'après la pagination de Gallica (plus sûrs que l'OCR
+    # du folio), et pages de notice du début du PDF écartées du compte des vues
+    gallica = None
+    ark = P.find_ark(opts.pdf, doc)
+    if ark and not opts.no_gallica:
+        try:
+            cache = opts.cache or os.path.join(os.path.expanduser("~"), ".cache", "prescel", ark)
+            os.makedirs(cache, exist_ok=True)
+            labels, _ = P.gallica_pagination(ark, cache)
+            prefix = P.gallica_prefix_pages(doc)
+            if abs(doc.page_count - prefix - len(labels)) <= 2:
+                gallica = (labels, prefix)
+                print("Pagination Gallica (%s) : %d vues, %d page(s) de notice" % (ark, len(labels), prefix))
+        except Exception as e:                       # hors ligne : folios lus par l'OCR
+            print("Pagination Gallica indisponible (%s) : folios lus sur la page" % e)
     left, right = column(doc, start, min(b, start + 40))
     print("Poème : à partir de la page %d du PDF ; colonne des vers x≈%.0f–%.0f" % (start + 1, left, right))
 
@@ -156,6 +180,7 @@ def main():
 
     for i in range(a, b):
         pg = doc[i]
+        u = unit(pg)
         page = P.Page(i)
         page.view, page.label = i + 1, str(i + 1)
         lines = page_lines(pg)
@@ -182,15 +207,22 @@ def main():
             page.label = "NP"
         if page.label in {p_.label for p_ in pages}:
             page.label, page.trusted = "NP", False
+        if gallica is not None:
+            labels, prefix = gallica
+            view = i - prefix + 1
+            if 1 <= view <= len(labels):
+                page.view, page.label = view, labels[view - 1]
         pages.append(page)
         anchor = ("anchor", "page-%d" % page.view)
+        if gallica is not None and not (1 <= i - gallica[1] + 1 <= len(gallica[0])):
+            continue                                            # page de notice de Gallica
 
         if i < start:                                           # prose avant le poème
             flush()
             para, carry = None, ""
             for ln in lines:
                 txt = " ".join(w[2] for w in ln[3]).strip()
-                if para is None or ln[1] > left + 8:
+                if para is None or ln[1] > left + 8 * u:
                     if para:
                         blocks.append(para)
                     para = {"type": "p", "parts": [anchor] if anchor else []}
@@ -215,7 +247,7 @@ def main():
             for v in firsts:
                 bins.setdefault(round(v / 3), []).append(v)
             left = statistics.median(max(bins.values(), key=len))
-            ends = sorted(ln[2] for ln, f in zip(pl, firsts) if abs(f - left) < 12)
+            ends = sorted(ln[2] for ln, f in zip(pl, firsts) if abs(f - left) < 12 * u)
             right = ends[int(0.6 * (len(ends) - 1))] if ends else right
         # notes du bas de page : première ligne commencée à gauche de la colonne et plus longue
         # qu'un vers, qui a l'allure d'une note (« — », « ms. », « 162 naufré »)
@@ -225,13 +257,17 @@ def main():
             # premier mot hors de la marge des numéros (lus « 2!2!0 », « 2)8 », « 1 1 20 »…) :
             # nettement à gauche de la colonne pour une note, dans la colonne pour un vers
             # (le guillemet « d'un vers cité dépasse un peu à gauche)
-            first_text = next((w for w in ln[3] if w[1] > left - 3), None)
-            note_like = first_text is not None and ln[1] < left - 12 and first_text[0] < left - 10
+            first_text = next((w for w in ln[3] if w[1] > left - 3 * u), None)
+            note_like = first_text is not None and ln[1] < left - 12 * u and first_text[0] < left - 10 * u
             # sans le numéro de vers de la marge
-            inner = " ".join(w[2] for w in ln[3] if w[1] > left - 3)
+            inner = " ".join(w[2] for w in ln[3] if w[1] > left - 3 * u)
             notes_look = k > 0.5 * len(lines) and re.search(r"—.*\b\d{2,5}\b|\b\d{2,5}\b.*—", inner) \
                 and not inner.lstrip().startswith(("«", "€", "<"))
-            if (k > 2 and note_like and ln[2] > right + 30 and re.search(r"—|\bms\b|\d", txt)) or notes_look:
+            # plusieurs numéros de vers dans la ligne : « 10504 laissé. 10508 Cil a els q. li »
+            in_col = " ".join(w[2] for w in ln[3] if w[1] > left - 3 * u and w[0] < right + 20 * u
+                              and not re.search(r"[()]", w[2]))   # sans la marge ni les manchettes
+            many_numbers = k > 2 and len(re.findall(r"(?<![\w.])\d{2,5}(?![\w])", in_col)) >= 2
+            if many_numbers or (k > 2 and note_like and ln[2] > right + 30 * u and re.search(r"—|\bms\b|\d", txt)) or notes_look:
                 cut = k
                 break
         # remonter : les lignes juste au-dessus qui ont le vocabulaire d'une note (« ms. »,
@@ -239,7 +275,7 @@ def main():
         notes_words = re.compile(r"\b(?:ms|corr|Ibid|cf|suppr|écrit|lisez|leçon|exponctué|grattage|interligne)\b"
                                  r"|(?<![\w.])\d{2,5}(?![\w.])")
         while cut < len(lines) and cut > 3:
-            inner = " ".join(w[2] for w in lines[cut - 1][3] if w[1] > left - 3)
+            inner = " ".join(w[2] for w in lines[cut - 1][3] if w[1] > left - 3 * u)
             if notes_words.search(inner) and not inner.lstrip().startswith(("«", "€", "<")):
                 cut -= 1
             else:
@@ -248,14 +284,17 @@ def main():
         for ln in verses:
             nums, side, body = [], [], []
             for w in ln[3]:
-                if w[1] <= left - 3 and not body and (NUM.fullmatch(w[2]) or re.search(r"\d", w[2])
+                if w[1] <= left - 3 * u and not body and (NUM.fullmatch(w[2]) or re.search(r"\d", w[2])
                                                       or len(w[2]) <= 3):
                     nums.append(re.sub(r"\D", "", w[2]))      # numéro de vers, même mal lu
-                elif w[0] >= right + 35 and body:
+                elif w[0] >= right + 35 * u and body:
                     side.append(w[2])
                 else:
                     body.append(w)
             text = " ".join(norm_quote(w[2]) if k == 0 else w[2] for k, w in enumerate(body)).strip()
+            letters = [c for c in text if c.isalpha()]
+            if len(letters) >= 2 and sum(c.isupper() for c in letters) / len(letters) > 0.85 and not nums:
+                continue                                         # titre de départ (« GUILLAUME LE MARÉCHAL »)
             if body and body[0][0] > left + 0.55 * (right - left) and re.match(r"[({\[]?\s*f\b|\(\d{4}\)", text):
                 side, body, text = side + [w[2] for w in body], [], ""     # « (f. 3) » seul sur sa ligne
             if not text:
@@ -275,7 +314,7 @@ def main():
                     if n < verse_no and cur is not None:         # pas de numéro affiché deux fois
                         cur["parts"] = [x for x in cur["parts"] if not (x[0] == "num" and int(x[1]) >= n)]
                     verse_no = n                                 # le numéro imprimé fait foi
-            if cur is None or body[0][0] > left + 7:
+            if cur is None or body[0][0] > left + 7 * u:
                 flush()
                 cur = {"type": "vers", "parts": []}
             if anchor:

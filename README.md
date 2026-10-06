@@ -211,6 +211,7 @@ Quand Gallica n'a pas d'OCR (pas de couche texte, ALTO refusé), le texte vient 
 ```
 python3 pdf_vers.py lhistoiredeguill01meyeuoft.pdf -o 1.epub --pages 1-383   # vers, numéros, manchettes, notes
 python3 livres/guillaume-marechal-t1-finitions.py 1.epub 2.epub                # page de titre, titres
+python3 livres/guillaume-marechal-t1-errata.py 2.epub 2b.epub                  # errata de l'avant-propos (« lis. »)
 python3 pdf_tesseract.py gallica.pdf -o gallica-tesseract.txt                 # seconde lecture
 python3 epub_reference.py 2.epub gallica-tesseract.txt --prudent --apply ocr -o 3.epub
 python3 epub_typo.py 3.epub -o maitre.epub
@@ -223,6 +224,16 @@ python3 epub_review.py maitre.epub --ancien --report relecture.html --mark a-rel
   le compte que s'il est proche (un chiffre mal lu ne le dérègle pas) ; le journal liste les
   pages où le compte a été recalé (vers coupé ou deux vers collés à vérifier). Une ligne en retrait
   ouvre un paragraphe ; les notes du bas de page suivent le paragraphe sans le couper ;
+- PDF Gallica avec OCR (tome 2) : `pdf_vers.py livre_bpt6k203427s.pdf --premier-vers 10153
+  --debut 8 --pages 1-338` lit la couche texte du PDF ; les numéros de page viennent de la
+  pagination de Gallica (l'ark est pris dans le nom du fichier) ; les seuils s'adaptent à la
+  taille de la page ; la référence Google de ce tome, d'OCR plus faible, ne sert qu'en mode
+  prudent et sans liste de mots modernes (`--prudent --wordlist ""`), pour ne pas « corriger »
+  l'ancien français en français moderne ;
+- vocabulaire du tome 2 (fin du volume, deux colonnes) : `pdf_glossaire.py livre.pdf -o vocab.xhtml
+  --pages 340-395 --premiere-vue 338`, puis la référence Google en deux passes (ponctuation, puis
+  OCR prudente) et `epub_abimes.py` pour les gloses en italique illisibles ; le fichier obtenu est
+  donné en troisième argument à `livres/guillaume-marechal-t2-finitions.py` ;
 - `epub_review.py --ancien` : « e » (et), « i » (y), « o » (avec), « u » sont des mots ; les
   lettres restituées par l'éditeur (« maisni[é]e ») et l'apparat ne sont pas des lettres isolées ;
 - `epub_gutenberg.py` aligne le numéro de vers à droite (texte) ou dans la marge (HTML) et met
@@ -326,6 +337,8 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 |---|---|
 | `pdf_to_epub.py` | PDF → EPUB brut : OCR de Gallica (ALTO), couche texte du PDF ou OCR Tesseract ; géométrie des pages |
 | `pdf_vers.py` | EPUB d'un poème numéroté vers par vers (couche texte d'un PDF) : une ligne imprimée = un vers, numéros de vers en marge recomptés, manchettes (folios, dates), notes de bas de page mises à part |
+| `pdf_glossaire.py` | glossaire ou vocabulaire sur deux colonnes en retrait suspendu → un paragraphe par article, vedette en gras |
+| `epub_abimes.py` | mots illisibles de l'OCR (« d~pen~sHce », souvent l'italique) réparés d'après une autre numérisation, par leur contexte |
 | `pdf_tesseract.py` | OCR Tesseract d'un PDF d'images, page par page (reprise possible) : seconde lecture pour `epub_reference.py --confirm` |
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
