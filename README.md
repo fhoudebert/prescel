@@ -163,6 +163,40 @@ Ce que fait chaque étape, et ses précautions :
   sont en marge du HTML (lien vers les variantes) et entre accolades `{12}` dans le texte ; la
   table imprimée est rendue en tableau (points de conduite dans le texte).
 
+#### Moderniser l'orthographe d'un texte en moyen français (Froissart)
+
+`epub_modernise.py --epoque moyen` change de profil de dictionnaires : le XIVᵉ siècle n'a ni le
+lexique ni les règles des XVIIᵉ-XVIIIᵉ (« -és » y est une 2ᵉ personne : « avés » → « avez »,
+quand au XVIIᵉ « bontez » → « bontés » ; `--mode ez` est donc refusé). Chaîne suivie pour le
+tome 12, à partir de l'EPUB relu :
+
+```
+python3 epub_modernise.py relu.epub -o 1.epub --epoque moyen --mode vocab --tsv livre-moderne.tsv --wordlist auto
+python3 epub_modernise.py 1.epub -o 2.epub --epoque moyen --mode vocab \
+        --dict dictionnaires/noms_froissart.py --tsv livre-noms.tsv --wordlist auto
+python3 epub_modernise.py 2.epub -o 3.epub --epoque moyen --mode oi --tsv livre-oi.tsv --wordlist auto
+python3 epub_modernise.py 3.epub -o 4.epub --epoque moyen --mode graphie --tsv livre-graphie.tsv --wordlist auto
+python3 epub_modernise.py 4.epub -o 5.epub --epoque moyen --mode erent --tsv livre-erent.tsv --wordlist auto
+python3 epub_modernise.py 5.epub -o moderne.epub --epoque moyen --mode ants --tsv livre-ants.tsv --wordlist auto
+```
+
+- `dictionnaires/moyen_francais.py` : formes sûres (« prins » → « pris », « misrent » → « mirent »,
+  « voulenté » → « volonté », « roiaulme » → « royaume ») ; `FORCE` pour les formes qui sont aussi
+  un mot moderne mais ont presque toujours ce sens chez l'auteur (« conte » → « comte ») ;
+  `VERSION_MODERNE` pour les mots dont le sens a changé (« cuidier », « nennil », « plenté »),
+  jamais appliqués : ils relèvent d'une version reformulée ;
+- `dictionnaires/graphie_moyen.py` : règles d'orthographe enchaînées (s muet, y, lettres doublées,
+  « aulx », « ung », « -ié », picard « ch », « -aige »…) ; une forme n'est proposée que si le
+  résultat est un mot de la liste française ; d'office quand une seule forme est possible
+  (`PREFERE` tranche « nostre » → « notre ») ; sinon au choix (« eust » : eut ou eût) ;
+  `EXCEPTIONS` : vrais mots anciens qu'une règle changerait en un autre mot (« ens », « lés »,
+  « celier ») ;
+- `dictionnaires/noms_froissart.py` : noms propres de l'auteur (« Jehan » → « Jean »,
+  « Portingal » → « Portugal ») ;
+- ce qui reste : vocabulaire et syntaxe de Froissart (« moult », « ains », « si », « grant
+  joie »), à garder dans une orthographe modernisée ; dans Prescel, étapes « Modernisation du
+  vocabulaire » (Époque : moyen français), « Orthographe du moyen français » et « Noms propres ».
+
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
 
 Après le s long, ajouter les listes de modernisation, à trancher dans les onglets de Prescel :
@@ -264,7 +298,7 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») |
-| `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), passé simple en « erent » (`--mode erent`), pluriels en « ans » (`--mode ants`), vocabulaire (`--mode vocab`) |
+| `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), passé simple en « erent » (`--mode erent`), pluriels en « ans » (`--mode ants`), vocabulaire (`--mode vocab`), orthographe du moyen français par règles (`--mode graphie`) ; `--epoque 17-18|moyen` choisit les dictionnaires |
 | `epub_reference.py` | corrige l'EPUB d'après une autre édition du texte (PDF, EPUB ou texte), confirmée au besoin par une seconde lecture (`--confirm`) : alignement mot à mot, catégories au choix, rapport d'écarts |
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_errata.py` | applique l'errata imprimé du livre (« P. 24, l. 30, sont — font ») à la page indiquée ; liste à relire dans `<livre>-errata.tsv` |

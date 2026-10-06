@@ -256,6 +256,38 @@ STEPS = [
             {"key": "french_list", "type": "bool", "default": True,
              "label": "Liste de mots français en renfort",
              "help": "Repère les graphies anciennes qui sont aussi des mots modernes."},
+            {"flag": "--epoque", "type": "select", "default": "17-18",
+             "choices": [["17-18", "XVIIᵉ-XVIIIᵉ siècles"], ["moyen", "moyen français (XIVᵉ-XVᵉ, Froissart)"]],
+             "label": "Époque du texte",
+             "help": "Choisit le lexique : dictionnaires/vocabulaire_17_18.py ou dictionnaires/moyen_francais.py "
+                     "(« prins » → « pris », « voulenté » → « volonté », « conte » → « comte »)."},
+        ],
+    },
+    {
+        "id": "graphie", "enabled": False, "script": "epub_modernise.py", "suffix": "2d2-graphie",
+        "title": "Orthographe du moyen français (règles)",
+        "summary": "« chevallier » → « chevalier », « nostre » → « notre », « congié » → « congé », « besoingne » → "
+                   "« besogne », « avés » → « avez », « oultre » → « outre » : règles enchaînées de "
+                   "dictionnaires/graphie_moyen.py, retenues seulement si le résultat est un mot français. "
+                   "Appliqué d'office quand une seule forme est possible ; sinon au choix (« eust » : eut ou eût). "
+                   "À passer après « Modernisation du vocabulaire » réglée sur le moyen français.",
+        "options": [
+            {"key": "apply", "type": "bool", "default": True, "text": True,
+             "label": "Appliquer les corrections sûres", "help": "Décoché : la liste est seulement établie."},
+            {"key": "use_tsv", "type": "bool", "default": True, "label": "Respecter mes choix enregistrés",
+             "help": "Les mots cochés ou décochés dans l'onglet « Modernisation » sont repris."},
+        ],
+    },
+    {
+        "id": "noms", "enabled": False, "script": "epub_modernise.py", "suffix": "2d3-noms",
+        "title": "Noms propres modernisés",
+        "summary": "« Jehan » → « Jean », « Portingal » → « Portugal », « Haynnau » → « Hainaut » : liste propre à "
+                   "un auteur (dictionnaires/noms_froissart.py par défaut).",
+        "options": [
+            {"flag": "--dict", "type": "text", "default": "dictionnaires/noms_froissart.py",
+             "label": "Liste de noms", "help": "Fichier Python contenant un dictionnaire en MAJUSCULES."},
+            {"key": "use_tsv", "type": "bool", "default": True, "label": "Respecter mes choix enregistrés",
+             "help": "Les noms cochés ou décochés dans l'onglet « Modernisation » sont repris."},
         ],
     },
     {
@@ -480,9 +512,9 @@ CONFIG = {"workdir": None, "epubcheck": None, "sigil": None, "tessdata": None, "
 
 
 LIST_FILES = {"longs": "-s-long.tsv", "oi": "-oi.tsv", "ez": "-ez.tsv", "erent": "-erent.tsv", "ants": "-ants.tsv",
-              "moderne": "-moderne.tsv"}
+              "moderne": "-moderne.tsv", "graphie": "-graphie.tsv", "noms": "-noms.tsv"}
 LIST_NAMES = {"longs": "du s long", "oi": "oi → ai", "ez": "ez → és", "erent": "erent → èrent", "ants": "ans → ants",
-              "moderne": "de modernisation"}
+              "moderne": "de modernisation", "graphie": "orthographe ancienne", "noms": "des noms propres"}
 
 
 def list_path(slug, kind):
@@ -1143,9 +1175,14 @@ def pipeline(job, plan, check_mode, start=None):
             errata_tsv = os.path.join(d, slug + "-errata.tsv")
             if os.path.exists(errata_tsv):
                 cmd += ["--keep", "@" + errata_tsv]    # ne pas rendre aux mots de l'errata la faute imprimée
-        if step["id"] in ("oi", "ez", "erent", "ants", "moderne"):
-            cmd += ["--mode", {"oi": "oi", "ez": "ez", "erent": "erent", "ants": "ants", "moderne": "vocab"}[step["id"]],
+        if step["id"] in ("oi", "ez", "erent", "ants", "moderne", "graphie", "noms"):
+            cmd += ["--mode", {"oi": "oi", "ez": "ez", "erent": "erent", "ants": "ants", "moderne": "vocab",
+                               "graphie": "graphie", "noms": "vocab"}[step["id"]],
                     "--tsv", list_tsv]
+            if step["id"] in ("graphie", "noms"):
+                cmd += ["--epoque", "moyen"]
+            if step["id"] == "noms":
+                cmd = [c if c != "dictionnaires/noms_froissart.py" else os.path.join(HERE, c) for c in cmd]
             if opts.get("use_tsv", True):
                 cmd.append("--use-tsv")
             if not opts.get("apply", True):
@@ -1176,7 +1213,7 @@ def pipeline(job, plan, check_mode, start=None):
         st["status"], st["output"] = "done", os.path.basename(out)
         if step["id"] == "longs" and os.path.exists(tsv):
             job.result["longs"] = os.path.basename(tsv)
-        if step["id"] in ("oi", "ez", "erent", "ants", "moderne") and os.path.exists(list_tsv):
+        if step["id"] in ("oi", "ez", "erent", "ants", "moderne", "graphie", "noms") and os.path.exists(list_tsv):
             job.result.setdefault("lists", []).append(step["id"])
         current = final_epub = out
         if check_mode == "each":
@@ -1687,6 +1724,8 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
       <button role="tab" aria-selected="false" data-vue="erent">erent → èrent</button>
       <button role="tab" aria-selected="false" data-vue="ants">ans → ants</button>
       <button role="tab" aria-selected="false" data-vue="moderne">Modernisation</button>
+      <button role="tab" aria-selected="false" data-vue="graphie">Orthographe ancienne</button>
+      <button role="tab" aria-selected="false" data-vue="noms">Noms propres</button>
       <button role="tab" aria-selected="false" data-vue="rapport">Rapport de relecture</button>
       <button role="tab" aria-selected="false" data-vue="sigil">Relire dans Sigil</button>
     </div>
@@ -1699,6 +1738,8 @@ iframe.rapport { width: 100%; height: 36rem; border: none; }
     <div class="vue" id="vue-erent" hidden><p class="vide">La liste apparaît après l'étape « Passé simple en erent ».</p></div>
     <div class="vue" id="vue-ants" hidden><p class="vide">La liste apparaît après l'étape « Pluriels en ans ».</p></div>
     <div class="vue" id="vue-moderne" hidden><p class="vide">La liste apparaît après l'étape « Modernisation du vocabulaire ».</p></div>
+    <div class="vue" id="vue-graphie" hidden><p class="vide">La liste apparaît après l'étape « Orthographe du moyen français ».</p></div>
+    <div class="vue" id="vue-noms" hidden><p class="vide">La liste apparaît après l'étape « Noms propres modernisés ».</p></div>
     <div class="vue conseils" id="vue-sigil" hidden></div>
 </section>
 
@@ -1745,7 +1786,7 @@ async function init() {
   renderSigilHelp();
   setupDrop();
   document.querySelectorAll("#onglets button").forEach(b => b.addEventListener("click", () => {
-    showTab(b.dataset.vue); if (["longs", "oi", "ez", "erent", "ants", "moderne"].includes(b.dataset.vue) && state.project) loadList(b.dataset.vue); }));
+    showTab(b.dataset.vue); if (["longs", "oi", "ez", "erent", "ants", "moderne", "graphie", "noms"].includes(b.dataset.vue) && state.project) loadList(b.dataset.vue); }));
   $("#lancer").addEventListener("click", run);
   $("#depart").addEventListener("change", startChanged);
   $("#relance").addEventListener("click", prepareRelance);

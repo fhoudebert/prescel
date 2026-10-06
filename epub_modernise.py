@@ -29,6 +29,16 @@ Cinq modes :
                 mot moderne (« sens », « gens », « dans » ne bougent pas) ;
                 dictionnaires/pluriels_ants.py pour les accents (« presens » → « présents »).
 
+  --mode graphie  (avec --epoque moyen) orthographe du moyen français par règles enchaînées
+                (dictionnaires/graphie_moyen.py) : « chevallier » → « chevalier », « nostre » →
+                « notre », « congié » → « congé », « besoingne » → « besogne », « avés » → « avez ».
+                Une forme n'est proposée que si le résultat est un mot de la liste française ;
+                d'office seulement quand une seule forme est possible et que les règles sont sûres.
+
+  --epoque moyen  pour le XIVᵉ-XVᵉ siècle : --mode vocab prend dictionnaires/moyen_francais.py
+                (formes sûres, plus FORCE : « conte » → « comte ») ; --mode ez est refusé
+                (« -és » y est une 2ᵉ personne). Noms propres : --dict dictionnaires/noms_froissart.py.
+
   --mode vocab  vocabulaire (« luy » → « lui », « mesme » → « même », « faict » → « fait »,
                 « aussi tost » → « aussitôt ») : dictionnaires/vocabulaire_17_18.py.
                 Laissé au choix quand la graphie ancienne est aussi un mot moderne
@@ -311,7 +321,67 @@ def propose_erent(counts, caps, wordlist):
     return rows
 
 
-def propose_vocab(counts, caps, text, wordlist, vocab):
+def graphie_variants(word, rules, depth=3):
+    """Formes obtenues en enchaînant au plus `depth` règles : {forme: toutes les règles sûres ?}."""
+    circ = {"a": "â", "e": "ê", "i": "î", "o": "ô", "u": "û"}
+    out = {word: True}
+    frontier = {word: True}
+    for _ in range(depth):
+        nxt = {}
+        for x, sure in frontier.items():
+            for pat, rep, rsure in rules:
+                if rep is None:
+                    for m in re.finditer(pat, x):
+                        v = m.group(1)
+                        choices = {v, circ[v], "é" if v == "e" else v}
+                        if re.fullmatch(r"st", x[m.end() - 1:]):
+                            choices = {circ[v]}         # « entrast », « descendist » : subjonctif (entrât)
+                        for repl in choices:
+                            y = x[:m.start()] + repl + x[m.end():]
+                            if y not in out:
+                                nxt[y] = nxt.get(y, False) or (sure and rsure)
+                else:
+                    y = re.sub(pat, rep, x)
+                    if y != x and y not in out:
+                        nxt[y] = nxt.get(y, False) or (sure and rsure)   # sûre si un chemin l'est
+        out.update(nxt)
+        frontier = nxt
+    return out
+
+
+def propose_graphie(counts, caps, wordlist, rules, exceptions, prefer=None, done=()):
+    """Orthographe ancienne → mot moderne de la liste, par règles enchaînées."""
+    rows, prefer = [], prefer or {}
+    if wordlist is None:
+        raise SystemExit("--mode graphie demande une liste de mots (--wordlist auto)")
+    for w, n in counts.items():
+        if len(w) < 2 or w in wordlist or w in exceptions or w in done:
+            continue
+        if caps.get(w, 0) * 2 > n:
+            continue                                   # nom propre probable : liste des noms
+        cands = {v: sure for v, sure in graphie_variants(w, rules).items() if v != w and v in wordlist}
+        if not cands:
+            continue
+        best = sorted(cands, key=lambda v: (-counts.get(v, 0), not cands[v], len(v)))[0]
+        ok = len(cands) == 1 and cands[best]
+        in_book = [v for v in cands if counts.get(v, 0)]
+        if len(cands) > 1 and len(in_book) == 1 and cands[in_book[0]] and not w.endswith("iés"):
+            # (« -iés » : participe « logiés » → logés, ou 2ᵉ personne « vouliés » → vouliez)
+            best, ok = in_book[0], True                # une seule forme déjà employée dans le livre
+        if w.endswith("y") and best.endswith("i") and (best + "r") in wordlist and (best + "t") in wordlist:
+            # « party », « servy » : passé simple (partit) ou participe (parti) selon le contexte
+            ok, why = False, "passé simple (« %st ») ou participe (« %s ») selon le contexte" % (best, best)
+        if w in prefer:
+            best, ok = prefer[w], True
+        why = "" if ok else ("plusieurs formes possibles : " + ", ".join(sorted(cands)) if len(cands) > 1
+                             else "règle à vérifier")
+        rows.append({"appliquer": "1" if ok else "0", "forme_lue": w, "correction": best,
+                     "occurrences": str(n), "occ_correction": str(counts.get(best, 0)), "remarque": why})
+    rows.sort(key=lambda r: (-int(r["occurrences"]), r["forme_lue"]))
+    return rows
+
+
+def propose_vocab(counts, caps, text, wordlist, vocab, force=None):
     rows = []
     low = text.lower().replace("’", "'")
     for old, new in vocab.items():
@@ -322,7 +392,9 @@ def propose_vocab(counts, caps, text, wordlist, vocab):
         if not n:
             continue
         nt = counts.get(new.lower(), 0) if re.fullmatch(r"[%s]+" % LETTERS, new) else 0
-        if wordlist is not None and old in wordlist:
+        if force and old in force:
+            ok, why = 1, "appliqué d'office : chez cet auteur, presque toujours ce sens ; à vérifier"
+        elif wordlist is not None and old in wordlist:
             ok, why = 0, "« %s » existe aussi en français moderne : à vérifier" % old
         else:
             ok, why = 1, ""
@@ -395,7 +467,10 @@ def main():
     ap = argparse.ArgumentParser(description="Modernisation : imparfaits en oi, vocabulaire ancien.")
     ap.add_argument("epub")
     ap.add_argument("-o", "--output", help="EPUB modernisé (défaut : en place)")
-    ap.add_argument("--mode", choices=["oi", "ez", "erent", "ants", "vocab"], required=True)
+    ap.add_argument("--mode", choices=["oi", "ez", "erent", "ants", "vocab", "graphie"], required=True)
+    ap.add_argument("--epoque", choices=["17-18", "moyen"], default="17-18",
+                    help="profil de dictionnaires : 17-18 (XVIIᵉ-XVIIIᵉ, défaut) ou moyen (moyen français, "
+                         "XIVᵉ-XVᵉ, Froissart) ; le mode graphie et le lexique en dépendent")
     ap.add_argument("--tsv", required=True, help="liste des corrections (créée ou relue)")
     ap.add_argument("--use-tsv", action="store_true", help="respecter les choix d'un TSV existant")
     ap.add_argument("--no-apply", action="store_true", help="liste seulement, rien n'est corrigé")
@@ -403,8 +478,20 @@ def main():
     ap.add_argument("--dict", help="dictionnaire Python à utiliser (défaut : dictionnaires/…)")
     opts = ap.parse_args()
 
+    if opts.epoque == "moyen" and opts.mode == "ez":
+        sys.exit("--mode ez ne convient pas au moyen français : chez Froissart, « -és » est la 2ᵉ personne "
+                 "(« avés » → « avez »), traitée par --mode graphie.")
+    lexique = "moyen_francais.py" if opts.epoque == "moyen" else "vocabulaire_17_18.py"
     dict_path = opts.dict or os.path.join(HERE, "dictionnaires",
-                                          "verbes_oi.py" if opts.mode == "oi" else "vocabulaire_17_18.py")
+                                          "verbes_oi.py" if opts.mode == "oi" else lexique)
+    force = {}
+    if opts.mode == "graphie":
+        dict_path = ""
+        rules_ns = runpy.run_path(opts.dict or os.path.join(HERE, "dictionnaires", "graphie_moyen.py"))
+        rules, exceptions = rules_ns["RULES"], rules_ns.get("EXCEPTIONS", set())
+        prefer = rules_ns.get("PREFERE", {})
+    elif opts.mode == "vocab" and dict_path and os.path.exists(dict_path):
+        force = {k.lower(): v for k, v in runpy.run_path(dict_path).get("FORCE", {}).items()}
     if opts.mode == "erent" and not opts.dict:
         dict_path = ""
     if opts.mode in ("ez", "ants") and not opts.dict:
@@ -446,8 +533,10 @@ def main():
             rows = propose_ants(counts, caps, wordlist, table)
         elif opts.mode == "erent":
             rows = propose_erent(counts, caps, wordlist)
+        elif opts.mode == "graphie":
+            rows = propose_graphie(counts, caps, wordlist, rules, exceptions, prefer)
         else:
-            rows = propose_vocab(counts, caps, text, wordlist, table)
+            rows = propose_vocab(counts, caps, text, wordlist, dict(table, **force), force)
         if opts.no_apply:
             for r in rows:
                 r["appliquer"] = "0"
@@ -470,7 +559,7 @@ def main():
         pending = [r for r in rows if r.get("appliquer", "0").strip() != "1"]
         label = {"oi": "Imparfaits et conditionnels en oi", "ez": "Pluriels en -ez",
                  "ants": "Pluriels en -ans / -ens", "erent": "Passé simple en -erent",
-                 "vocab": "Vocabulaire ancien"}[opts.mode]
+                 "vocab": "Vocabulaire ancien", "graphie": "Orthographe ancienne (règles)"}[opts.mode]
         print("%s : %d formes (%d occurrences) — %d à appliquer, %d laissées au choix"
               % (label, len(rows), sum(int(r["occurrences"]) for r in rows), len(chosen), len(pending)))
         print("Liste : %s" % opts.tsv)
