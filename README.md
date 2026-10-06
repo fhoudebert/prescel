@@ -167,8 +167,8 @@ Ce que fait chaque étape, et ses précautions :
 
 `epub_modernise.py --epoque moyen` change de profil de dictionnaires : le XIVᵉ siècle n'a ni le
 lexique ni les règles des XVIIᵉ-XVIIIᵉ (« -és » y est une 2ᵉ personne : « avés » → « avez »,
-quand au XVIIᵉ « bontez » → « bontés » ; `--mode ez` est donc refusé). Chaîne suivie pour le
-tome 12, à partir de l'EPUB relu :
+quand au XVIIᵉ « bontez » → « bontés » ; `--mode ez` est donc refusé). Chaîne suivie pour les
+tomes 12 à 14 (≈ 72-74 % → 88-91 % de mots à l'orthographe moderne), à partir de l'EPUB relu :
 
 ```
 python3 epub_modernise.py relu.epub -o 1.epub --epoque moyen --mode vocab --tsv livre-moderne.tsv --wordlist auto
@@ -177,7 +177,8 @@ python3 epub_modernise.py 1.epub -o 2.epub --epoque moyen --mode vocab \
 python3 epub_modernise.py 2.epub -o 3.epub --epoque moyen --mode oi --tsv livre-oi.tsv --wordlist auto
 python3 epub_modernise.py 3.epub -o 4.epub --epoque moyen --mode graphie --tsv livre-graphie.tsv --wordlist auto
 python3 epub_modernise.py 4.epub -o 5.epub --epoque moyen --mode erent --tsv livre-erent.tsv --wordlist auto
-python3 epub_modernise.py 5.epub -o moderne.epub --epoque moyen --mode ants --tsv livre-ants.tsv --wordlist auto
+python3 epub_modernise.py 5.epub -o 6.epub --epoque moyen --mode ants --tsv livre-ants.tsv --wordlist auto
+python3 epub_modernise.py 6.epub -o moderne.epub --epoque moyen --mode vocab --tsv livre-moderne2.tsv --wordlist auto
 ```
 
 - `dictionnaires/moyen_francais.py` : formes sûres (« prins » → « pris », « misrent » → « mirent »,
@@ -193,6 +194,11 @@ python3 epub_modernise.py 5.epub -o moderne.epub --epoque moyen --mode ants --ts
   « celier ») ;
 - `dictionnaires/noms_froissart.py` : noms propres de l'auteur (« Jehan » → « Jean »,
   « Portingal » → « Portugal ») ;
+- choix d'après le contexte : « party » devient « parti » après un auxiliaire ou un déterminant
+  (« est party », « en ce party ») et « partit » sinon ; « logiés » devient « logez » après « vous »,
+  « logés » sinon ; « grant » devient « grande » devant un nom féminin, « grand » devant un nom
+  masculin terminé par une consonne (`CONTEXTE`, appliqué de nouveau en fin de chaîne, une fois les
+  noms modernisés) ; « quant » devient « quand », sauf dans « quant à » ;
 - ce qui reste : vocabulaire et syntaxe de Froissart (« moult », « ains », « si », « grant
   joie »), à garder dans une orthographe modernisée ; dans Prescel, étapes « Modernisation du
   vocabulaire » (Époque : moyen français), « Orthographe du moyen français » et « Noms propres ».

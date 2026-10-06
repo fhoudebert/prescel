@@ -24,10 +24,10 @@ RULES = [
     (r"ouls$", "oux", True),               # genouls
     (r"y(?=[^aeiouéèê])", "i", True),      # chevaulx… / « ycelle »
     (r"^ung(s?)$", r"un\1", True),
-    (r"eu[lx]s?$", "eux", True),           # euls, eulx, ceulx
+    (r"eu(?:lx|ls|l|x)$", "eux", True),     # euls, eulx, ceulx           # euls, eulx, ceulx
     (r"aulx$", "aux", True), (r"auls$", "aux", True), (r"aus$", "aux", False),
-    (r"aul(?=[tsdp])", "au", True),        # hault, assault, faulse, daulphin
-    (r"oul(?=[tsd])", "ou", True),         # oultre, doulce, poulsé
+    (r"aul(?=[tsdpmf])", "au", True),      # hault, assault, faulse, daulphin, royaulme, saulf
+    (r"oul(?=[tsdc])", "ou", True),        # oultre, doulce, poulsé, doulces
     (r"aul$", "al", False),
     (r"oi(?=(?:s|t|ent)$)", "ai", True),   # imparfaits (complète dictionnaires/verbes_oi.py)
     (r"és$", "ez", True),               # avés, savés ; vouliés → vouliez   # 2ᵉ personne : avés, sachiés
@@ -46,6 +46,12 @@ RULES = [
     (r"ou(?=r)", "eu", True),             # demourer → demeurer
     (r"mons", "mon", True),               # monstrer → montrer
     (r"eaue$", "eau", True),
+    (r"ége", "ège", True),                 # orthographe de 1871 : siége, Liége, priviléges
+    (r"^adv(?=[ie])", "av", True),         # advis, advisé (advenir reste)
+    (r"oi(?=[eéè])", "oy", True),          # envoié, moien, soiés
+    (r"^deff", "déf", True),               # deffendre, deffense, deffiances
+    (r"pv", "v", True), (r"bt", "t", True),   # recepvoir, doubter, soubtil
+    (r"pt(?=(?:e|es|s)?$)", "t", True),    # escript, escriptes
     (r"^infour", "infor", True), (r"^sç", "s", True), (r"sç", "ss", False),
     (r"^veoir$", "voir", True), (r"^encoires?$", "encore", True),
     (r"([aeiou])s(?=[bcdfgjklmnpqtv])", None, True),
@@ -58,9 +64,10 @@ EXCEPTIONS = set("""
 ens es ès lés delés mes ses les des est sus jus cil cel celle ains or ores si se moult
 mie point oncques jà ja ne ny ni nul nulle tel telle quel quelle maint mainte
 py guy oy
-lache laches musle despendu despendre despendi volle vens celier estable
+lache laches musle despendu despendre despendi volle vens celier estable sourt escrus
 """.split())
 
 # Cas à deux formes modernes tranchés d'avance (sens le plus fréquent chez Froissart)
-PREFERE = {"nostre": "notre", "vostre": "votre", "nostres": "nos", "vostres": "vos", "fist": "fit",
+PREFERE = {"sachiés": "sachez", "soiés": "soyez", "vueilliés": "veuillez", "veulliés": "veuillez",
+           "nostre": "notre", "vostre": "votre", "nostres": "nos", "vostres": "vos", "fist": "fit",
            "chevallier": "chevalier", "chancellier": "chancelier", "moittié": "moitié"}

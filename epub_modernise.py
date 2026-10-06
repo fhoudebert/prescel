@@ -369,8 +369,15 @@ def propose_graphie(counts, caps, wordlist, rules, exceptions, prefer=None, done
             # (« -iés » : participe « logiés » → logés, ou 2ᵉ personne « vouliés » → vouliez)
             best, ok = in_book[0], True                # une seule forme déjà employée dans le livre
         if w.endswith("y") and best.endswith("i") and (best + "r") in wordlist and (best + "t") in wordlist:
-            # « party », « servy » : passé simple (partit) ou participe (parti) selon le contexte
-            ok, why = False, "passé simple (« %st ») ou participe (« %s ») selon le contexte" % (best, best)
+            # « party », « servy » : passé simple (partit) ou participe (parti) : décidé à chaque
+            # occurrence d'après le mot qui précède (auxiliaire → participe)
+            best, ok, why = best + "|" + best + "t", True, "participe après un auxiliaire, sinon passé simple"
+        elif w.endswith("iés") and len(cands) > 1:
+            part = [v for v in cands if v.endswith("és")]
+            sec = [v for v in cands if v.endswith("ez") and not v.endswith("iez")]
+            if part and sec:
+                # « logiés » : participe (logés), ou 2ᵉ personne après « vous » (logez)
+                best, ok, why = part[0] + "|" + sec[0], True, "2ᵉ personne après « vous », sinon participe"
         if w in prefer:
             best, ok = prefer[w], True
         why = "" if ok else ("plusieurs formes possibles : " + ", ".join(sorted(cands)) if len(cands) > 1
@@ -408,6 +415,64 @@ def propose_vocab(counts, caps, text, wordlist, vocab, force=None):
 # Application
 # --------------------------------------------------------------------------
 
+# Auxiliaires qui annoncent un participe (« est party » → parti, « s'en party » → partit)
+AUX = set("""a as ai ont avons avez avés eu eut ot orent avoit avoient avait avaient aura auront avoir ayant
+est es suis sont sommes estes êtes fu fut furent fust fût estoit estoient était étaient esté été
+seront sera serait seroit estre être soit soient""".split())
+# mots qu'on saute en remontant vers l'auxiliaire (« est bien party », « avait l'écuyer toujours servy »)
+SKIP = set("""se s en y ne il ils elle le la les l me m nous vous lui leur luy bien tout tous mal très si plus
+jà ja jamais toujours tousjours déjà desjà moult point pas mie ainsi aussi""".split())
+# déterminants : « en ce party », « en tel party », « dur party » → le nom « parti »
+NOUN_BEFORE = set("ce cel cest cet tel telle un ung le du au dur bon meilleur autre quel quelque".split())
+FEMININE = re.compile(r"(?:ance|ence|ée|ie|ion|(?<!i)té|ure|esse|ise|ère|ière|aille|eille|ille|ade|ude|aison|ison)s?$")
+MASCULINE_WORDS = set("""horion horions champion champions lion lions million millions bastion pion traité traités
+comté comtés côté côtés été duché duchés pâté""".split())
+GRAND_STOP = set("et ou que qu à a de du des en sur comme si plus moins pour par".split())
+WORDLIST = [None]       # liste de mots française, pour ne décider « grant » que devant un nom moderne
+FEMININE_WORDS = set("""foison foisons chaleur douleur douleurs peur valeur fureur clameur faveur mer chair part
+main mains fin nuit nuits cour paix voix foi loi mort gent dent soif ardeur ardeurs
+noise noises""".split())
+
+
+def choose_in_context(m, choices):
+    """« A|B » : choix d'après les mots voisins.
+    - « parti|partit » : participe après un auxiliaire (« est », « avoit », en sautant « bien »,
+      « toujours »…) ou un déterminant (« en ce party » : le nom) ; sinon passé simple ;
+    - « logés|logez » : 2ᵉ personne après « vous », sinon participe ;
+    - « quand|quant » : « quant à » reste, sinon la conjonction « quand » ;
+    - « grand|grande » : féminin si le nom qui suit est féminin (terminaison ou liste : « grant joie »,
+      « grant foison ») ; masculin s'il finit par une consonne ; sinon rien (laissé tel quel)."""
+    a, b = choices.split("|", 1)
+    s = m.string
+    seg = re.split(r"[.;:!?«»()]", s[max(0, m.start() - 60):m.start()])[-1]     # pas au-delà de la phrase
+    before = re.findall(r"[%s]+" % LETTERS, seg)
+    nxt = re.match(r"[\s'’]*([%s]+)" % LETTERS, s[m.end():])
+    nw = nxt.group(1).lower() if nxt else ""
+    if b == a + "t":                                   # parti | partit
+        if before and before[-1].lower() in NOUN_BEFORE:
+            return a
+        look = [w.lower() for w in before if w.lower() not in SKIP][-3:]
+        return a if any(w in AUX for w in look) else b
+    if a == "quand":                                   # quand | quant : « quant à » reste
+        return b if nw in ("à", "a", "au", "aux") else a
+    if a.endswith("és") and b.endswith("ez"):          # logés | logez
+        return b if before and before[-1].lower() == "vous" else a
+    if a.startswith("grand"):                          # grand | grande ; grands | grandes
+        if nw in GRAND_STOP or (WORDLIST[0] is not None and nw not in WORDLIST[0]):
+            return None                                # adjectif attribut, ou nom encore ancien
+        if re.search(r"[sx]$", nw) and not a.endswith("s") and \
+                (WORDLIST[0] is None or nw[:-1] in WORDLIST[0]):   # pluriel, pas « temps », « corps »
+            a, b = a + "s", b + "s"                    # « grant merveilles » → grandes merveilles
+        if nw in MASCULINE_WORDS:
+            return a
+        if nw in FEMININE_WORDS or FEMININE.search(nw):
+            return b
+        if nw and re.search(r"[^aeiouyé]$", nw.rstrip("s")) and not nw.endswith(("e", "es")):
+            return a
+        return None
+    return a
+
+
 def build_replacer(mapping, counts_out, ez_guard=None, kept=None):
     """Fonction de remplacement : expressions (« aussi tost ») d'abord, puis mots seuls."""
     phrases = sorted((k for k in mapping if not re.fullmatch(r"[%s]+" % LETTERS, k)), key=len, reverse=True)
@@ -430,6 +495,10 @@ def build_replacer(mapping, counts_out, ez_guard=None, kept=None):
         new = words.get(w.lower())
         if new is None:
             return w
+        if "|" in new:                                 # deux formes : le contexte décide
+            new = choose_in_context(m, new)
+            if new is None:
+                return w
         if ez_guard is not None and w.lower().endswith("ez") and ez_is_verb_here(m, w.lower() in ez_guard):
             if kept is not None:
                 kept[w.lower()] += 1
@@ -491,7 +560,9 @@ def main():
         rules, exceptions = rules_ns["RULES"], rules_ns.get("EXCEPTIONS", set())
         prefer = rules_ns.get("PREFERE", {})
     elif opts.mode == "vocab" and dict_path and os.path.exists(dict_path):
-        force = {k.lower(): v for k, v in runpy.run_path(dict_path).get("FORCE", {}).items()}
+        ns_ = runpy.run_path(dict_path)
+        force = {k.lower(): v for k, v in ns_.get("FORCE", {}).items()}
+        force.update({k.lower(): v for k, v in ns_.get("CONTEXTE", {}).items()})   # « grant » → grand|grande
     if opts.mode == "erent" and not opts.dict:
         dict_path = ""
     if opts.mode in ("ez", "ants") and not opts.dict:
@@ -525,6 +596,7 @@ def main():
 
         counts, caps, text = book_counts(docs)
         wordlist = load_wordlist(opts.wordlist)
+        WORDLIST[0] = {w.lower() for w in wordlist} if wordlist is not None else None
         if opts.mode == "oi":
             rows = propose_oi(counts, caps, wordlist, table)
         elif opts.mode == "ez":
