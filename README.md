@@ -203,6 +203,31 @@ python3 epub_modernise.py 6.epub -o moderne.epub --epoque moyen --mode vocab --t
   joie »), à garder dans une orthographe modernisée ; dans Prescel, étapes « Modernisation du
   vocabulaire » (Époque : moyen français), « Orthographe du moyen français » et « Noms propres ».
 
+#### Poème édité vers par vers (Guillaume le Maréchal, éd. Paul Meyer)
+
+Quand Gallica n'a pas d'OCR (pas de couche texte, ALTO refusé), le texte vient d'un autre PDF
+(Internet Archive) et les images Gallica servent de seconde lecture :
+
+```
+python3 pdf_vers.py lhistoiredeguill01meyeuoft.pdf -o 1.epub --pages 1-383   # vers, numéros, manchettes, notes
+python3 livres/guillaume-marechal-t1-finitions.py 1.epub 2.epub                # page de titre, titres
+python3 pdf_tesseract.py gallica.pdf -o gallica-tesseract.txt                 # seconde lecture
+python3 epub_reference.py 2.epub gallica-tesseract.txt --prudent --apply ocr -o 3.epub
+python3 epub_typo.py 3.epub -o maitre.epub
+python3 epub_review.py maitre.epub --ancien --report relecture.html --mark a-relire.epub
+```
+
+- `pdf_vers.py` garde une ligne imprimée par vers (pdf_to_epub.py les recollerait en paragraphes),
+  recolle les morceaux de vers que l'OCR a posés sur des lignes de base décalées, lit les numéros
+  de la marge même mal lus (« 1 60 », « 2!2!0 ») et recompte les vers : un numéro imprimé ne recale
+  le compte que s'il est proche (un chiffre mal lu ne le dérègle pas) ; le journal liste les
+  pages où le compte a été recalé (vers coupé ou deux vers collés à vérifier). Une ligne en retrait
+  ouvre un paragraphe ; les notes du bas de page suivent le paragraphe sans le couper ;
+- `epub_review.py --ancien` : « e » (et), « i » (y), « o » (avec), « u » sont des mots ; les
+  lettres restituées par l'éditeur (« maisni[é]e ») et l'apparat ne sont pas des lettres isolées ;
+- `epub_gutenberg.py` aligne le numéro de vers à droite (texte) ou dans la marge (HTML) et met
+  les manchettes entre crochets.
+
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
 
 Après le s long, ajouter les listes de modernisation, à trancher dans les onglets de Prescel :
@@ -300,6 +325,7 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | Script | Rôle |
 |---|---|
 | `pdf_to_epub.py` | PDF → EPUB brut : OCR de Gallica (ALTO), couche texte du PDF ou OCR Tesseract ; géométrie des pages |
+| `pdf_vers.py` | EPUB d'un poème numéroté vers par vers (couche texte d'un PDF) : une ligne imprimée = un vers, numéros de vers en marge recomptés, manchettes (folios, dates), notes de bas de page mises à part |
 | `pdf_tesseract.py` | OCR Tesseract d'un PDF d'images, page par page (reprise possible) : seconde lecture pour `epub_reference.py --confirm` |
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |

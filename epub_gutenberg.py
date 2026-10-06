@@ -139,6 +139,10 @@ def runs_of(el, notemap, out=None, style=""):
             if FOLIOS[0] and ch.get("id") in PAGES:
                 out.append(("", ("page", PAGES[ch.get("id")])))
             runs_of(ch, notemap, out, style)          # ancre de page : on garde son texte éventuel
+        elif n == "span" and "numvers" in classes(ch):
+            out.append(("".join(ch.itertext()).strip(), "numvers"))   # numéro de vers
+        elif n == "span" and "manchette" in classes(ch):
+            out.append(("".join(ch.itertext()).strip(), "manchette"))
         elif n == "sup" and "var" in classes(ch):
             out.append(("".join(ch.itertext()).strip(), "var"))   # appel de variante
         elif n in ("i", "em", "cite"):
@@ -327,6 +331,10 @@ def plain_runs(runs, italic="_"):
             out.append("[%d]" % s[1])
         elif s == "var":
             out.append(t.translate(SUPER))
+        elif s == "numvers":
+            out.append("\x02%s\x02" % t)
+        elif s == "manchette":
+            out.append(" [%s]" % t)
         elif s == "i" and t.strip():
             lead, core, trail = re.match(r"^(\s*)(.*?)(\s*)$", t, re.S).groups()
             out.append("%s%s%s%s%s" % (lead, italic, core, italic, trail))
@@ -336,7 +344,8 @@ def plain_runs(runs, italic="_"):
             out.append(t)
     text = "".join(out)
     # numéro de page : séparé des mots par une espace, jamais deux
-    text = re.sub(r"\s*\x01(\{\d+\})\x01\s*", lambda m: " %s " % m.group(1), text)
+    text = re.sub(r"[ \t]*\x01(\{\d+\})\x01[ \t]*", lambda m: " %s " % m.group(1), text)
+    text = re.sub(r"\n (\{\d+\}) ", r"\n\1 ", text)
     text = re.sub(r"^ (\{\d+\}) ", r"\1 ", text)
     text = text.strip(" ") if text.startswith(" {") else text
     if not TYPO[0]:
@@ -451,7 +460,12 @@ def to_text(book, width, note_txt, title_lines):
             out.append("")
         elif "vers" in b["cls"]:
             for l in text.split("\n"):              # un vers trop long continue en retrait
-                out += hanging("    " + l, width, "        ") if len(l) + 4 > width else ["    " + l]
+                num = re.search(r"\x02(\d+)\x02", l)
+                l = re.sub(r"\s*\x02\d+\x02", "", l).strip()
+                if num and len(l) + 4 + len(num.group(1)) + 2 <= width:
+                    out.append(("    " + l).ljust(width - len(num.group(1))) + num.group(1))   # numéro à droite
+                else:
+                    out += hanging("    " + l, width, "        ") if len(l) + 4 > width else ["    " + l]
             out.append("")
         else:
             out += wrap(text, width)
@@ -505,6 +519,8 @@ hr.chap { width: 60%; margin: 3em auto 1em; clear: both; }
            color: #777; }
 .pagenum a { color: #777; text-decoration: none; }
 sup.var { font-size: 0.6em; color: #777; }
+.linenum { position: absolute; left: 5%; font-size: 0.75em; color: #777; }
+.manchette { font-size: 0.8em; color: #777; }
 table.tableau { margin: 1em auto; border-collapse: collapse; }
 table.tableau td { padding: 0.1em 0.5em; vertical-align: top; }
 table.tableau td.num { text-align: right; }
@@ -520,7 +536,7 @@ def html_runs(runs):
         elif isinstance(s, tuple) and s[0] == "page":
             lab = s[1]
             pid = "page_" + re.sub(r"[^\w-]", "_", lab)
-            if lab in VARPAGES:
+            if lab in VARPAGES and lab.isdigit():
                 out.append('<span class="pagenum" id="%s">[<a href="#var_%s">%s</a>]</span>'
                            % (pid, pid[5:], html.escape(lab)))
             elif lab.isdigit():
@@ -530,6 +546,10 @@ def html_runs(runs):
             out.append('<a id="FNanchor_%d" href="#Footnote_%d" class="fnanchor">[%d]</a>' % (n, n, n))
         elif s == "var":
             out.append('<sup class="var">%s</sup>' % html.escape(t, quote=False))
+        elif s == "numvers":
+            out.append('<span class="linenum">%s</span>' % html.escape(t, quote=False))
+        elif s == "manchette":
+            out.append(' <span class="manchette">%s</span>' % html.escape(t, quote=False))
         elif s == "i":
             out.append("<i>%s</i>" % html.escape(t, quote=False))
         elif s == "b":

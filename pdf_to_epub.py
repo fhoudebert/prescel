@@ -96,6 +96,9 @@ ol.liste li, ul.liste li { margin: 0.2em 0; text-indent: -1em; padding-left: 1em
 img { max-width: 100%; max-height: 100%; }
 p.variantes { font-size: 80%; text-indent: 0; margin: 0.3em 0 1em 0; border-top: 1px solid #ccc; padding-top: 0.2em; }
 sup.var { font-size: 65%; line-height: 0; color: #666; }
+p.vers { text-indent: 0; margin: 0.6em 0 0.6em 2em; }
+span.numvers { float: right; font-size: 75%; color: #777; }
+span.manchette { font-size: 75%; color: #777; margin-left: 1em; }
 """
 
 
@@ -1040,6 +1043,10 @@ def render_block(b, img_names):
             parts.append('<a id="%s"></a>' % p[1])
         elif p[0] == "call":
             parts.append('<sup class="var">%s</sup>' % p[1])
+        elif p[0] == "num":                                 # numéro de vers (pdf_vers.py)
+            parts.append(' <span class="numvers">%s</span>' % esc(p[1]))
+        elif p[0] == "side":                                # manchette d'un vers (folio, date)
+            parts.append(' <span class="manchette">%s</span>' % esc(p[1]))
     inner = "".join(parts).strip()
     inner = re.sub(r" {2,}", " ", inner)
     if b["type"] == "table":

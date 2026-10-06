@@ -663,6 +663,8 @@ def ocr_guard(ew, rw, wordlist, vocab):
         known = lambda w: vocab.get(w.lower(), 0) >= 3 or (wordlist is not None and is_word(w, wordlist, vocab))
         if any(known(w) for w in ew) or not all(known(w) for w in rw):
             return False
+        if any(re.search(r"[\[\]|]", w) for w in ew):
+            return False                         # lettres restituées par l'éditeur (« ga[a]igne »)
         if len(ew) == len(rw) == 1:
             e, r = ew[0], rw[0]
             if e[:1].isupper() != r[:1].isupper():
