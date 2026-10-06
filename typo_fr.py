@@ -8,6 +8,7 @@ typo_fr.py — Règles d'espacement de la typographie française.
   « ( [        —                   espace insécable après « ; rien après ( [
   ...          → …                 (trois points exactement)
   - entouré d'espaces → — (tiret) ; « — » ou « - » en tête de paragraphe → « — » + une espace
+  —            une espace           une espace (« Gens.—3-4 » → « Gens. — 3-4 »)
 
 Le texte peut être découpé en morceaux (italique, gras…) : on le passe sous forme de
 liste de chaînes, les règles s'appliquent par-dessus les limites et chaque morceau est
@@ -43,6 +44,9 @@ def _rules(s):
     s = re.sub(r"(«)(%s)%s*(?=\S)" % (_M, SP), r"\1" + NBSP + r"\2", s)
     # une espace après . , ; : ! ? … ) ] » quand un mot (ou « ( [ ) suit directement
     s = re.sub(r"([.,;:!?…)\]»])(%s)(?=[%s«(\[])" % (_M, LETTER), r"\1\2 ", s)
+    # tiret « — » collé (« France.— 1-2 », « Gens.—3-4 ») : une espace de chaque côté
+    s = re.sub(r"(?<=[^\s—(\[%s])(%s)—" % (M, _M), r"\1 —", s)
+    s = re.sub(r"—(%s)(?=[^\s—.,;:)\]%s])" % (_M, M), r"—\1 ", s)
     # espaces multiples
     s = re.sub(r"(?<=\S)(%s)[ ]{2,}" % _M, r"\1 ", s)
     s = re.sub(r" +(%s)%s" % (_M, NBSP), r"\1" + NBSP, s)          # « x \u00a0; » → insécable seule

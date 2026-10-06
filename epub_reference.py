@@ -19,7 +19,13 @@ Catégories d'écarts (seules celles demandées par --apply sont appliquées) :
   graphie      accents et graphies modernisés (« par tout » → « partout ») : choix
                de l'éditeur de la référence ;
   variante     autre mot correct (« leurs » / « leur », « fonds » / « fond ») : la
-               référence suit peut-être une autre édition ou corrige le texte.
+               référence suit peut-être une autre édition ou corrige le texte ;
+  ponctuation  virgule, point-virgule ou deux-points absents de l'EPUB entre deux mots
+               identiques des deux côtés (« de Poithou d'Angou » → « de Poithou, d'Angou »).
+               À réserver à une référence de la MÊME édition (autre numérisation : Google
+               Livres, Internet Archive) : l'OCR perd souvent ces petits signes. Seuls des
+               signes sont ajoutés, jamais retirés ni remplacés.
+La référence peut être un PDF, un texte brut ou un EPUB (autre numérisation).
 Les mots en plus ou en moins (omissions, « sic ») ne sont jamais appliqués :
 ils sont listés dans le rapport.
 
@@ -60,6 +66,8 @@ CATS = collections.OrderedDict([
     ("casse", "Majuscules / minuscules"),
     ("graphie", "Graphie et accents de la référence"),
     ("variante", "Variantes de texte entre les éditions (autre mot, accord…)"),
+    ("ponctuation", "Ponctuation absente de l'EPUB (, ; :)"),
+    ("guillemets", "Guillemet fermant perdu (lu par la référence et par --confirm)"),
     ("absent", "Mots absents de l'EPUB (jamais appliqué)"),
     ("enplus", "Mots en plus dans l'EPUB (jamais appliqué)"),
 ])
@@ -83,7 +91,28 @@ def skel(w):
 # Texte de référence
 # --------------------------------------------------------------------------
 
-def reference_words(path, from_page, to_page):
+def epub_text(path):
+    """Texte d'un EPUB, paragraphe par paragraphe, dans l'ordre du spine."""
+    z = zipfile.ZipFile(path)
+    container = z.read("META-INF/container.xml").decode("utf-8", "replace")
+    opf_path = re.search(r"""full-path\s*=\s*["']([^"']+)["']""", container).group(1)
+    opf = decode_text(z.read(opf_path))[0]
+    items = {}
+    for m in re.finditer(r"<(?:[\w-]+:)?item\b[^>]*>", opf):
+        if get_attr(m.group(0), "href"):
+            items[get_attr(m.group(0), "id")] = resolve(opf_path, get_attr(m.group(0), "href"))
+    out = []
+    for i in re.findall(r"""<(?:[\w-]+:)?itemref\b[^>]*\sidref\s*=\s*["']([^"']+)["']""", opf):
+        if i not in items or items[i] not in z.namelist():
+            continue
+        t = decode_text(z.read(items[i]))[0]
+        t = re.sub(r"(?is)<(head|style|script)\b.*?</\1>", " ", t)
+        t = re.sub(r"(?i)</(p|div|h\d|li|td|tr)>|<br\s*/?>", "\n", t)
+        out.append(html.unescape(re.sub(r"<[^>]+>", "", t)))
+    return "\n".join(out)
+
+
+def reference_text(path, from_page, to_page):
     if path.lower().endswith(".pdf"):
         try:
             import pymupdf
@@ -94,6 +123,22 @@ def reference_words(path, from_page, to_page):
                 sys.exit("Lire un PDF demande PyMuPDF : pip install pymupdf")
         d = pymupdf.open(path)
         a, b = max(0, from_page - 1), min(d.page_count, to_page or d.page_count)
+        # PDF de numérisation (Internet Archive, Google, Gallica) : une image par page et un texte
+        # d'OCR invisible, aux tailles de police sans signification ; les mots y sont coupés en fin
+        # de ligne. Pas de tri par taille, césures recollées.
+        def scanned(pg):
+            area = pg.rect.width * pg.rect.height
+            for info in pg.get_image_info():
+                r = pymupdf.Rect(info["bbox"])
+                if r.width * r.height > 0.6 * area:
+                    return True
+            return False
+        probe = [i for i in range(a, b, max(1, (b - a) // 15))][:15]
+        if probe and sum(scanned(d[i]) for i in probe) > len(probe) / 2:
+            text = "\n".join(d[i].get_text("text") for i in range(a, b))
+            text = re.sub(r"(?<=[^\W\d_])[-¬]\s*\n\s*(?=[a-zà-ÿ])", "", text)
+            text = re.sub(r"[ \t]*\n[ \t]*", " ", text)
+            return re.sub(r"\[(?:[IVXLC]+,\s*)?\d+\]", " ", text)
         sizes = collections.Counter()
         for i in range(a, min(b, a + 40)):
             for blk in d[i].get_text("dict")["blocks"]:
@@ -113,10 +158,49 @@ def reference_words(path, from_page, to_page):
         # un trait d'union en fin de ligne est un vrai trait (« c'est-à-|dire », « au-|delà ») :
         # les PDF composés par traitement de texte ne coupent pas les mots
         text = re.sub(r"-\n", "-", text)
+    elif path.lower().endswith(".epub"):
+        text = epub_text(path)
+        text = re.sub(r"<<+\s?|&lt;&lt;", "« ", text)          # guillemets lus « << » par l'OCR
+        text = re.sub(r"\s?>>+|&gt;&gt;", " »", text)
+        text = re.sub(r"(?<=[^\W\d_])-\n\s*(?=[^\W\d_A-ZÀ-Ý])", "", text)  # césures
+        text = re.sub(r"(?<=[^\W\d_])-\n\s*(?=[A-ZÀ-Ý])", "-", text)   # « Saint-|Jaques »
     else:
         text = open(path, encoding="utf-8", errors="replace").read()
-    text = re.sub(r"\[(?:[IVXLC]+,\s*)?\d+\]", " ", text)   # repères de pagination
-    return WORD.findall(text)
+        text = re.sub(r"(?<=[^\W\d_])[-¬]\n\s*[«»]?\s*(?=[a-zà-ÿ])", "", text)   # césures (OCR)
+    return re.sub(r"\[(?:[IVXLC]+,\s*)?\d+\]", " ", text)   # repères de pagination
+
+
+def reference_words(path, from_page, to_page):
+    """Mots de la référence, et ce qui sépare chaque mot du suivant (ponctuation)."""
+    text = reference_text(path, from_page, to_page)
+    ms = list(WORD.finditer(text))
+    words = [m.group(0) for m in ms]
+    gaps = [text[m.end():n.start()] for m, n in zip(ms, ms[1:])] + [""]
+    return words, gaps
+
+
+PUNCT_GAP = re.compile(r"^\s*([«»]?)\s*([,;:])?\s*([«»]?)\s*$")
+
+
+def punct_to_add(egap, rgap):
+    """Signe à ajouter dans l'écart EPUB egap d'après l'écart de la référence rgap, ou None.
+    Les appels de note de la référence (chiffres, astérisques) sont ignorés."""
+    rgap = re.sub(r"[\d*•'`°]+", " ", rgap)
+    if "\n" in egap or re.search(r"[^\s«»]", egap):
+        return None                         # l'EPUB a déjà un signe (ou du texte) à cet endroit
+    me, mr = PUNCT_GAP.match(egap), PUNCT_GAP.match(rgap)
+    if not mr or not mr.group(2) or not me:
+        return None
+    # mêmes guillemets des deux côtés, à la même place
+    if (me.group(1) or me.group(3)) != (mr.group(1) or mr.group(3)):
+        return None
+    sign = mr.group(2)
+    q = me.group(1) or me.group(3)
+    if not q:
+        return sign + " "
+    if mr.group(1):                          # « » , » : le signe suit le guillemet fermant
+        return " %s%s " % (q, sign)
+    return "%s %s " % (sign, q)              # « , « » : le signe précède le guillemet ouvrant
 
 
 # --------------------------------------------------------------------------
@@ -234,12 +318,19 @@ def main():
                          "(ocr, esperluette, apostrophes, casse, graphie ; « aucune » pour le rapport seul)")
     ap.add_argument("--keep", default="",
                     help="mots de l'EPUB à ne jamais remplacer, séparés par des virgules "
-                         "(ex. « Ptolémée, Européens, l'économie ») ; casse, accents et apostrophes ignorés")
+                         "(ex. « Ptolémée, Européens, l'économie ») ; casse, accents et apostrophes ignorés ; "
+                         "« @livre-errata.tsv » protège les mots corrigés par l'errata")
     ap.add_argument("--max-variant-words", type=int, default=3,
                     help="une variante n'est appliquée que si elle remplace au plus ce nombre de mots, "
                          "et par au plus ce nombre de mots (défaut 3)")
     ap.add_argument("--min-ratio", type=float, default=0.8,
                     help="ressemblance minimale d'un paragraphe avec la référence (défaut 0,8)")
+    ap.add_argument("--confirm",
+                    help="seconde OCR indépendante du même livre (texte, PDF ou EPUB) : une correction n'est "
+                         "appliquée que si cette seconde lecture donne la même forme que la référence")
+    ap.add_argument("--prudent", action="store_true",
+                    help="référence d'OCR médiocre (Internet Archive…) : ne corriger qu'un mot inconnu de "
+                         "l'EPUB en un mot connu du livre ou de la langue ; ponctuation jamais appliquée")
     ap.add_argument("--report", help="rapport HTML des écarts (défaut : <sortie>-ecarts.html)")
     ap.add_argument("--wordlist", default="auto", help="liste de mots français (fichier ou « auto »)")
     ap.add_argument("--dry-run", action="store_true", help="rapport seulement, aucun EPUB écrit")
@@ -251,12 +342,31 @@ def main():
         sys.exit("Catégorie inconnue : %s" % ", ".join(sorted(bad)))
     apply -= {"absent", "enplus"}
 
-    keep = {plain(w.strip()) for w in opts.keep.split(",") if w.strip()}
-    ref = reference_words(opts.reference, opts.from_page, opts.to_page)
+    keep = set()
+    for item in [w.strip() for w in opts.keep.split(",") if w.strip()]:
+        if item.startswith("@"):
+            # liste d'errata (epub_errata.py) : les mots corrigés par l'errata ne sont jamais rendus
+            # à la forme fautive que les deux OCR lisent sur l'imprimé
+            for line in open(item[1:], encoding="utf-8"):
+                c = line.rstrip("\n").split("\t")
+                if line.startswith("#") or c[0] == "appliquer" or len(c) < 5:
+                    continue
+                keep.update(plain(w) for w in WORD.findall(c[4]))
+        else:
+            keep.add(plain(item))
+    PRUDENT[0] = opts.prudent
+    if opts.prudent:
+        apply.discard("ponctuation")
+    ref, ref_gaps = reference_words(opts.reference, opts.from_page, opts.to_page)
     if len(ref) < 50:
         sys.exit("Référence presque vide (%d mots) : vérifiez --from-page / le fichier." % len(ref))
     print("Référence : %d mots" % len(ref))
     al = Aligner(ref)
+    conf = None
+    if opts.confirm:
+        cref, cgaps = reference_words(opts.confirm, 1, 0)
+        conf = Aligner(cref)
+        print("Confirmation : %d mots (%s)" % (len(cref), os.path.basename(opts.confirm)))
     wordlist = load_wordlist(opts.wordlist)
 
     src = opts.epub
@@ -312,13 +422,30 @@ def main():
                 if off is None:
                     stats["blocs non retrouvés"] += 1
                     continue
-                a, b = max(0, off - 10), min(len(al.SR), off + len(SE) + 10)
+                # fenêtre élargie : la référence peut intercaler des notes ou un apparat de
+                # variantes au milieu du paragraphe (OCR de Google) ; la ressemblance se mesure
+                # alors sur les mots de l'EPUB retrouvés, pas sur la longueur de la fenêtre
+                a, b = max(0, off - 10), min(len(al.SR), off + int(len(SE) * 1.5) + 60)
                 sm = difflib.SequenceMatcher(None, SE, al.SR[a:b], autojunk=False)
-                if sm.ratio() < opts.min_ratio:
+                covered = sum(m.size for m in sm.get_matching_blocks()) / max(1, len(SE))
+                if covered < opts.min_ratio:
                     stats["blocs trop différents"] += 1
                     continue
                 stats["blocs alignés"] += 1
+                cwin = None
+                if conf is not None:
+                    coff = conf.locate(SE)
+                    cmap = {}                     # indice EPUB → indice dans la confirmation
+                    if coff is not None:
+                        ca, cb = max(0, coff - 10), min(len(conf.SR), coff + int(len(SE) * 1.5) + 60)
+                        cwin = collections.Counter(conf.R[ca:cb])
+                        csm = difflib.SequenceMatcher(None, SE, conf.SR[ca:cb], autojunk=False)
+                        for op_, x1, x2, y1, y2 in csm.get_opcodes():
+                            if op_ == "equal":
+                                cmap.update(zip(range(x1, x2), range(ca + y1, ca + y2)))
                 edits = []                       # (indices EPUB, texte de remplacement)
+                punct_edits = []                 # (nœud, attribut, début, fin, nouvel écart)
+                shifts, merged = [], set()       # décalages laissés par les corrections de mots
                 codes = sm.get_opcodes()
                 for k_op, (op, i1, i2, j1, j2) in enumerate(codes):
                     # la fenêtre de la référence déborde de 10 mots de chaque côté : ce qui
@@ -339,6 +466,14 @@ def main():
                             ctx_i = ei[0] if ei else min(i1, len(E) - 1)
                             examples[key] = (d.path, " ".join(E[max(0, ctx_i - 6):ctx_i + 7]))
                         blocked = any(plain(w) in keep for w in ew)
+                        if cat in ("ocr", "graphie") and ei and len(ei) > 1:
+                            # « Nostre-Dame » : un vrai trait d'union entre les mots de l'EPUB
+                            h0, a0 = slots[ei[0]][0], slots[ei[0]][1]
+                            if all(slots[k][0] is h0 and slots[k][1] == a0 for k in ei) and \
+                                    "-" in (getattr(h0, a0) or "")[slots[ei[0]][3]:slots[ei[-1]][2]]:
+                                blocked = True
+                        if cat == "ocr" and ew and rw and not ocr_guard(ew, rw, wordlist, vocab):
+                            blocked = True
                         if cat == "variante" and (len(ew) > opts.max_variant_words or
                                                   len(rw) > opts.max_variant_words):
                             blocked = True       # phrase entière remplacée : à voir à la main
@@ -350,6 +485,48 @@ def main():
                                 guarded_ex.setdefault(why, collections.Counter())[(" ".join(ew), " ".join(rw))] += 1
                         if blocked and cat in apply:
                             stats["écarts gardés (--keep, longueur)"] += 1
+                        if conf is not None and cat in apply and ei and rw and not blocked:
+                            # deux OCR indépendantes doivent lire la même chose : la forme de la
+                            # référence se trouve aussi dans la confirmation, pas celle de l'EPUB
+                            known_ = lambda w: vocab.get(w.lower(), 0) >= 2 or (wordlist is not None and is_word(w, wordlist, vocab))
+                            noacc = lambda w: unicodedata.normalize("NFD", w).encode("ascii", "ignore").decode().lower()
+                            if any(re.fullmatch(r"[A-ZÀ-Þ]{3,}[.,;:]?", w) for w in rw) and \
+                                    not any(re.fullmatch(r"[A-ZÀ-Þ]{3,}[.,;:]?", w) for w in ew):
+                                blocked = True        # titre courant de la référence (« NOTES », « DE VENDAT »)
+                            elif cwin is None or not all(cwin[w] for w in rw) or \
+                                    (len(ew) == len(rw) and all(cwin[w] for w in ew)):
+                                blocked = True
+                            elif len(rw) < len(ew) and not all(known_(w) for w in rw):
+                                blocked = True        # mots recollés par les deux OCR : « retournaelle »
+                            elif cat in ("graphie", "casse") and (
+                                    len(ew) != len(rw) or any(len(w) <= 3 for w in ew) or
+                                    any(noacc(x) != noacc(y) for x, y in zip(ew, rw))):
+                                # graphie confirmée : accents seulement, même découpage, pas les petits
+                                # mots que la grammaire décide (« a »/« à », « la »/« là », « ou »/« où »)
+                                blocked = True
+                            if not blocked and cat in ("variante", "ocr"):
+                                kn = lambda w: vocab.get(w.lower(), 0) >= 3 or (wordlist is not None and is_word(w, wordlist, vocab))
+                                if len(ew) != len(rw) and any(kn(w) for w in ew):
+                                    blocked = True    # « descouverte » → « des sire couverte »
+                                elif any(re.fullmatch(r"(?:[IVXLCM]+|\d+)(?:[a-zA-Z8]{1,2})[.,;:]?", x) and y != x
+                                         for x, y in zip(ew, rw)):
+                                    blocked = True    # « IIIIxx », « VIIIm », « Vc » : exposant (mille, cents, e)
+                                elif any(kn(x) and len(x) <= 3 for x in ew):
+                                    blocked = True    # « est »/« et », « un »/« en » : à la relecture
+                            if not blocked and cat in ("graphie", "casse"):
+                                # deux OCR perdent souvent le même accent pâle (« Français » →
+                                # « Francais », « remède » → « remede ») : retirer un accent n'est
+                                # admis que si la forme sans accent est courante dans le livre et
+                                # l'autre presque absente (« dévoient » → « devoient »)
+                                acc = lambda w: sum(1 for ch in w if ch != noacc(ch) and ch.isalpha())
+                                if any(acc(y) < acc(x) and not (vocab.get(y.lower(), 0) >= 3 and
+                                                                vocab.get(x.lower(), 0) < 2)
+                                       for x, y in zip(ew, rw)):
+                                    blocked = True
+                            if blocked:
+                                stats["non confirmés par la seconde OCR"] += 1
+                            else:
+                                stats["confirmés par la seconde OCR"] += 1
                         if cat in apply and ei and rw and not blocked:
                             # la majuscule de l'EPUB est gardée, sauf « casse » hors début de phrase :
                             # « … royaume. Ils » reste « Ils » même si la référence ponctue « ; ils »
@@ -364,11 +541,45 @@ def main():
                             edits.append((ei, new, cat))
                 # application, de la fin vers le début ; plusieurs mots EPUB → le premier reçoit le
                 # texte, les suivants sont vidés (s'ils sont dans le même nœud, l'espace entre eux part)
+                # ponctuation : entre deux mots alignés tels quels des deux côtés
+                for op, i1, i2, j1, j2 in codes:
+                    if op != "equal":
+                        continue
+                    for i, j in zip(range(i1, i2 - 1), range(a + j1, a + j2 - 1)):
+                        h0, a0, _s0, e0, w0 = slots[i]
+                        h1, a1, s1, _e1, w1 = slots[i + 1]
+                        if h0 is not h1 or a0 != a1:
+                            continue                 # un appel de note ou une balise entre les deux
+                        egap = (getattr(h0, a0) or "")[e0:s1]
+                        # guillemet fermant perdu par l'OCR de l'EPUB, lu par la référence ET par la
+                        # seconde OCR au même endroit (« … belle. » Non obstant »)
+                        if conf is not None and "»" not in egap and "»" in ref_gaps[j] and \
+                                i in cmap and cmap.get(i + 1) == cmap[i] + 1 and "»" in cgaps[cmap[i]] and \
+                                re.fullmatch(r"\s*[.,;:!?]?\s*", egap):
+                            m_ = re.match(r"(\s*[.,;:!?]?)", egap)
+                            key = ("guillemets", "%s%s %s" % (w0, egap.rstrip(), w1), "%s%s » %s" % (w0, m_.group(1).strip(), w1))
+                            found[key] += 1
+                            if key not in examples:
+                                examples[key] = (d.path, " ".join(E[max(0, i - 6):i + 7]))
+                            if "guillemets" in apply:
+                                punct_edits.append((h0, a0, e0, s1, m_.group(1).rstrip() + " » ", "guillemets"))
+                            continue
+                        new_gap = punct_to_add(egap, ref_gaps[j])
+                        if new_gap is None:
+                            continue
+                        sign = new_gap.strip(" «»")
+                        key = ("ponctuation", "%s %s" % (w0, w1), "%s%s %s" % (w0, sign, w1))
+                        found[key] += 1
+                        if key not in examples:
+                            examples[key] = (d.path, " ".join(E[max(0, i - 6):i + 7]))
+                        if "ponctuation" in apply:
+                            punct_edits.append((h0, a0, e0, s1, new_gap, "ponctuation"))
                 for ei, new, cat in sorted(edits, key=lambda x: -x[0][0]):
                     first = slots[ei[0]]
                     same_node = all(slots[i][0] is first[0] and slots[i][1] == first[1] for i in ei)
                     if not same_node:
                         # mot coupé par une balise d'italique : « <i>Nac</i>chivan », « <i>Mingre</i> <i>lie</i> »
+                        merged.update((id(slots[ei[0]][0]), id(slots[ei[1]][0])))
                         if len(ei) == 2 and merge_across(el, slots[ei[0]], slots[ei[1]], new):
                             applied[cat] += 1
                             changed_docs.add(d.path)
@@ -377,7 +588,21 @@ def main():
                     s = getattr(holder, attr)
                     start, end = first[2], slots[ei[-1]][3]
                     setattr(holder, attr, s[:start] + new + s[end:])
+                    shifts.append((id(holder), attr, start, len(new) - (end - start)))
                     applied[cat] += 1
+                    changed_docs.add(d.path)
+                # ponctuation en dernier, positions décalées par les corrections de mots
+                for h0, a0, st, en, new_gap, pcat in sorted(punct_edits, key=lambda x: -x[2]):
+                    if id(h0) in merged:
+                        continue
+                    delta = sum(dl for hid, at, pos, dl in shifts if hid == id(h0) and at == a0 and pos < st)
+                    v = getattr(h0, a0)
+                    st, en = st + delta, en + delta
+                    if (pcat == "ponctuation" and v[st:en].strip(" «»")) or \
+                            (pcat == "guillemets" and not re.fullmatch(r"\s*[.,;:!?]?\s*", v[st:en])):
+                        continue
+                    setattr(h0, a0, v[:st] + new_gap + v[en:])
+                    applied[pcat] += 1
                     changed_docs.add(d.path)
 
         # rapport
@@ -418,6 +643,56 @@ def main():
                 os.unlink(tmp)
             raise
     print("EPUB écrit : %s" % out_path)
+
+
+PRUDENT = [False]
+
+
+def ocr_guard(ew, rw, wordlist, vocab):
+    """Faux si la « correction d'OCR » est douteuse :
+    - mot tronqué par la référence (« voulenu » → « voulen », « avenc » → « aven ») : la
+      référence a coupé le mot en fin de ligne ;
+    - mot éclaté en morceaux qui ne sont pas des mots (« dommaige » → « dom maige »)."""
+    if PRUDENT[0]:
+        # référence elle-même issue d'une OCR médiocre : on ne corrige qu'un non-mot de l'EPUB en
+        # un mot connu (du livre ou de la langue), jamais l'inverse
+        known = lambda w: vocab.get(w.lower(), 0) >= 3 or (wordlist is not None and is_word(w, wordlist, vocab))
+        if any(known(w) for w in ew) or not all(known(w) for w in rw):
+            return False
+        if len(ew) == len(rw) == 1:
+            e, r = ew[0], rw[0]
+            if e[:1].isupper() != r[:1].isupper():
+                return False                     # « Ilme » → « Lime », « l'évêqae » → « l'évOque »
+            diff = [k for k in range(min(len(e), len(r))) if e[k] != r[k]]
+            if len(e) == len(r) and diff and min(diff) >= len(e) - 3:
+                return False                     # terminaison : « donnerois » / « donnerons »
+            if diff and min(diff) == 0 and len(e) == len(r):
+                return False                     # première lettre : « feurre » / « leurre »
+            end = re.search(r"o(?:i|y)(?:ent|t|s)$", e)
+            if end and not r.endswith(end.group(0)):
+                return False                     # « visiteroient » → « visiteraient », « verrois » → « vermis »
+    if len(ew) == len(rw) == 1:
+        e, r = plain(ew[0]), plain(rw[0])
+        if vocab.get(ew[0].lower(), 0) >= 3 and not s_long_swap(ew[0], rw[0]) and \
+                not letter_confusion(ew[0], rw[0]) and vocab.get(rw[0].lower(), 0) < 3:
+            return False                     # forme courante du livre (« tenoit », « voulsist »)
+        if len(r) < len(e) and (e.startswith(r) or e.endswith(r)) and \
+                not (wordlist is not None and is_word(rw[0], wordlist, vocab)):
+            return False
+    if len(ew) > len(rw):
+        # mots recollés : « du roy » → « duroy », « tous esbahis » → « tousesbahis ». Si chaque
+        # morceau est un mot connu (du livre ou de la langue), c'est la référence qui colle
+        known = lambda w: is_word(w, wordlist, vocab) or vocab.get(w.lower(), 0) >= 2
+        if all(known(w) for w in ew) and not all(known(w) for w in rw):
+            return False
+        # la référence colle souvent des mots (texte de PDF Google sans espaces) : le mot recollé
+        # doit exister ailleurs dans le livre ou dans la langue, sans majuscule en son milieu
+        if not all(known(w) and not re.search(r"[a-zà-ÿ][A-ZÀ-Þ]", w) for w in rw):
+            return False
+    if len(rw) > len(ew):
+        if not all(is_word(w, wordlist, vocab) or vocab.get(w.lower(), 0) for w in rw):
+            return False
+    return True
 
 
 def variant_guard(ew, rw, wordlist, vocab):

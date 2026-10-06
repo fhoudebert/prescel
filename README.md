@@ -59,7 +59,7 @@ pas à en reprendre les choix d'éditeur.
 | **Google Livres** (affichage complet) | l'EPUB (« Télécharger EPUB ») ; le PDF pour comparer | l'EPUB d'origine : ses ancres et sa page-map sont la seule source sûre des numéros de page (`epub_pages.py --from`) |
 | **Gallica** | le PDF, **sans le renommer** (son nom contient l'identifiant `bpt6k…` / `btv1b…`) | l'identifiant : il donne l'OCR de la BnF (ALTO), la pagination et les liens vers chaque vue |
 | **Internet Archive** | le PDF (couche texte) ou l'EPUB | le PDF |
-| **Autre édition du même texte** (même moderne) | PDF ou texte | uniquement pour `epub_reference.py --apply ocr` |
+| **Autre édition du même texte** (même moderne) | PDF, EPUB ou texte | uniquement pour `epub_reference.py --apply ocr` (`ponctuation` en plus si c'est la même édition) |
 
 Pour la vérification des droits par Gutenberg, garder aussi les images de la page de titre et de
 son verso.
@@ -102,6 +102,50 @@ python3 epub_structure.py 2.epub -o 3.epub --drop-furniture --caps-titles --link
 
 Le nettoyage (`epub_simplify.py`) est inutile : l'EPUB produit est déjà propre. Les liens du
 rapport de relecture ouvrent la vue Gallica de chaque page.
+
+Édition savante avec variantes en bas de page (Froissart de Kervyn de Lettenhove, Luce…) et autre
+numérisation de la même édition (EPUB de Google Livres) :
+
+```
+python3 pdf_to_epub.py "Oeuvres_de_Froissart_[...]_bpt6k38933z.pdf" -o brut.epub   # --variantes auto
+python3 epub_reference.py brut.epub google.epub --apply ocr,ponctuation -o 2.epub
+python3 epub_structure.py 2.epub -o 3.epub --merge-pages --drop-furniture --caps-titles --link-notes
+python3 epub_errata.py 3.epub -o 4.epub --tsv livre-errata.tsv --retirer   # liste relue sur le scan
+python3 epub_recolle.py 4.epub -o 5.epub --tsv livre-recolle.tsv
+python3 epub_guillemets.py 5.epub -o 5b.epub
+python3 epub_apparat.py 5b.epub -o 5c.epub
+python3 epub_typo.py 5c.epub -o 6.epub
+python3 epub_gutenberg.py 6.epub -o Mon_livre
+```
+
+- l'apparat (« 1-2 Gens. 3-4 Viel. ») est reconnu à son interligne plus serré et mis à part
+  (`<p class="variantes">`), les appels passent en exposant ; les « répétés en tête de chaque ligne
+  d'une citation sont retirés (`--garder-guillemets-de-ligne` pour les garder) ;
+- Gallica refuse parfois les requêtes trop rapprochées (« too many requests ») : `pdf_to_epub.py`
+  ralentit et réessaie ; une page encore refusée vient de la couche texte du PDF et est listée, une
+  relance ne redemande que les pages manquantes (le cache garde les autres) ;
+- référence elle-même issue d'une OCR médiocre (PDF Internet Archive…) : `epub_reference.py --prudent`
+  ne corrige qu'un mot inconnu de l'EPUB en un mot connu, jamais une terminaison ni une première
+  lettre, et n'ajoute aucune ponctuation ; les PDF numérisés sont reconnus (césures recollées) ;
+- seconde lecture indépendante : `pdf_tesseract.py` lit avec Tesseract un PDF d'images (Google,
+  Internet Archive) ; `epub_reference.py … --confirm livre-tesseract.txt` n'applique alors une
+  correction que si les deux OCR lisent la même chose (accents seulement pour la graphie, jamais
+  un accent retiré sans appui, jamais de mots recollés inconnus) et rétablit les guillemets
+  fermants lus aux deux endroits (`--apply guillemets`) ; `--keep @livre-errata.tsv` empêche de
+  rendre aux mots corrigés par l'errata la faute imprimée ;
+- `--apply ponctuation` rétablit les virgules, points-virgules et deux-points perdus par l'OCR, d'après
+  l'autre numérisation ; à réserver à la **même** édition ;
+- notes de l'éditeur en bas de page (« (1) … », Buchon) : `--notes auto|oui|non` les met à part dans
+  `<p class="note">`, `epub_structure.py --link-notes` les relie aux appels « (1) » du texte ;
+- `epub_recolle.py` sépare aussi les mots collés (« chambredu » → « chambre du ») ;
+- `livres/` : finitions propres à un volume (page de titre, chapitres, table), à lancer après la structure ;
+  pour l'édition Kervyn, `livres/froissart-kervyn-finitions.py` sert à tous les tomes :
+  `--tome XIV --ordinal QUATORZIÈME --annees 1389-1392 --sous-titre "(…)" --date 1872`, et
+  `--table-fix tome.json` pour les mots perdus par l'OCR de la table (relus sur le scan) ;
+- `epub_review.py` signale les guillemets non refermés (citation ouverte que le paragraphe suivant
+  ne poursuit pas, ou » sans « avant) ;
+- pour Gutenberg, les variantes sont regroupées en fin de volume page par page, les numéros de page
+  sont en marge du HTML (lien vers les variantes) et entre accolades `{12}` dans le texte.
 
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
 
@@ -204,9 +248,16 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), passé simple en « erent » (`--mode erent`), pluriels en « ans » (`--mode ants`), vocabulaire (`--mode vocab`) |
 | `epub_reference.py` | corrige l'EPUB d'après une autre édition du texte (PDF ou texte) : alignement mot à mot, catégories au choix, rapport d'écarts |
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
+| `epub_errata.py` | applique l'errata imprimé du livre (« P. 24, l. 30, sont — font ») à la page indiquée ; liste à relire dans `<livre>-errata.tsv` |
+| `epub_recolle.py` | recolle les mots coupés d'une espace (« Portin gal », « autre ment ») quand le mot entier est ailleurs dans le livre ; liste dans `<livre>-recolle.tsv` |
+| `epub_guillemets.py` | guillemets que l'OCR a lus « u » (« ) et « n » (») ; guillemets répétés en tête de ligne supprimés |
+| `epub_apparat.py` | numéros d'appel de l'apparat de variantes lus « U », déduits des numéros voisins |
+| `epub_typo.py` | typographie française de la ponctuation (insécables, espaces, « — », « … ») ; seules les espaces changent |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
 | `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide |
+| `epub_guillemets.py` | guillemets que l'OCR a lus « u » (« ) et « n » (») ; guillemets répétés en tête de ligne supprimés |
+| `epub_apparat.py` | numéros d'appel de l'apparat de variantes lus « U », déduits des numéros voisins |
 | `epub_typo.py` | typographie française : espaces insécables avant ; : ! ? » et après «, aucune avant . , …, « ... » → « … », tirets |
 | `epub_pages.py` | liste des pages du livre papier rétablie ou réparée ; `--purge` |
 
@@ -279,6 +330,7 @@ d'écarts (`…-ecarts.html`) :
 | `casse` | « Roi » → « roi » | non |
 | `graphie` | « par tout » → « partout », « Tiflis » → « Tifflis » | non |
 | `variante` | « leurs » / « leur », « Européens » / « Européans » (autre mot correct) | non |
+| `ponctuation` | « de Poithou d'Angou » → « de Poithou, d'Angou » (signe absent de l'EPUB ; même édition seulement) | non |
 
 Les mots en plus ou en moins ne sont jamais appliqués. Les noms propres et abréviations dont la
 graphie diffère restent en variantes, sauf confusion évidente de l'OCR (l / i).

@@ -64,6 +64,22 @@ UA = "Mozilla/5.0 (Prescel; import de livres anciens)"
 GALLICA = "https://gallica.bnf.fr"
 SKIP_PAGE = re.compile(r"plat|contreplat|garde|dos\b|tranche|[ée]tui|charni[èe]re|reliure|mire|blanc", re.I)
 TERMINAL = re.compile(r"[.!?:»]\s*$")
+# apparat critique en bas de page (éditions savantes : Kervyn de Lettenhove, Luce…) :
+# « 1-2 Gens. 3-4 Viel. 5-6 Chose. » — l'OCR lit souvent le tiret « _ » ou « . »
+APPARATUS = re.compile(r"(?:^|\s)(?<!pp\.\s)(?<!p\.\s)\d{1,2}\s?[-_–—]\s?\d{1,2}\b|^\d{1,2}\s+[A-ZÀ-Ý]")
+# note de bas de page numérotée « (1) … », que l'OCR lit souvent « (i) », « (I) », « (l) », « (2") »
+NOTE_START = re.compile(r"""^\(\s*([0-9iIl]{1,2})\s*["”'’]?\s*\)""")
+NOTE_CALL = re.compile(r"""^\(([0-9iIl]{1,2})["”'’]?\)([.,;:!?»]*)$""")
+
+
+def note_num(s):
+    return re.sub(r"[iIl]", "1", s)
+
+
+# appel de variante : nombre isolé de 1 ou 2 chiffres dans le texte courant (« ses 1 princes »)
+CALL = re.compile(r"^(\d{1,2})([.,;:!?»)]*)$")
+# appel collé au mot par l'OCR : « jours10 », « Or3 », « porteroient6plus »
+GLUED_CALL = re.compile(r"^([^\W\d_]{2,})(\d{1,2})([^\W\d_]{2,})?([.,;:!?»]*)$")
 CSS = """/* Généré par pdf_to_epub.py */
 body { margin: 0 1em; font-family: serif; }
 p { margin: 0 0 0.6em 0; text-indent: 0; text-align: justify; }
@@ -78,6 +94,8 @@ table.tableau td { border: 1px solid #aaa; padding: 0.2em 0.4em; vertical-align:
 ol.liste, ul.liste { list-style: none; margin: 0.5em 0 1em 1em; padding: 0; }
 ol.liste li, ul.liste li { margin: 0.2em 0; text-indent: -1em; padding-left: 1em; }
 img { max-width: 100%; max-height: 100%; }
+p.variantes { font-size: 80%; text-indent: 0; margin: 0.3em 0 1em 0; border-top: 1px solid #ccc; padding-top: 0.2em; }
+sup.var { font-size: 65%; line-height: 0; color: #666; }
 """
 
 
@@ -127,18 +145,50 @@ class Page:
 # Gallica : identifiant, pagination, ALTO, images IIIF
 # --------------------------------------------------------------------------
 
-def http_get(url, tries=3, delay=0.4):
+# Délai entre deux requêtes à Gallica : il s'allonge quand le serveur répond « trop de
+# requêtes » (HTTP 429) et raccourcit doucement ensuite, sans descendre sous le minimum.
+PACE = {"delay": 1.0, "min": 1.0, "max": 20.0, "throttled": 0}
+
+
+class Throttled(Exception):
+    """Gallica refuse encore après toutes les tentatives (429 / 503)."""
+
+
+def http_get(url, tries=8, check=None):
+    """Télécharge url. Les refus temporaires (429, 502, 503, 504, page d'erreur au lieu du
+    document) sont retentés avec une attente croissante (en-tête Retry-After respecté)."""
+    import urllib.error
     last = None
     for k in range(tries):
         try:
-            req = urllib.request.Request(url, headers={"User-Agent": UA})
+            req = urllib.request.Request(url, headers={"User-Agent": UA, "Accept": "*/*"})
             with urllib.request.urlopen(req, timeout=60) as r:
                 data = r.read()
-            time.sleep(delay)            # politesse envers le serveur
+            if check is not None and not check(data):
+                raise urllib.error.HTTPError(url, 503, "réponse inattendue (page d'erreur ?)", None, None)
+            time.sleep(PACE["delay"])                  # politesse envers le serveur
+            PACE["delay"] = max(PACE["min"], PACE["delay"] * 0.95)
             return data
-        except Exception as e:           # réseau, 5xx…
+        except urllib.error.HTTPError as e:
             last = e
-            time.sleep(1.5 * (k + 1))
+            if e.code == 404:
+                raise
+            if e.code in (429, 502, 503, 504):
+                PACE["throttled"] += 1
+                PACE["delay"] = min(PACE["max"], PACE["delay"] * 2)
+                ra = (e.headers or {}).get("Retry-After") if e.headers is not None else None
+                wait = int(ra) if ra and str(ra).strip().isdigit() else min(300, 10 * 2 ** k)
+                print("  Gallica : %s (HTTP %d) — pause de %d s, puis une requête toutes les %.0f s"
+                      % ("trop de requêtes" if e.code == 429 else "serveur occupé", e.code, wait,
+                         PACE["delay"]), flush=True)
+                time.sleep(wait)
+                continue
+            time.sleep(2 * (k + 1))
+        except Exception as e:                         # réseau, délai dépassé…
+            last = e
+            time.sleep(min(60, 3 * 2 ** k))
+    if isinstance(last, urllib.error.HTTPError) and last.code in (429, 502, 503, 504):
+        raise Throttled(str(last))
     raise last
 
 
@@ -184,13 +234,40 @@ def gallica_pagination(ark, cache):
     return labels, has_text
 
 
+def alto_ok(data):
+    return b"<alto" in data[:3000] and b"</alto>" in data[-200:]
+
+
 def gallica_alto(ark, view, cache):
     path = os.path.join(cache, "alto-%04d.xml" % view)
-    if not os.path.exists(path):
-        data = http_get("%s/RequestDigitalElement?O=%s&E=ALTO&Deb=%d" % (GALLICA, ark, view))
-        with open(path, "wb") as f:
-            f.write(data)
+    if os.path.exists(path):
+        with open(path, "rb") as f:
+            if alto_ok(f.read()):
+                return path
+        os.remove(path)                    # page d'erreur ou fichier tronqué gardé par erreur
+    data = http_get("%s/RequestDigitalElement?O=%s&E=ALTO&Deb=%d" % (GALLICA, ark, view), check=alto_ok)
+    tmp = path + ".part"
+    with open(tmp, "wb") as f:
+        f.write(data)
+    os.replace(tmp, path)
     return path
+
+
+def alto_bytes(path):
+    """Contenu de l'ALTO prêt pour le parseur. Gallica annonce « ISO-8859-1 » mais envoie
+    souvent de l'UTF-8 : lu tel quel, « é » deviendrait « Ã© ». Si le texte est de l'UTF-8
+    valide, la déclaration est corrigée."""
+    with open(path, "rb") as f:
+        data = f.read()
+    m = re.match(rb"""\s*<\?xml[^>]*encoding\s*=\s*["']([\w.:-]+)["']""", data)
+    if m and m.group(1).lower() not in (b"utf-8", b"utf8"):
+        try:
+            data.decode("utf-8")
+        except UnicodeDecodeError:
+            return data                     # vraiment en Latin-1
+        if re.search(rb"[\x80-\xff]", data):
+            data = data[:m.start(1)] + b"UTF-8" + data[m.end(1):]
+    return data
 
 
 def gallica_image(ark, view, cache):
@@ -207,7 +284,7 @@ def local(tag):
 
 
 def parse_alto(path, page):
-    root = ET.parse(path).getroot()
+    root = ET.fromstring(alto_bytes(path))
     pg = next((e for e in root.iter() if local(e.tag) == "Page"), None)
     if pg is None:
         return
@@ -381,8 +458,13 @@ def classify_page(page):
 class Builder:
     """Assemble les paragraphes de toutes les pages, dans l'ordre de lecture."""
 
-    def __init__(self, mark_conf):
+    def __init__(self, mark_conf, variantes=False, line_quotes=True):
         self.mark_conf = mark_conf
+        self.variantes = variantes      # apparat en bas de page → <p class="variantes">, appels en exposant
+        self.line_quotes = line_quotes  # retirer les « répétés en tête de ligne dans une citation
+        self.n_variantes = self.n_calls = self.n_quotes = 0
+        self.footnotes = False          # notes « (1) … » en bas de page → <p class="note">
+        self.n_notes = 0
         self.blocks = []            # {"type": p|centre|marge|image, "parts": [...]}
         self.open_p = None          # paragraphe en cours (peut continuer page suivante)
         self.hyphen = None          # fragment de mot coupé en fin de ligne, ou "\x00" (ALTO)
@@ -434,8 +516,34 @@ class Builder:
     def anchor(page):
         return ("anchor", "page-%s" % (page.view or page.index + 1))
 
-    def add_words(self, block, words):
+    def add_words(self, block, words, calls=False):
         for t, conf in words:
+            nc = NOTE_CALL.match(t) if self.footnotes and block.get("type") == "p" else None
+            if nc:
+                # « (i) » → « (1) », collé au mot qui précède pour que l'appel soit reconnu
+                if block["parts"] and block["parts"][-1][0] in ("text", "doubt"):
+                    block["parts"].append(("text", " (%s)%s" % (note_num(nc.group(1)), nc.group(2))))
+                else:
+                    block["parts"].append(("text", "(%s)%s" % (note_num(nc.group(1)), nc.group(2))))
+                continue
+            g = GLUED_CALL.match(t) if calls else None
+            if g:
+                # le mot, l'appel, puis l'éventuel mot suivant collé
+                self.add_words(block, [(g.group(1), conf)])
+                block["parts"].append(("call", g.group(2)))
+                self.n_calls += 1
+                if g.group(3):
+                    self.add_words(block, [(g.group(3) + g.group(4), conf)])
+                elif g.group(4):
+                    block["parts"].append(("text", g.group(4)))
+                continue
+            m = CALL.match(t) if calls else None
+            if m and any(p[0] in ("text", "doubt") for p in block["parts"]):
+                block["parts"].append(("call", m.group(1)))     # collé au mot qui précède
+                if m.group(2):
+                    block["parts"].append(("text", m.group(2)))
+                self.n_calls += 1
+                continue
             if any(p[0] in ("text", "doubt") for p in block["parts"]) and block["parts"][-1][0] != "br":
                 block["parts"].append(("text", " "))
             if self.mark_conf and conf < self.mark_conf and len(t) > 1:
@@ -453,7 +561,11 @@ class Builder:
         """Mots de la ligne, en recollant la césure de la ligne précédente."""
         out = []
         carry, self.hyphen = self.hyphen, None
-        for i, w in enumerate(line.words):
+        words = list(line.words)
+        if carry and carry != "\x00" and len(words) > 1 and words[0].text in ("«", "»"):
+            # « des-⏎« confis » : le guillemet de début de ligne s'intercale dans le mot coupé
+            words = words[1:]
+        for i, w in enumerate(words):
             t = w.text
             if i == 0 and carry:
                 if carry == "\x00":
@@ -465,13 +577,68 @@ class Builder:
         if out:
             lw = line.words[-1]
             last_t, last_c = out[-1]
-            if lw.hyp == 1 and lw.subs:
-                out[-1] = (lw.subs, last_c)
+            head = lw.text[:-1] if lw.text.endswith(("-", "¬")) else None
+            if lw.hyp == 1 and lw.subs and head and not re.search(r"[A-Za-zÀ-ÿ]", lw.subs[len(head):] or "x"):
+                # SUBS_CONTENT faux (« des« ») : la seconde moitié est le mot qui suit le
+                # guillemet de la ligne suivante
+                out.pop()
+                self.hyphen = head
+            elif lw.hyp == 1 and lw.subs:
+                subs = lw.subs
+                if head and subs.startswith(head) and subs[len(head):len(head) + 1].isupper():
+                    subs = head + "-" + subs[len(head):]    # « Nostre-Dame » : vrai trait d'union
+                out[-1] = (subs, last_c)
                 self.hyphen = "\x00"
             elif re.search(r"[A-Za-zÀ-ÿſ][-¬]$", last_t) and len(last_t) > 2:
                 out.pop()
                 self.hyphen = last_t[:-1]
         return out
+
+    @staticmethod
+    def apparatus_lines(body, h, pitch=None):
+        """Dernier groupe de lignes du bas de page, séparé du texte par un grand blanc : apparat
+        critique (variantes) ou notes. Liste vide s'il n'y en a pas.
+        pitch : interligne du texte courant (médiane du livre). L'apparat, composé plus petit,
+        a un interligne plus serré : c'est le signe le plus sûr, qui permet aussi de reconnaître
+        une longue variante (« Sec. réd. ») qui occupe la moitié de la page."""
+        body = [l for l in body if l.text.strip()]
+        if len(body) < 3:
+            return []
+        steps = [b.y0 - a.y0 for a, b in zip(body, body[1:]) if 0 < b.y0 - a.y0 < 3 * h]
+        pitch = pitch or median(steps, 1.3 * h)
+        top, bottom = body[0].y0, body[-1].y1
+        found = None
+        for i in range(1, len(body)):
+            if body[i].y0 - body[i - 1].y0 <= 1.45 * pitch:
+                continue
+            group = body[i:]
+            while len(group) > 1 and Builder.caps_line(group[-1]):
+                group = group[:-1]                  # « FIN DU TOME XII. » sous l'apparat
+            letters = [c for c in " ".join(l.text for l in group) if c.isalpha()]
+            if not letters or sum(c.isupper() for c in letters) / len(letters) > 0.6:
+                continue                            # « FIN DU TOME XII. », titre en capitales
+            gsteps = [b.y0 - a.y0 for a, b in zip(group, group[1:]) if 0 < b.y0 - a.y0 < 3 * h]
+            # interligne serré sur tout le groupe, sans autre grand blanc (sinon c'est le blanc
+            # suivant qui sépare le texte de l'apparat : intertitre au milieu de la page)
+            small = len(gsteps) >= 2 and median(gsteps) <= 0.92 * pitch and max(gsteps) <= 1.45 * pitch
+            low = group[0].y0 >= top + 0.4 * (bottom - top)
+            big = body[i].y0 - body[i - 1].y0 > 1.8 * pitch
+            numbered = any(APPARATUS.search(l.text) for l in group)
+            if small:
+                return group                        # composé plus petit : c'est l'apparat
+            if low and (big or numbered) and len(group) <= 16:
+                found = group                       # sinon le dernier grand blanc du bas de page
+        return found or []
+
+    @staticmethod
+    def caps_line(line):
+        letters = [c for c in line.text if c.isalpha()]
+        return len(letters) >= 4 and sum(c.isupper() for c in letters) / len(letters) > 0.8
+
+    def quote_depth(self):
+        """Guillemets ouverts et pas encore fermés dans le paragraphe en cours."""
+        t = "".join(p[1] for p in (self.open_p or {}).get("parts", []) if p[0] in ("text", "doubt"))
+        return t.count("«") - t.count("»")
 
     @staticmethod
     def attach_lettrines(body, h):
@@ -639,6 +806,17 @@ class Builder:
         left, right, h, colw = getattr(page, "col", (0, page.width, 10, page.width))
         cw = colw / 60.0                       # largeur approximative d'un caractère
         body = sorted([l for l in page.lines if l.zone == "body"], key=lambda l: (l.y0, l.x0))
+        notes = []
+        if self.footnotes:
+            grp = self.apparatus_lines(body, h, getattr(self, "pitch", None))
+            if grp and NOTE_START.match(grp[0].text.strip()):
+                notes = grp
+                body = [l for l in body if l not in notes]
+        app = []
+        self.page_var = self.variantes and page.index not in getattr(self, "no_apparatus", ())
+        if self.page_var:
+            app = self.apparatus_lines(body, h, getattr(self, "pitch", None))
+            body = [l for l in body if l not in app]
         body = self.attach_lettrines(body, h)
         verse = self.verse_lines(body, getattr(page, "typical", colw), h)
         tables = self.table_lines([l for l in body if id(l) not in verse], colw, h)
@@ -738,7 +916,11 @@ class Builder:
             if self.lettrine and words:
                 words[0] = (self.lettrine + words[0][0], words[0][1])
                 self.lettrine = None
-            self.add_words(self.open_p, words)
+            if self.line_quotes and not starts_new and len(words) > 1 and words[0][0] == "«" \
+                    and self.quote_depth() > 0:
+                words = words[1:]                    # « répété en tête de ligne dans une citation
+                self.n_quotes += 1
+            self.add_words(self.open_p, words, calls=self.page_var)
             if centred:
                 self.close()
             prev = line
@@ -747,6 +929,56 @@ class Builder:
             if target is None or target["type"] == "image":
                 target = self.emit({"type": "p", "parts": []})
             target["parts"].append(self.anchor(page))
+        if notes:
+            cur, carry = None, None
+            for ln in notes:
+                m = NOTE_START.match(ln.text.strip())
+                ws = [(w.text, w.conf) for w in ln.words]
+                if m or cur is None:
+                    cur = {"type": "note", "parts": []}
+                    if m:
+                        # « (i) » en tête de note → « (1) »
+                        k = 0
+                        acc = ""
+                        while k < len(ws) and not acc.endswith(")"):
+                            acc += ws[k][0]
+                            k += 1
+                        ws = [("(%s)" % note_num(m.group(1)), 1.0)] + ws[k:]
+                    self.n_notes += 1
+                    if self.open_p is None:
+                        self.emit(cur)
+                    else:
+                        self.margin_queue.append(cur)
+                if carry and ws:
+                    ws[0] = (carry + ws[0][0], ws[0][1])
+                    carry = None
+                if ws and re.search(r"[A-Za-zÀ-ÿ][-¬]$", ws[-1][0]):
+                    carry = ws.pop()[0][:-1]
+                self.add_words(cur, ws)
+        if app:
+            blk = {"type": "variantes", "page": page.label, "parts": []}
+            words, carry = [], None
+            for k, ln in enumerate(app):
+                ws = [(w.text, w.conf) for w in ln.words]
+                if self.line_quotes and k and len(ws) > 1 and ws[0][0] == "«":
+                    t = " ".join(x[0] for x in words)
+                    if t.count("«") > t.count("»"):
+                        ws = ws[1:]
+                        self.n_quotes += 1
+                if carry and ws:
+                    ws[0] = (carry + ws[0][0], min(ws[0][1], 1.0))
+                    carry = None
+                if ws and re.search(r"[A-Za-zÀ-ÿ][-¬]$", ws[-1][0]) and ln is not app[-1]:
+                    carry = ws.pop()[0][:-1]
+                words += ws
+            # « 1_2 », « 3.4 », « 5—6 » : intervalle d'appels imprimé « 1-2 »
+            words = [(re.sub(r"^(\d{1,2})[_.–—](\d{1,2})$", r"\1-\2", t), c) for t, c in words]
+            self.add_words(blk, words)
+            self.n_variantes += 1
+            if self.open_p is None:
+                self.emit(blk)
+            else:
+                self.margin_queue.append(blk)
         for words in self.margin_notes(page):
             blk = {"type": "marge", "parts": []}
             self.add_words(blk, words)
@@ -788,6 +1020,8 @@ def render_parts(parts):
                        % (round(p[2] * 100), esc(p[1])))
         elif p[0] == "anchor":
             out.append('<a id="%s"></a>' % p[1])
+        elif p[0] == "call":
+            out.append('<sup class="var">%s</sup>' % p[1])
         elif p[0] == "br":
             out.append("<br />")
     return re.sub(r" {2,}", " ", "".join(out)).strip()
@@ -805,6 +1039,8 @@ def render_block(b, img_names):
             parts.append("<br />")
         elif p[0] == "anchor":
             parts.append('<a id="%s"></a>' % p[1])
+        elif p[0] == "call":
+            parts.append('<sup class="var">%s</sup>' % p[1])
     inner = "".join(parts).strip()
     inner = re.sub(r" {2,}", " ", inner)
     if b["type"] == "table":
@@ -822,6 +1058,10 @@ def render_block(b, img_names):
         return '<div class="image">%s<img src="../Images/%s" alt="" /></div>' % (inner, name)
     if not re.sub(r"<[^>]+>", "", inner).strip():
         return '<div>%s</div>' % inner if inner else ""
+    if b["type"] == "note":
+        return '<p class="note">%s</p>' % inner
+    if b["type"] == "variantes":
+        return '<p class="variantes" title="p. %s">%s</p>' % (html.escape(str(b.get("page", ""))), inner)
     cls = {"marge": ' class="marge"', "centre": ' class="centre"', "vers": ' class="vers"'}.get(b["type"], "")
     return "<p%s>%s</p>" % (cls, inner)
 
@@ -979,6 +1219,19 @@ def renumber(ncx, xhtml):
 # Programme principal
 # --------------------------------------------------------------------------
 
+def compact_ranges(nums):
+    """[3, 4, 5, 9] → « 3-5, 9 »."""
+    out, nums = [], sorted(set(nums))
+    i = 0
+    while i < len(nums):
+        j = i
+        while j + 1 < len(nums) and nums[j + 1] == nums[j] + 1:
+            j += 1
+        out.append(str(nums[i]) if i == j else "%d-%d" % (nums[i], nums[j]))
+        i = j + 1
+    return ", ".join(out)
+
+
 def parse_range(spec, n):
     if not spec:
         return list(range(n))
@@ -1029,6 +1282,14 @@ def main():
     ap.add_argument("--workers", type=int, default=max(1, (os.cpu_count() or 2) - 1),
                     help="OCR en parallèle (défaut : cœurs - 1)")
     ap.add_argument("--per-file", type=int, default=400, help="blocs par fichier XHTML")
+    ap.add_argument("--variantes", choices=["auto", "oui", "non"], default="auto",
+                    help="apparat critique en bas de page (« 1-2 Gens. 3-4 Viel. ») mis à part dans "
+                         "<p class=\"variantes\">, appels de variante en exposant (auto : si le livre en a)")
+    ap.add_argument("--notes", choices=["auto", "oui", "non"], default="auto",
+                    help="notes « (1) … » en bas de page mises à part dans <p class=\"note\"> (auto : si le livre en a)")
+    ap.add_argument("--garder-guillemets-de-ligne", action="store_true",
+                    help="garder les « répétés en tête de chaque ligne d'une citation "
+                         "(par défaut retirés : seuls restent l'ouvrant et le fermant)")
     opts = ap.parse_args()
 
     if pymupdf is None:
@@ -1086,12 +1347,19 @@ def main():
         sys.exit("Tesseract est introuvable : installez-le (paquet tesseract-ocr) ou choisissez une autre source.")
 
     t0 = time.time()
+    missing = []
     if source == "alto":
         for k, p in enumerate(todo, 1):
             try:
                 parse_alto(gallica_alto(ark, p.view, cache), p)
             except Exception as e:
-                print("  vue %s : ALTO indisponible (%s)" % (p.view, e))
+                # pas de page perdue : la couche texte du PDF prend le relais (moins bonne,
+                # mais mieux qu'une page vide) ; une relance complète la page depuis Gallica
+                missing.append(p)
+                print("  vue %s : ALTO indisponible (%s) — couche texte du PDF à la place" % (p.view, e),
+                      flush=True)
+                p.lines = []
+                parse_text_layer(doc, p)
             if k % 20 == 0 or k == len(todo):
                 print("  ALTO %d/%d" % (k, len(todo)), flush=True)
     elif source == "text":
@@ -1139,7 +1407,45 @@ def main():
     for p in pages:
         if typical and hasattr(p, "col"):
             p.typical = typical
-    b = Builder(mark)
+    # Apparat critique : pages dont le bas porte un groupe « 1-2 Gens. 3-4 Viel. »
+    app_pages = []
+    steps = []
+    for p in pages:
+        if p.kind == "text" and hasattr(p, "col"):
+            body = sorted([l for l in p.lines if l.zone == "body"], key=lambda l: (l.y0, l.x0))[:10]
+            steps += [b2.y0 - b1.y0 for b1, b2 in zip(body, body[1:]) if 0 < b2.y0 - b1.y0 < 3 * p.col[2]]
+    pitch = median(steps, 0) or None              # interligne du texte courant (haut des pages)
+    if opts.variantes != "non":
+        for p in pages:
+            if p.kind != "text" or not hasattr(p, "col"):
+                continue
+            body = sorted([l for l in p.lines if l.zone == "body"], key=lambda l: (l.y0, l.x0))
+            group = Builder.apparatus_lines(body, p.col[2], pitch)
+            if group and any(APPARATUS.search(l.text) for l in group):
+                app_pages.append(p.index)
+    ntext = sum(1 for p in pages if p.kind == "text")
+    note_pages = 0
+    if opts.notes != "non":
+        for p in pages:
+            if p.kind != "text" or not hasattr(p, "col"):
+                continue
+            body = sorted([l for l in p.lines if l.zone == "body"], key=lambda l: (l.y0, l.x0))
+            group = Builder.apparatus_lines(body, p.col[2], pitch)
+            if group and NOTE_START.match(group[0].text.strip()):
+                note_pages += 1
+    use_var = opts.variantes == "oui" or (opts.variantes == "auto" and len(app_pages) >= max(3, 0.15 * ntext))
+    b = Builder(mark, variantes=use_var, line_quotes=not opts.garder_guillemets_de_ligne)
+    b.pitch = pitch
+    b.footnotes = opts.notes == "oui" or (opts.notes == "auto" and note_pages >= 3)
+    if b.footnotes:
+        print("Notes en bas de page repérées sur %d pages" % note_pages)
+    if use_var and app_pages and opts.variantes == "auto":
+        # avant la première et après la dernière page à variantes (introduction, notes de
+        # l'éditeur, table), un blanc en bas de page n'est pas un apparat
+        first, last = min(app_pages), max(app_pages)
+        b.no_apparatus = {p.index for p in pages if p.index < first or p.index > last}
+        print("Apparat critique repéré : %d pages sur %d (pages imprimées %s à %s)"
+              % (len(app_pages), ntext, pages[first].label, pages[last].label))
     for p in pages:
         if p.kind in ("text", "image"):
             b.page(p)
@@ -1159,6 +1465,13 @@ def main():
         meta["title"] = os.path.splitext(os.path.basename(opts.pdf))[0]
     nfiles, npages, nimg = write_epub(opts.output, b.blocks, pages, meta, opts.per_file)
 
+    if use_var:
+        print("Variantes : %d blocs mis à part (<p class=\"variantes\">), %d appels en exposant "
+              "(<sup class=\"var\">)" % (b.n_variantes, b.n_calls))
+    if b.footnotes:
+        print("Notes mises à part : %d (<p class=\"note\">)" % b.n_notes)
+    if b.n_quotes:
+        print("Guillemets répétés en tête de ligne retirés : %d" % b.n_quotes)
     paras = sum(1 for x in b.blocks if x["type"] in ("p", "centre"))
     marg = sum(1 for x in b.blocks if x["type"] == "marge")
     print("Pages traitées : %d (%d planches, %d ignorées)" % (len(todo), nimg,
@@ -1168,6 +1481,14 @@ def main():
         print("Titres courants, folios et signatures retirés : %d lignes" % sum(b.dropped.values()))
         print("   " + ", ".join("« %s »×%d" % (k, v) if v > 1 else "« %s »" % k
                                 for k, v in b.dropped.most_common(25)))
+    if missing:
+        print("ATTENTION : %d page(s) sans ALTO (Gallica a refusé ou n'a pas répondu) : vues %s. "
+              "Elles viennent de la couche texte du PDF, moins fidèle. Relancez l'import plus tard : "
+              "les pages déjà reçues sont gardées dans le cache et seules les manquantes sont "
+              "redemandées." % (len(missing), compact_ranges([p.view for p in missing])))
+    if PACE["throttled"]:
+        print("Gallica a demandé de ralentir %d fois (délai final : %.0f s par page)."
+              % (PACE["throttled"], PACE["delay"]))
     print("Durée : %.0f s" % (time.time() - t0))
     print("EPUB écrit : %s (%d fichiers, %d pages repérées)" % (opts.output, nfiles, npages))
 

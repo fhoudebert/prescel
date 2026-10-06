@@ -97,6 +97,7 @@ CATEGORIES = collections.OrderedDict([
     ("lettrines", "Lettrine perdue ?"),
     ("courts", "Paragraphes très courts"),
     ("coupures", "Paragraphe qui semble coupé"),
+    ("guillemets", "Guillemets non refermés"),
 ])
 HELP = {
     "oi": "Forme en « oi » laissée telle quelle par la modernisation (nom propre, nationalité, forme "
@@ -130,6 +131,9 @@ HELP = {
                    "ou un point.",
     "courts": "Paragraphe de quelques caractères qui n'est ni un titre ni une manchette : "
               "fragment à rattacher ou à supprimer.",
+    "guillemets": "Une citation ouverte par « n'est pas refermée par » avant la fin du paragraphe, et "
+                  "le paragraphe suivant ne la poursuit pas (il ne commence pas par «) ; ou un » ferme "
+                  "une citation jamais ouverte. Guillemet perdu ou mal lu par l'OCR (« u », « n », « o »).",
     "coupures": "Le paragraphe ne se termine pas par une ponctuation et le suivant commence par "
                 "une majuscule : coupure de page non recollée, ou titre à baliser.",
 }
@@ -319,8 +323,12 @@ class Reviewer:
                 out.append((a, b, "casse", w))
                 continue
             # lettre isolée (les chiffres romains en minuscules sont admis)
+            # abréviations de l'éditeur : « (n. s.) », « (v. st.) », « p. 45 », « n° 8354 »,
+            # « 15e jour » (ordinal collé à un nombre)
+            abbrev = (b < len(s) and s[b] in ".°" and re.match(r"[.°]\s*(?:\d|[a-z]{1,2}\.)", s[b:])) or \
+                (a > 0 and s[a - 1].isdigit())
             if len(w) == 1 and w not in ALLOWED_SINGLE and not elided and not hyphenated \
-                    and not w.isupper() \
+                    and not w.isupper() and not abbrev \
                     and w not in "ivxlc":
                 out.append((a, b, "isolees", w))
                 continue
@@ -468,6 +476,32 @@ class Reviewer:
                 self.add("courts", doc, first_page, full, 0, len(full), "%d caractères" % len(full))
                 if mark and "courts" not in self.skip:
                     el.set("class", " ".join(sorted(cls | {MARK_CLASS})))
+            # guillemets : citation laissée ouverte (le paragraphe suivant ne commence pas par «),
+            # ou fermant sans ouvrant
+            if normal and full and "variantes" not in cls:
+                pend = getattr(self, "_open_quote", None)
+                if pend is not None and not full.lstrip().startswith("«"):
+                    pdoc, ppage, ptext, pel = pend
+                    self.add("guillemets", pdoc, ppage, ptext[-80:], max(0, len(ptext[-80:]) - 1),
+                             len(ptext[-80:]), "« ouvert, jamais refermé")
+                    if mark and "guillemets" not in self.skip:
+                        pel.set("class", " ".join(sorted(classes(pel) | {MARK_CLASS})))
+                self._open_quote = None
+                depth, neg = 0, False
+                for ch in full:
+                    if ch == "«":
+                        depth += 1
+                    elif ch == "»":
+                        depth -= 1
+                        if depth < 0:
+                            neg, depth = True, 0
+                if neg:
+                    k = full.find("»")
+                    self.add("guillemets", doc, first_page, full, k, k + 1, "» sans « avant")
+                    if mark and "guillemets" not in self.skip:
+                        el.set("class", " ".join(sorted(cls | {MARK_CLASS})))
+                elif depth > 0:
+                    self._open_quote = (doc, first_page, full, el)
             if normal and prev_block is not None:
                 pt = text_of(prev_block)
                 if len(pt) > 40 and not re.search(r"[.!?:;»)\]…,-]\s*$", pt) and \
