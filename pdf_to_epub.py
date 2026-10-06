@@ -1043,6 +1043,8 @@ def render_block(b, img_names):
             parts.append('<a id="%s"></a>' % p[1])
         elif p[0] == "call":
             parts.append('<sup class="var">%s</sup>' % p[1])
+        elif p[0] == "check":                               # à vérifier (pdf_vers.py : numérotation)
+            parts.append('<span class="a-verifier" title="%s">%s</span>' % (esc(p[2]), esc(p[1])))
         elif p[0] == "num":                                 # numéro de vers (pdf_vers.py)
             parts.append(' <span class="numvers">%s</span>' % esc(p[1]))
         elif p[0] == "side":                                # manchette d'un vers (folio, date)

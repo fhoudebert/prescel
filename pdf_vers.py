@@ -170,7 +170,7 @@ def main():
         if cur is not None:
             while cur["parts"] and cur["parts"][-1][0] == "br":
                 cur["parts"].pop()
-            if any(p[0] == "text" for p in cur["parts"]):
+            if any(p[0] in ("text", "check") for p in cur["parts"]):
                 blocks.append(cur)
             elif cur["parts"]:
                 blocks.append({"type": "p", "parts": cur["parts"]})
@@ -317,6 +317,7 @@ def main():
                     cur["parts"].append(("side", " ".join(side)))
                 continue
             verse_no += 1
+            flag = None
             if "".join(nums):
                 n = int("".join(nums))
                 st["num"] += 1
@@ -326,6 +327,7 @@ def main():
                                                             or (n in sure and abs(n - verse_no) <= 60)):
                     st["recal"] += 1
                     anomalies.append("p. %s : vers %d compté %d" % (page.label, n, verse_no))
+                    flag = "Numérotation : vers %d compté %d (vers coupé, collé ou perdu près d'ici)" % (n, verse_no)
                     if n < verse_no and cur is not None:         # pas de numéro affiché deux fois
                         cur["parts"] = [x for x in cur["parts"] if not (x[0] == "num" and int(x[1]) >= n)]
                     verse_no = n                                 # le numéro imprimé fait foi
@@ -335,7 +337,11 @@ def main():
             if anchor:
                 cur["parts"].append(anchor)
                 anchor = None
-            cur["parts"].append(("text", text))
+            if flag:
+                cur["parts"].append(("check", text, flag))       # repère pour la relecture dans Sigil
+                flag = None
+            else:
+                cur["parts"].append(("text", text))
             if verse_no % opts.pas == 0:
                 cur["parts"].append(("num", str(verse_no)))
             if side:

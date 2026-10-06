@@ -205,6 +205,12 @@ python3 epub_modernise.py 6.epub -o moderne.epub --epoque moyen --mode vocab --t
 
 #### Poème édité vers par vers (Guillaume le Maréchal, éd. Paul Meyer)
 
+Les deux tomes se reconstruisent d'une traite depuis les sources du dépôt :
+`sh livres/guillaume-marechal.sh [dossier]`. Les vers où le compte a dû être recalé sur un numéro
+imprimé sont repérés `a-verifier` dans l'EPUB (« Numérotation : vers 2952 compté 2954 ») : un vers
+coupé, collé ou perdu est à chercher tout près. Ni `epub_guillemets.py` ni `epub_recolle.py` ne
+conviennent à l'ancien français (« u » y veut dire « où », « Partant » est un mot).
+
 Quand Gallica n'a pas d'OCR (pas de couche texte, ALTO refusé), le texte vient d'un autre PDF
 (Internet Archive) et les images Gallica servent de seconde lecture :
 
