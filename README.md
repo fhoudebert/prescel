@@ -234,6 +234,11 @@ python3 epub_review.py maitre.epub --ancien --report relecture.html --mark a-rel
   --pages 340-395 --premiere-vue 338`, puis la référence Google en deux passes (ponctuation, puis
   OCR prudente) et `epub_abimes.py` pour les gloses en italique illisibles ; le fichier obtenu est
   donné en troisième argument à `livres/guillaume-marechal-t2-finitions.py` ;
+- errata de fin du tome 2, qui vise les vers des deux tomes : `epub_errata_vers.py livre.epub -o
+  livre-2.epub --tsv livres/guillaume-marechal-errata.tsv` (liste relue sur le scan ; seules les
+  leçons « lis. » et la ponctuation y sont, pas les corrections proposées « corr. ») ;
+- numéros de vers : deux numéros imprimés sur la même page dont l'écart égale l'écart de lignes se
+  confirment l'un l'autre et recalent le compte même s'il a dérivé de plus de 8 vers ;
 - `epub_review.py --ancien` : « e » (et), « i » (y), « o » (avec), « u » sont des mots ; les
   lettres restituées par l'éditeur (« maisni[é]e ») et l'apparat ne sont pas des lettres isolées ;
 - `epub_gutenberg.py` aligne le numéro de vers à droite (texte) ou dans la marge (HTML) et met
@@ -339,6 +344,7 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `pdf_vers.py` | EPUB d'un poème numéroté vers par vers (couche texte d'un PDF) : une ligne imprimée = un vers, numéros de vers en marge recomptés, manchettes (folios, dates), notes de bas de page mises à part |
 | `pdf_glossaire.py` | glossaire ou vocabulaire sur deux colonnes en retrait suspendu → un paragraphe par article, vedette en gras |
 | `epub_abimes.py` | mots illisibles de l'OCR (« d~pen~sHce », souvent l'italique) réparés d'après une autre numérisation, par leur contexte |
+| `epub_errata_vers.py` | errata d'un poème numéroté : chaque correction vise un vers par son numéro (leçons « lis. », virgule ou point-virgule en fin de vers, ponctuation à supprimer) ; une liste sert à tous les tomes |
 | `pdf_tesseract.py` | OCR Tesseract d'un PDF d'images, page par page (reprise possible) : seconde lecture pour `epub_reference.py --confirm` |
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |

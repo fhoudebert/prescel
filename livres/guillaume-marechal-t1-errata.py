@@ -14,7 +14,6 @@ import zipfile
 
 # (vers, avant, après) — relus sur l'avant-propos du tome I
 ERRATA = [
-    (485, "broche taill[i][é] e", "broche taill[ié]e"),
     (485, "broche taill[i][é]e", "broche taill[ié]e"),
     (895, "Si s'enlref[i]érent ad eslaz", "Si s'enlref[i]érent a deslaz"),
     (3865, "eorurent ad eslaz", "eorurent a deslaz"),

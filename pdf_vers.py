@@ -281,6 +281,20 @@ def main():
             else:
                 break
         verses, notes = lines[:cut], lines[cut:]
+        # numéros imprimés de la page confirmés l'un par l'autre : deux numéros dont l'écart
+        # égale l'écart de lignes (« 10504 » puis « 10508 » quatre lignes plus bas) sont sûrs
+        # même s'ils corrigent un compte décalé de plus de 8
+        printed = []
+        for ln in verses:
+            lead = "".join(re.sub(r"\D", "", w[2]) for w in ln[3] if w[1] <= left - 3 * u)
+            body_words = [w for w in ln[3] if w[1] > left - 3 * u]
+            if body_words:
+                printed.append(int(lead) if lead else None)
+        sure = set()
+        for a_i, a_n in enumerate(printed):
+            for b_i, b_n in enumerate(printed):
+                if a_n and b_n and a_i != b_i and b_n - a_n == b_i - a_i and a_n % opts.pas == 0:
+                    sure.add(a_n)
         for ln in verses:
             nums, side, body = [], [], []
             for w in ln[3]:
@@ -308,7 +322,8 @@ def main():
                 st["num"] += 1
                 # le numéro imprimé recale le compte s'il est plausible : multiple du pas et proche ;
                 # un écart de 20 ou 24 vient d'un chiffre mal lu (« 1456 » pour 1480)
-                if n != verse_no and abs(n - verse_no) <= 8 and n % opts.pas == 0:
+                if n != verse_no and n % opts.pas == 0 and (abs(n - verse_no) <= 8
+                                                            or (n in sure and abs(n - verse_no) <= 60)):
                     st["recal"] += 1
                     anomalies.append("p. %s : vers %d compté %d" % (page.label, n, verse_no))
                     if n < verse_no and cur is not None:         # pas de numéro affiché deux fois
