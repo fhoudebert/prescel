@@ -23,7 +23,6 @@ Usage :
 import argparse
 import collections
 import os
-import posixpath
 import re
 import shutil
 import sys
@@ -88,7 +87,7 @@ def source_stream(path):
 
 def report_anchors(source, zin, spine, texts, new_data, ncx_path, names):
     import xml.etree.ElementTree as ET
-    from epub_longs import Doc, text_holders, EPUB2
+    from epub_longs import Doc, text_holders
     from epub_reference import skel, WORD
     src_words, src_anchors, labels = source_stream(source)
     print("Source : %d mots, %d ancres de page%s" % (len(src_words), len(src_anchors),

@@ -14,6 +14,12 @@ Ce qui sert à la relecture disparaît : numéros de page (ancres GBS.…/page-�
 marqueurs a-verifier, classes de Prescel. Les notes sont renumérotées de 1 à N sur
 tout le livre (dans l'imprimé, elles recommencent à 1 à chaque page).
 
+Édition à variantes (<p class="variantes"> d'pdf_to_epub.py) : les variantes sont
+regroupées en fin de volume page par page, et les numéros de page restent ({12} dans
+le texte, en marge du HTML avec un lien vers les variantes ; --folios oui|non). Les
+tableaux (table imprimée) sont rendus en tableau ; l'errata appliqué par
+epub_errata.py et les variantes sont signalés dans la note de transcription.
+
 Project Gutenberg ajoute lui-même son en-tête et sa licence : ne pas les écrire.
 Avant l'envoi, la page de titre et son verso doivent passer la vérification des
 droits sur https://copy.pglaf.org.
@@ -21,7 +27,7 @@ droits sur https://copy.pglaf.org.
 Usage :
   python3 epub_gutenberg.py livre.epub -o livre            # → livre.txt, livre.html
   python3 epub_gutenberg.py livre.epub -o livre --width 70 --note "Orthographe de l'édition conservée."
-  python3 epub_gutenberg.py Oeuvres_de_Froissart_Chroniques_Tome_12-relu.epub -o Oeuvres_de_Froissart_Chroniques_Tome_12-relu   --note "Texte établi d'après le fac-similé publié sur Gallica."
+  python3 epub_gutenberg.py Tome_12-relu.epub -o Froissart_t12 --note "Texte établi d'après le fac-similé publié sur Gallica."
 """
 
 import argparse
@@ -406,7 +412,7 @@ def to_text(book, width, note_txt, title_lines):
             return
         blank(1)
         for n in pending_notes:
-            out += hanging("[%d] %s" % (n, plain_runs(book.notes[n])), width)
+            out.extend(hanging("[%d] %s" % (n, plain_runs(book.notes[n])), width))
             out.append("")
         pending_notes.clear()
 
@@ -671,11 +677,6 @@ def main():
         if os.path.basename(b.get("src", "")).startswith(opts.title_file):
             b["title_page"] = True
             title_lines.append(b)
-    # les blocs de la page de titre ne comptent pas comme chapitre
-    if title_lines:
-        first_ch = min(ch for ch, b in book.blocks if b.get("title_page"))
-        if any(b["kind"] in ("h1", "h2") for b in title_lines):
-            pass
     notes = list(opts.note)
     if book.notes:
         notes.append("Les notes, numérotées page par page dans l'imprimé, sont numérotées de 1 à %d "

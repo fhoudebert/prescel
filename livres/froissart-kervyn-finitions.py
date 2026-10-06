@@ -22,7 +22,6 @@ import argparse
 import html
 import json
 import re
-import sys
 import zipfile
 
 ap = argparse.ArgumentParser()
@@ -48,15 +47,33 @@ HEAD = """<?xml version="1.0" encoding="utf-8"?>
 <body>
 """
 
-# 1. début : page de titre de 1871
+# 1. début : page de titre de l'édition originale à la place de celle du fac-similé
 t = T(texts[0])
 a = t.index("<body>") + len("<body>")
-b = t.index('<h1 id="titre-3">')
-front = "".join(re.findall(r'<a id="page-\d+" />', t[a:b]))
-t = t[:a] + "\n  " + t[b:]
-t = re.sub(r'(<h1 id="titre-3">(?:<a id="page-\d+" />)?)CHRONIQUES DE FRANCE[^<]*</h1>',
-           r"\1CHRONIQUES DE FRANCE, D'ENGLETERRE, D'ESCOCE, DE BRETAIGNE, D'ESPAIGNE, D'YTALIE, "
-           r"DE FLANDRE ET D'ALEMAIGNE.</h1>", t)
+h = re.search(r'<h1 id="([^"]+)">(?:<a id="page-\d+" />)?CHRONIQUES DE FRANCE', t)
+assert h, "titre de départ « CHRONIQUES DE FRANCE… » introuvable"
+start_id = h.group(1)
+front = "".join(re.findall(r'<a id="page-\d+" />', t[a:h.start()]))
+t = t[:a] + "\n  " + t[h.start():]
+
+
+def heading(m):
+    """« CHRONIQUES DE FRANCE. D'ENGLETERRE D'ESCOCE … DE FLANDRES ET D'ALEMAIGNE » : la ponctuation
+    du titre de départ, perdue par l'OCR, est remise ; les mots restent ceux de l'imprimé."""
+    words = re.sub(r"[.,;]", " ", plain(m.group(2))).split()
+    items, cur = [], []
+    for w in words:
+        if cur and re.match(r"(?:D'|DE$|ET$)", w) and cur != ["ET"] and not (len(items) == 0 and cur == ["CHRONIQUES"]):
+            items.append(" ".join(cur))
+            cur = []
+        cur.append(w)
+    items.append(" ".join(cur))
+    last = items.pop() if items[-1].startswith("ET ") else None
+    txt = ", ".join(items) + ((" " + last) if last else "") + "."
+    return m.group(1) + txt + "</h1>"
+
+
+t = re.sub(r'(<h1 id="%s">(?:<a id="page-\d+" />)?)(CHRONIQUES DE FRANCE[^<]*)</h1>' % start_id, heading, t)
 files[texts[0]] = t.encode("utf-8")
 files["OEBPS/Text/titre.xhtml"] = ((HEAD + """  <div class="titre">%(front)s
   <p class="centre titre-livre">ŒUVRES<br />DE<br />FROISSART</p>
@@ -85,20 +102,23 @@ for n in texts:
                       T(n)).encode("utf-8")
 
 # 3. table imprimée
-tf = next(n for n in texts if re.search(r">(?:<a id=\"page-\d+\" />)?TABLE\.</h2>", T(n)))
+TABLE_H = r'<(h1|h2|p)\b[^>]*>(<a id="page-\d+" />)*\s*T\s?A\s?B\s?L\s?E\s?\.\s*</\1>'
+tf = next(n for n in texts if re.search(TABLE_H, T(n)))
 t = T(tf)
-m = re.search(r'<h2 id="([^"]+)">(<a id="page-\d+" />)?TABLE\.</h2>(.*?)<p class="centre">FIN DE LA TABLE\.</p>', t, re.S)
+m = re.search(TABLE_H + r'(.*?)(?:<p class="centre">FIN DE LA TABLE\.</p>|(?=</body>))', t, re.S)
 assert m, "table"
 body = m.group(3)
-anchors = re.findall(r'<a id="page-\d+" />', body)
+anchors = re.findall(r'<a id="page-\d+" />', m.group(0))
+first_anchor = anchors.pop(0) if anchors and m.group(0).find(anchors[0]) < m.group(0).find("A") else ""
 segs = []                                    # (titre, page ou None)
 for el in re.finditer(r"<tr>(.*?)</tr>|<p[^>]*>(.*?)</p>", body, re.S):
     if el.group(1) is not None:
         cells = [plain(c).strip() for c in re.findall(r"<td>(.*?)</td>|<td />", el.group(1))]
-        cells = [c for c in cells] + [""] * (2 - len(cells))
+        cells = cells + [""] * (2 - len(cells))
+        cells[0] = re.sub(r"^Pag\s?es\s*", "", cells[0])
         txt = cells[0] + ((" " + cells[1]) if re.fullmatch(r"\d{1,3}", cells[1] or "") else "")
     else:
-        txt = plain(el.group(2)).strip()
+        txt = re.sub(r"^Pag\s?es\s*", "", plain(el.group(2)).strip())   # en-tête de colonne
     pos = 0
     for mm in re.finditer(r"(.+?)[\s.]*\s(\d{1,3})(?=\s|$)", txt):
         segs.append([mm.group(1).strip(), mm.group(2)])
@@ -133,7 +153,7 @@ for title, page in entries:
     rows.append('<tr><td>%s</td><td>%s</td></tr>' % (html.escape(title, quote=False), page or ""))
 new = ('<h1 id="table">%sTABLE.</h1>\n  <p class="droite">Pages</p>\n  <table class="tableau">\n%s\n</table>\n'
        '  <div>%s</div>\n  <p class="centre">FIN DE LA TABLE.</p>'
-       % (m.group(2) or "", "\n".join(rows), "".join(anchors)))
+       % (first_anchor, "\n".join(rows), "".join(anchors)))
 t = t[:m.start()] + new + t[m.end():]
 files[tf] = t.encode("utf-8")
 
@@ -157,9 +177,9 @@ n = T("OEBPS/toc.ncx")
 for a in re.findall(r'id="(page-\d+)"', front):
     n = n.replace('Text/texte-001.xhtml#%s"' % a, 'Text/titre.xhtml#%s"' % a)
 nav = [("Page de titre", "Text/titre.xhtml"),
-       ("Chroniques de France, d'Engleterre, d'Escoce…", "Text/texte-001.xhtml#titre-3")]
+       ("Chroniques de France, d'Engleterre, d'Escoce…", "Text/texte-001.xhtml#%s" % start_id)]
 for f in texts:
-    for mm in re.finditer(r'<h1 id="([^"]+)">(?:<a id="[^"]+" />)?(NOTES|TABLE)\.', T(f)):
+    for mm in re.finditer(r'<h1 id="([^"]+)">(?:<a id="[^"]+" />)*(NOTES|TABLE)\.', T(f)):
         nav.append((mm.group(2).capitalize(), "Text/%s#%s" % (f.split("/")[-1], mm.group(1))))
 pts = "\n".join('    <navPoint id="nav-%d" playOrder="%d"><navLabel><text>%s</text></navLabel><content src="%s"/></navPoint>'
                 % (i, i, html.escape(l, quote=False), s_) for i, (l, s_) in enumerate(nav, 1))

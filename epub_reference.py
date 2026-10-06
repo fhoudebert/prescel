@@ -39,6 +39,12 @@ Usage :
   python3 epub_reference.py livre.epub "Chardin voyages.pdf" --from-page 118 \\
       -o livre-corrige.epub --report ecarts.html
   python3 epub_reference.py livre.epub ref.pdf --from-page 118 --apply ocr,esperluette -o …
+  # même édition, seconde lecture (texte Tesseract d'un PDF d'images, pdf_tesseract.py) :
+  python3 epub_reference.py livre.epub google.epub --confirm livre-tesseract.txt \\
+      --apply ocr,graphie,casse,variante,guillemets --keep @livre-errata.tsv -o …
+  # référence dont le texte colle les mots (PDF Google, Internet Archive) :
+  python3 epub_reference.py livre.epub ref.pdf --apply ponctuation -o 2.epub
+  python3 epub_reference.py 2.epub ref.pdf --prudent --apply ocr -o 3.epub
 """
 
 import argparse
@@ -72,8 +78,6 @@ CATS = collections.OrderedDict([
     ("enplus", "Mots en plus dans l'EPUB (jamais appliqué)"),
 ])
 WORD = re.compile(r"&|[^\W\d_]+(?:['’][^\W\d_]+)*", re.U)
-S_LONG_AMBIGUOUS = set("font fait fais faits forte fortes fort foi fi fur fuite fuites fuis fuit ferment "
-                       "fervent fol fols fous fous feroit feroient fera feront fable fables".split())
 
 
 def skel(w):

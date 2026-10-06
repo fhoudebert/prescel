@@ -38,7 +38,6 @@ import collections
 import concurrent.futures
 import datetime
 import html
-import json
 import os
 import re
 import shutil
@@ -47,6 +46,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
 import urllib.request
 import uuid
 import zipfile
@@ -157,7 +157,6 @@ class Throttled(Exception):
 def http_get(url, tries=8, check=None):
     """Télécharge url. Les refus temporaires (429, 502, 503, 504, page d'erreur au lieu du
     document) sont retentés avec une attente croissante (en-tête Retry-After respecté)."""
-    import urllib.error
     last = None
     for k in range(tries):
         try:
@@ -801,7 +800,7 @@ class Builder:
             return
         if page.kind == "image":
             self.close()
-            b = self.emit({"type": "image", "parts": [self.anchor(page)], "image": page.image})
+            self.emit({"type": "image", "parts": [self.anchor(page)], "image": page.image})
             return
         left, right, h, colw = getattr(page, "col", (0, page.width, 10, page.width))
         cw = colw / 60.0                       # largeur approximative d'un caractère

@@ -39,7 +39,6 @@ Usage :
 
 import argparse
 import collections
-import datetime
 import html
 import html.entities
 import os
@@ -978,7 +977,7 @@ def toc_entries(docs_in_order, chapter_re, book_re, table_re, used_ids=frozenset
 
 def build_ncx(ncx_text, ncx_path, entries, first_point):
     has_h1 = any(lv == 1 for lv, _, _, _ in entries)
-    points, order = [], [0]
+    order = [0]
 
     def point(label, src, children, ind):
         order[0] += 1
@@ -998,7 +997,6 @@ def build_ncx(ncx_text, ncx_path, entries, first_point):
         lv, label, path, id_ = entries[i]
         src = rel_href(ncx_path, path) + "#" + id_
         if has_h1 and lv == 1:
-            order_before = order[0]
             # enfants : entrées de niveau 2 jusqu'au prochain niveau 1
             j, kids_raw = i + 1, []
             while j < len(entries) and entries[j][0] == 2:

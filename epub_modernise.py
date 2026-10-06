@@ -48,7 +48,6 @@ Usage :
 import argparse
 import collections
 import itertools
-import csv
 import os
 import re
 import runpy
@@ -59,7 +58,7 @@ import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from epub_longs import (Doc, TSV_HEAD, decode_text, fix_doctype, get_attr, load_wordlist,  # noqa: E402
+from epub_longs import (Doc, decode_text, fix_doctype, get_attr, load_wordlist,  # noqa: E402
                         read_tsv, resolve, text_holders, write_tsv, EPUB2)
 import xml.etree.ElementTree as ET  # noqa: E402
 

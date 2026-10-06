@@ -64,8 +64,6 @@ LETTERS = "A-Za-zÀ-ÖØ-öø-ÿŒœÆæß"
 WORD_RE = re.compile(r"[%s]+" % LETTERS)
 ALLOWED_SINGLE = set("aàyoôAÀYOÔ&")
 CHAPTER_RE = re.compile(r"^(?:[^a-zà-ÿ]{0,30}?\s)?(?:CHA)?(?:CHAPITRE|Chapitre|CHAP|Chap)\b\s*\.?\s*(.+?)[\s.]*$")
-ORDINALS = [("premi", 1), ("secon", 2), ("deux", 2), ("tier", 3), ("trois", 3), ("quatr", 4),
-            ("cinq", 5), ("sixi", 6), ("sept", 7), ("huit", 8), ("neuf", 9), ("dixi", 10)]
 GLOBAL_FIXES = [
     ("ß", "ss", "« ß » : s long + s mal lu (außi → aussi)"),
     ("ſ", "s", "s long"),
@@ -540,7 +538,7 @@ class Reviewer:
 
     def wrap(self, holder, attr, hits):
         s = getattr(holder, attr) or ""
-        pieces, pos = [], 0
+        pos = 0
         spans = []
         for a, b, cat, detail in hits:
             sp = ET.Element(X("span"))

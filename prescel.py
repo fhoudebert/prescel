@@ -280,9 +280,19 @@ STEPS = [
              "choices": [["ocr", "erreurs d'OCR"], ["esperluette", "« & » → « et »"],
                          ["apostrophes", "apostrophes typographiques"], ["casse", "majuscules / minuscules"],
                          ["graphie", "graphie et accents"], ["variante", "variantes de texte"],
-                         ["ponctuation", "ponctuation (même édition seulement)"]],
+                         ["ponctuation", "ponctuation (même édition seulement)"],
+                         ["guillemets", "guillemets fermants (avec seconde lecture)"]],
              "label": "Corriger",
              "help": "Les catégories cochées sont appliquées ; toutes sont listées dans le rapport d'écarts."},
+            {"flag": "--confirm", "type": "text", "label": "Seconde lecture (texte, PDF ou EPUB)",
+             "help": "Autre OCR du même livre, par exemple le texte Tesseract d'un PDF d'images "
+                     "(pdf_tesseract.py) : une correction n'est appliquée que si cette seconde lecture "
+                     "donne la même forme que la référence. Permet de cocher sans risque graphie, "
+                     "variantes et guillemets."},
+            {"flag": "--prudent", "type": "bool", "label": "Référence d'OCR médiocre",
+             "help": "Pour un PDF Internet Archive ou Google dont le texte colle les mots : seul un mot "
+                     "inconnu de l'EPUB est changé en mot connu, jamais une terminaison ; ponctuation "
+                     "jamais appliquée (la faire dans une passe séparée sans cette case)."},
             {"flag": "--min-ratio", "type": "text", "advanced": True, "label": "Ressemblance minimale",
              "help": "De 0 à 1 (défaut 0.8) : en dessous, le paragraphe n'est pas touché."},
         ],
@@ -1130,6 +1140,9 @@ def pipeline(job, plan, check_mode, start=None):
             cmd = [py, "-u", script, current, os.path.expanduser(ref), "-o", out, "--report", report,
                    "--apply", ",".join(opts.get("ref_apply") or []) or "aucune"] + build_args(step, opts)
             job.result["ecarts"] = os.path.basename(report)
+            errata_tsv = os.path.join(d, slug + "-errata.tsv")
+            if os.path.exists(errata_tsv):
+                cmd += ["--keep", "@" + errata_tsv]    # ne pas rendre aux mots de l'errata la faute imprimée
         if step["id"] in ("oi", "ez", "erent", "ants", "moderne"):
             cmd += ["--mode", {"oi": "oi", "ez": "ez", "erent": "erent", "ants": "ants", "moderne": "vocab"}[step["id"]],
                     "--tsv", list_tsv]

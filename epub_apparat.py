@@ -21,8 +21,6 @@ Usage : python3 epub_apparat.py livre.epub -o livre-apparat.epub
 import argparse
 import os
 import re
-import shutil
-import sys
 import tempfile
 import zipfile
 
@@ -80,7 +78,7 @@ def main():
     opts = ap.parse_args()
     zin = zipfile.ZipFile(opts.epub)
     files = {n: zin.read(n) for n in zin.namelist()}
-    report, n_changed = [], 0
+    report = []
     for name in [n for n in files if n.endswith((".xhtml", ".html", ".htm"))]:
         t = files[name].decode("utf-8")
 
@@ -99,7 +97,6 @@ def main():
         new = re.sub(r'(<p class="variantes"[^>]*>)(.*?)(</p>)', blk, t, flags=re.S)
         if new != t:
             files[name] = new.encode("utf-8")
-            n_changed += 1
     done = [r for r in report if not r.startswith("laissé")]
     print("Numéros d'appel rétablis dans l'apparat : %d" % len(done))
     for r in done[:12]:
