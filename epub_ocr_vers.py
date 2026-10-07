@@ -12,7 +12,8 @@ lettres citées) :
   li           « h », « H », « ti », « ii », « 11 », « U » isolés → li ; « ! i » → li
   l lu !       « Mo ! t » → Molt, « a ! rei » → al rei (seulement si le mot obtenu est connu)
   restitutions [nJ → [n], comper{r] → comper[r], [i] r → [i]r (mot coupé après le crochet)
-  divers       fF → ff, 6i → oï, s *en → s’en, Gh → Ch, U dans un mot (empU → empli, si connu),
+  divers       numéro de vers resté en tête du vers (supprimé), fF → ff, 6i → oï, s *en → s’en, Gh → Ch,
+               U dans un mot (empU → empli, si connu),
                « 0 » / « 1 » en tête de vers → O / I, marque de folio (/ (~ {f → (f
 
 Les mots « connus » sont ceux du texte lui-même et des EPUB donnés par --vocab (deux occurrences
@@ -115,6 +116,8 @@ class Correcteur:
         on = self.on
         if "divers" in on:
             s = self.sub("divers", r"fF", "ff", s, ctx)
+            # numéro de vers imprimé resté en tête du vers (il est déjà en marge) : « 10944 E chivalchout »
+            s = self.sub("divers", r"^(%s)\d(?: ?\d){2,5}%s+(?=[%s«&])" % (P, SP, U), lambda m: m.group(1), s, ctx)
             s = self.sub("divers", r"(?<![\d])6i(?=[%s]|\b)" % L, "oï", s, ctx)
             s = self.sub("divers", r"(?<=[%s])%s?\*(?=[%s])" % (L + U, SP, L), "’", s, ctx)
             s = self.sub("divers", r"\bGh(?=[aeiou])", "Ch", s, ctx)

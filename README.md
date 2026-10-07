@@ -218,6 +218,16 @@ relecture du t. I : « a », « < », « <t », « t », « c »… lus pour « 
 `[nJ` → `[n]`, `fF` → `ff`, `6i` → `oï`, `s *en` → `s’en`, `Gh` → `Ch`, marques de folio `(/` → `(f`.
 Le journal `--report` liste chaque correction avec son vers.
 
+`epub_vers_reference.py` confronte chaque vers (et, par vote seul, les notes et le vocabulaire) à deux
+autres numérisations de la même édition lues par d'autres moteurs d'OCR : le `_djvu.txt` d'Internet
+Archive (ABBYY) et le PDF Google Livres (OCR Google), ou un texte Tesseract. Quand les deux références
+s'accordent contre l'EPUB, on prend leur lecture ; quand la seconde lit comme l'EPUB, elle met son veto
+(ABBYY lit « l' » en « T », « ü » en « ii », « C » en « G ») ; seule, une référence ne remplace qu'un mot
+inconnu ou une confusion typique de l'OCR Gallica (t, I, J pour l ; M, Ii pour li) et ajoute les signes
+perdus (« : », « ; », guillemets). `--accents-ref2` suit Google pour è / é (Meyer imprime « pére »,
+« maniére », mais « près »). `--vote-seul` pour un document déjà relu. Les mots remplacés sont repérés
+`a-verifier` (« Autre lecture : … ») ; trémas et cédilles perdus par l'OCR ne sont jamais retirés.
+
 Quand Gallica n'a pas d'OCR (pas de couche texte, ALTO refusé), le texte vient d'un autre PDF
 (Internet Archive) et les images Gallica servent de seconde lecture :
 
