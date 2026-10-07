@@ -707,10 +707,16 @@ def main():
         notes.append("Les corrections indiquées dans l'errata du volume ont été faites dans le texte"
                      + ("." if done_ == total_ else " (%d sur %d)." % (done_, total_)))
     if book.variants:
+        poeme = any("vers" in b["cls"] for _, b in book.blocks)
         notes.append("Les variantes, imprimées au bas des pages, sont regroupées à la fin du volume, "
-                     "page par page ; leurs appels sont en exposant dans le texte. Les numéros de page "
-                     "du livre imprimé sont indiqués entre accolades {12} dans le texte brut, en marge "
-                     "dans le HTML (un clic mène aux variantes de la page).")
+                     "page par page ; "
+                     + ("elles renvoient aux numéros des vers, donnés de quatre en quatre dans la marge"
+                        if poeme else "leurs appels sont en exposant dans le texte")
+                     + ". Les numéros de page du livre imprimé sont indiqués entre accolades {12} dans le "
+                     "texte brut, en marge dans le HTML (un clic mène aux variantes de la page).")
+        if poeme:
+            notes.append("Les folios du manuscrit sont donnés entre crochets [(f. 12 b)] en fin de vers. "
+                         "Les crochets [ ] dans les vers marquent les restitutions de l'éditeur.")
     txt = to_text(book, opts.width, notes, title_lines)
     with open(opts.output + ".txt", "w", encoding="utf-8", newline="") as f:
         f.write(txt)

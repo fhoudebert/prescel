@@ -266,6 +266,25 @@ python3 epub_review.py maitre.epub --ancien --report relecture.html --mark a-rel
   lettres restituées par l'éditeur (« maisni[é]e ») et l'apparat ne sont pas des lettres isolées ;
 - `epub_gutenberg.py` aligne le numéro de vers à droite (texte) ou dans la marge (HTML) et met
   les manchettes entre crochets.
+- folios du manuscrit cassés par l'OCR (moitié dans le vers, moitié en marge) : `epub_folios.py
+  livre.epub google.pdf -o …` lit chaque folio et le vers à sa hauteur dans la couche texte du PDF
+  Google, efface les fragments et repose le folio en manchette ; la ponctuation rejetée en marge
+  revient dans le vers.
+- t. I, du maître relu aux fichiers Gutenberg : `sh livres/guillaume-marechal-t1-gutenberg.sh`
+  (marques retirées, folios, vote des autres lectures, reprises vérifiées sur le PDF Google dans
+  `livres/guillaume-marechal-t1-reprises.py`).
+
+#### Prose savante depuis Internet Archive (t. III de Guillaume le Maréchal)
+
+Le PDF « texte » d'Internet Archive place chaque mot à part et se lit mal ligne à ligne. Le XML
+ABBYY (`<livre>_abbyy.gz`, même page de téléchargement) garde paragraphes, lignes, taille, style et
+position de chaque caractère : `abbyy_to_epub.py` en tire un EPUB avec notes de bas de page reliées
+(appels reconnus à leur position surélevée, même lus « < », « ^ », « * » ; un chiffre bien lu sert
+de repère), italique, citations en vers numérotées, titres, table en retrait suspendu (`:index`),
+paragraphes recollés d'une page à l'autre. `epub_ocr_prose.py` corrige ensuite la prose moderne
+(« TAngleterre » → « l'Angleterre », « j*ai », « 11 » pour « Il », ligatures « efifet »). Appels
+et notes qu'il n'a pas su apparier sont repérés `a-verifier`. Chaîne complète :
+`sh livres/guillaume-marechal-t3.sh` (le XML est téléchargé s'il manque).
 
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
 
@@ -368,6 +387,10 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `pdf_glossaire.py` | glossaire ou vocabulaire sur deux colonnes en retrait suspendu → un paragraphe par article, vedette en gras |
 | `epub_abimes.py` | mots illisibles de l'OCR (« d~pen~sHce », souvent l'italique) réparés d'après une autre numérisation, par leur contexte |
 | `epub_errata_vers.py` | errata d'un poème numéroté : chaque correction vise un vers par son numéro (leçons « lis. », virgule ou point-virgule en fin de vers, ponctuation à supprimer) ; une liste sert à tous les tomes |
+| `abbyy_to_epub.py` | XML ABBYY d'Internet Archive → EPUB : notes reliées, italique, vers cités, titres, table en colonnes (`--parties "vues:Nom[:index|:sans-notes],…"`, `--pagination vue=page,…`) |
+| `epub_ocr_prose.py` | fautes d'ABBYY dans la prose française moderne (l' lu T/F/V, apostrophe lue * ou ^, « 11 » pour « Il », ligatures) ; jamais dans les vers cités |
+| `epub_vers_reference.py` | poème vers par vers confronté à une ou deux autres lectures (vote, veto, accents) |
+| `epub_folios.py` | folios du manuscrit replacés en manchette d'après un PDF à couche texte |
 | `pdf_tesseract.py` | OCR Tesseract d'un PDF d'images, page par page (reprise possible) : seconde lecture pour `epub_reference.py --confirm` |
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |

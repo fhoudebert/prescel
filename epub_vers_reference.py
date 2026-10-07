@@ -290,8 +290,9 @@ class Arbitre:
             return None
         if cx == cy:
             return self.signes(x, y, cx, cy, ctx)
-        sans = "".join(c for c in unicodedata.normalize("NFD", cx) if not unicodedata.combining(c))
-        if unicodedata.normalize("NFC", sans) != cx and sans == cy and not re.search("[àìòù]", cx):
+        nfd = unicodedata.normalize("NFD", cx)
+        sans = "".join(c for c in nfd if not unicodedata.combining(c))
+        if sans == cy and re.search("[\u0308\u0327]", nfd):
             # tréma, cédille… perdus par l'OCR : Meyer les imprime ou non (« ço », « processïons »)
             self.log.append((ctx, "variante", x, y))
             return None

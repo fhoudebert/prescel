@@ -11,9 +11,9 @@ lettres citées) :
                isolés dans le vers → « ; « > » isolé → »
   li           « h », « H », « ti », « ii », « 11 », « U » isolés → li ; « ! i » → li
   l lu !       « Mo ! t » → Molt, « a ! rei » → al rei (seulement si le mot obtenu est connu)
-  restitutions [nJ → [n], comper{r] → comper[r], [i] r → [i]r (mot coupé après le crochet)
+  restitutions [nJ → [n], comper{r] → comper[r], [i] r → [i]r, cheval [i] ers → cheval[i]ers
   divers       numéro de vers resté en tête du vers (supprimé), fF → ff, 6i → oï, s *en → s’en, Gh → Ch,
-               U dans un mot (empU → empli, si connu),
+               T ou V pour l' au milieu du vers (« Si Tout » → « Si l'out »), U dans un mot (empU → empli),
                « 0 » / « 1 » en tête de vers → O / I, marque de folio (/ (~ {f → (f
 
 Les mots « connus » sont ceux du texte lui-même et des EPUB donnés par --vocab (deux occurrences
@@ -99,6 +99,9 @@ class Correcteur:
         self.on = set(actives)
         self.log = []
 
+    def freq(self, w):
+        return self.v.get(re.sub(r"[\[\]]", "", w).lower(), 0)
+
     def connu(self, w, n=2):
         return self.v.get(re.sub(r"[\[\]]", "", w).lower(), 0) >= n
 
@@ -126,11 +129,18 @@ class Correcteur:
             s = self.sub("divers", r"[({]%s?[/~](?=[%s\s\d.]|$)" % (SP, NB), "(f", s, ctx)
             s = self.sub("divers", r"\{f\b", "(f", s, ctx)
             s = self.sub("divers", r"\b([%s]*[%s])U([%s]*)" % (L + U, L, L), self.u_interne, s, ctx)
+            # « T » ou « V » lu pour « l' » au milieu du vers : « Si Tout trové » → « Si l'out trové »
+            s = self.sub("divers", r"(?<=[%s,;:]%s)[TV](?=([aeiouhéè][%s]{0,10})\b)" % (L, SP, L),
+                         lambda m: "l'" if self.connu(m.group(1), 3) else None, s, ctx)
         if "restitutions" in on:
             s = self.sub("restitutions", r"\[([%s']{1,4})J(?=[%s\s,.;:!?\]]|$)" % (L, L), r"[\1]", s, ctx)
             s = self.sub("restitutions", r"\{([%s]{1,4})\]" % L, r"[\1]", s, ctx)
             s = self.sub("restitutions", r"(?<=[%s])\[([%s]{1,3})\]%s([%s]{1,2})\b" % (L, L, SP, L),
                          self.crochet_coupe, s, ctx)
+            # « cheval [i] ers » → « cheval[i]ers » : le mot recollé est connu, la fin seule ne l'est pas
+            s = self.sub("restitutions", r"\b([%s]{2,})%s\[([%s]{1,3})\]%s([%s]{1,4})\b" % (L + U, SP, L, SP, L),
+                         lambda m: "%s[%s]%s" % m.groups() if self.freq("".join(m.groups())) >= 2
+                         and self.freq("".join(m.groups())) > self.freq(m.group(3)) else None, s, ctx)
         if "guillemets" in on:                 # d'abord : « a H reis » → « li reis (et non « a li reis »)
             s, ouvert = self.guillemets(s, ctx, ouvert)
         if "li" in on:
