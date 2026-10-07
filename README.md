@@ -211,6 +211,13 @@ imprimé sont repérés `a-verifier` dans l'EPUB (« Numérotation : vers 2952 c
 coupé, collé ou perdu est à chercher tout près. Ni `epub_guillemets.py` ni `epub_recolle.py` ne
 conviennent à l'ancien français (« u » y veut dire « où », « Partant » est un mot).
 
+`epub_ocr_vers.py` corrige, vers par vers et jamais dans les notes, les fautes d'OCR relevées à la
+relecture du t. I : « a », « < », « <t », « t », « c »… lus pour « en tête de vers, « D », « B »,
+« s », « > »… pour » en fin de vers ou devant « dist », « h », « H », « ti », « 11 » isolés pour
+« li » (« Il » en tête de vers), « ! » pour « l » (« Mo ! t » → Molt, repéré `a-verifier`),
+`[nJ` → `[n]`, `fF` → `ff`, `6i` → `oï`, `s *en` → `s’en`, `Gh` → `Ch`, marques de folio `(/` → `(f`.
+Le journal `--report` liste chaque correction avec son vers.
+
 Quand Gallica n'a pas d'OCR (pas de couche texte, ALTO refusé), le texte vient d'un autre PDF
 (Internet Archive) et les images Gallica servent de seconde lecture :
 
