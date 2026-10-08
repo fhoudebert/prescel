@@ -7,6 +7,9 @@ forme obtenue est française (liste de mots de Prescel ou mots du livre) et l'or
   apostrophe  « j*ai », « qu^il », « s*est » → « j'ai », « qu'il », « s'est »
   Il          « 11 » ou « H » devant un verbe en tête de phrase → « Il »
   ligatures   « Tafifaire » → « l'affaire » ; « fl », « fi » lus « fll », « fii »…
+  Google      (couche texte des DjVu) « C 'est » → « C'est », « i l », « l a » → « il », « la »,
+              « n * » → « n° », « c » lu pour « en tête de citation, « on t été » → « ont été »,
+              chiffres romains « p. xxvm » → « p. xxviii », « xn° siècle » → « xiie siècle »
 
   python3 epub_ocr_prose.py livre.epub -o livre-2.epub [--report r.tsv]
 """
@@ -55,6 +58,37 @@ class Nettoyeur:
             return r
         s = re.sub(r"((?:^|[.!?»]\s+|\(\s*))(11|H)(\s+(?:y|a|est|était|fut|faut|ne|n'|se|s'|le|la|les|lui|en|avait|"
                    r"eut|fit|dit|vint|alla|mourut|semble|paraît|serait|s'agit))\b", il, s)
+
+        # OCR de Google (couche texte des DjVu) : espace avant l'apostrophe, mots coupés à une lettre
+        s2 = re.sub(r"\b([CLDJNSMTcldjnsmt]|[Qq]u) [’'](?=\w)", r"\1'", s)
+        s2 = re.sub(r"(?<![\w'])i l(?![\w'])", "il", s2)
+        s2 = re.sub(r"(?<![\w'])l ([aie])(?![\w'])", r"l\1", s2)
+        s2 = re.sub(r"(?<![\w'])n \*(?=['\s\d])", "n°", s2)
+        s2 = re.sub(r"(?<=[\s(:.]) ?c (?=[A-ZÀ-Ý][a-zà-ÿ])", " « ", s2)       # « c Petrus » : guillemet lu c
+        s2 = re.sub(r"(?<![\w'])dd(?= [a-zà-ÿ])", "du", s2)                  # « dd poème »
+        s2 = re.sub(r"(?<![\w'])ad point de vue", "au point de vue", s2)
+        # chiffres romains de Google : « m » pour « iii », « n » pour « ii » (« p. xxvm », « xn° siècle »)
+        def romain(m):
+            r = m.group(2)
+            r = re.sub(r"i?(?:in|m)$", "iii", r)
+            r = re.sub(r"(?:u|n)$", "ii", r)
+            return m.group(1) + r
+        s2 = re.sub(r"((?:\bpp?\.|\bchap\.|\b[IVX]+,)[ \u00a0]?)([xlcv]+i?[mnu]|[xlcv]+in)(?![\w'])", romain, s2)
+        s2 = re.sub(r"((?:\bpp?\.|\bIII,)[ \u00a0]?[xlcv]+i{0,2})j(?![\w'])", r"\1i", s2)
+        s2 = re.sub(r"(?<![\w'])x([nu])[°*e]?( siècle|e? et)", lambda m: "xiie" + m.group(2), s2)
+        s2 = re.sub(r"(?<![\w'])x(?:m|in)[°*e]?( siècle|e? et)", lambda m: "xiiie" + m.group(1), s2)
+        s2 = re.sub(r"(?<![\w'])xi[vr][°*e]?( siècle)", lambda m: "xive" + m.group(1), s2)
+        if s2 != s:
+            self.log.append((ctx, "Google", s[:40], s2[:40]))
+            s = s2
+
+        def lettre(m):                                         # « on t été » → « ont été »
+            a, c = m.group(1), m.group(2)
+            if self.livre.get((a + c).lower(), 0) >= 3 and (a + c).lower() in self.mots and not self.fr(c):
+                self.log.append((ctx, "lettre", a + " " + c, a + c))
+                return a + c
+            return m.group(0)
+        s = re.sub(r"(?<![\w'])([a-zà-ÿ]{2,}) ([tsxzldnr])(?![\w'’])", lettre, s)
 
         def lig(m):
             w = m.group(0)

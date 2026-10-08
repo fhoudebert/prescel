@@ -14,6 +14,14 @@ garde les paragraphes, les lignes, la taille et le style de chaque caractère et
   - paragraphe coupé par la page (pas de retrait de première ligne) : recollé ; mots coupés en fin de
     ligne : recollés (le trait d'union est gardé si la forme avec trait d'union est la plus fréquente).
 
+Un fichier .djvu est lu par sa couche texte (djvused : lignes et mots avec leurs coordonnées, sans
+styles) : corps des notes d'après l'interligne, plus serré (coupure d'Otsu page par page, contrôlée
+par l'interligne du texte des pages voisines) ; appels = chiffres collés à un mot ou surélevés ;
+titre courant, taches et signatures d'imprimerie écartés ; plusieurs notes lues sur une même ligne
+séparées. Drapeaux de partie : sans-notes, index (table en retrait suspendu, deux colonnes coupées à
+la gouttière), tableau (chronologie sur deux colonnes : colonne de gauche puis de droite, une ligne
+par case).
+
   python3 abbyy_to_epub.py livre_abbyy.gz -o livre.epub --titre "…" --auteur "…" \\
       --pagination 16=1,320=i,441=cxlii --parties "12-14:Titre,320-443:Introduction,16-284:Traduction"
 """
@@ -56,6 +64,192 @@ def lire(path):
                     pg["pars"].append(p)
         pages.append(pg)
         el.clear()
+    return pages
+
+
+def lire_djvu(path):
+    """Couche texte d'un DjVu (lignes et mots avec leurs coordonnées) → même structure que le XML ABBYY.
+    Pas de styles ni de tailles : la taille se déduit de la hauteur des mots de la ligne (texte 10, notes
+    plus petites) ; les chiffres collés à la fin d'un mot (« Winchester1. ») sont des appels de note et
+    sont placés en exposant."""
+    import subprocess
+    import tempfile
+    import os
+    with tempfile.TemporaryDirectory() as tmp:                # djvused n'aime pas les noms accentués
+        lien = os.path.join(tmp, "livre.djvu")
+        os.symlink(os.path.abspath(path), lien)
+        lisp = subprocess.run(["djvused", "-u", "-e", "print-txt", lien], capture_output=True,
+                              check=True).stdout.decode("utf-8", "replace")
+    pages = []
+    hauteurs = []
+    brut = []
+    for bloc in re.split(r"^\(page ", lisp, flags=re.M)[1:]:
+        dims = [int(x) for x in bloc.split(None, 4)[:4]]
+        H, W = dims[3], dims[2]
+        lignes = []
+        for m in re.finditer(r"\(line (\d+) (\d+) (\d+) (\d+)((?:\s*\(word [^\n]*)+)", bloc):
+            ws = [(int(a), H - int(d), int(c), H - int(b), w.encode("latin-1", "backslashreplace").decode("unicode_escape")
+                   if "\\" in w else w)
+                  for a, b, c, d, w in re.findall(r'\(word (\d+) (\d+) (\d+) (\d+) "((?:[^"\\]|\\.)*)"\)', m.group(5))]
+            if not ws:
+                continue
+            h = sorted(w[3] - w[1] for w in ws)[len(ws) // 2]
+            hauteurs.append(h)
+            lignes.append((ws, h))
+        # mots d'une même rangée (titre courant en trois morceaux, colonnes d'un tableau) : une seule ligne
+        # les lignes minuscules (« l », « ' », « y » descendus, numéro de page) sont rattachées ensuite à la
+        # rangée qu'elles recouvrent le plus, sans en élargir l'emprise (sinon deux lignes se fondent)
+        rangs = []                                          # [mots, hauteur, haut, bas]
+        grandes = [x for x in lignes if sum(len(w[4]) for w in x[0]) > 3]
+        petites_l = [x for x in lignes if sum(len(w[4]) for w in x[0]) <= 3]
+        for ws, h in sorted(grandes, key=lambda x: min(w[1] for w in x[0])):
+            t0, b0 = min(w[1] for w in ws), max(w[3] for w in ws)
+            if rangs:
+                rt, rb = rangs[-1][2], rangs[-1][3]
+                if min(b0, rb) - max(t0, rt) > 0.4 * min(b0 - t0, rb - rt):
+                    rangs[-1] = [rangs[-1][0] + ws, max(h, rangs[-1][1]), min(t0, rt), max(b0, rb)]
+                    continue
+            rangs.append([list(ws), h, t0, b0])
+        for ws, h in petites_l:
+            t0, b0 = min(w[1] for w in ws), max(w[3] for w in ws)
+            best = max(rangs, key=lambda r: min(b0, r[3]) - max(t0, r[2]), default=None)
+            if best and min(b0, best[3]) - max(t0, best[2]) > -0.3 * (best[3] - best[2]):
+                best[0] += ws
+            else:
+                rangs.append([list(ws), h, t0, b0])
+        rangs = [(sorted(r[0]), r[1]) for r in sorted(rangs, key=lambda r: r[2])]
+        # taches au-dessus du titre courant (« I », « . ») : écartées
+        while len(rangs) > 1 and len("".join(w[4] for w in rangs[0][0])) <= 2 \
+                and not re.fullmatch(r"\d+", "".join(w[4] for w in rangs[0][0])):
+            rangs.pop(0)
+        # signature d'imprimerie au pied de la page (« m3 », « m /i ») : écartée
+        while len(rangs) > 1:
+            t = "".join(w[4] for w in rangs[-1][0])
+            if len(t) <= 5 and not re.search(r"[A-Za-zÀ-ÿ]{3}", t) and min(w[1] for w in rangs[-1][0]) > 0.85 * H:
+                rangs.pop()
+            else:
+                break
+        brut.append((W, H, rangs))
+    # interligne du texte courant, page par page : 85e centile des écarts entre lignes, lissé sur 7 pages
+    # (l'introduction est imprimée plus gros que la traduction ; une page de notes n'a guère de texte).
+    # Les notes, en plus petit corps, ont un interligne plus serré : c'est l'indice le plus stable.
+    def ecarts(lignes):
+        """Écart entre la ligne de base d'une ligne et celle de la suivante (de la précédente pour la
+        dernière) ; la ligne de base (bas des mots, médiane) varie moins que le haut des mots."""
+        bases = [sorted(w[3] for w in ws)[len(ws) // 2] for ws, h in lignes]
+        out = []
+        for k in range(len(bases)):
+            e = None
+            for j in (k + 1, k - 1):
+                if 0 <= j < len(bases) and 15 < abs(bases[j] - bases[k]) < 150:
+                    e = abs(bases[j] - bases[k])
+                    break
+            out.append(e)
+        return out
+    def seuil(es):
+        """Coupure la plus nette entre écarts serrés (notes) et larges (texte), ou None."""
+        es = sorted(x for x in es if x)
+        if len(es) < 5:
+            return None
+        med = es[len(es) // 2]
+        es = [x for x in es if 0.6 * med <= x <= 1.45 * med]         # ni grands blancs ni lignes collées
+        best = None                                         # méthode d'Otsu : séparation maximale des deux groupes
+        for i in range(2, len(es) - 1):
+            lo, hi = es[:i], es[i:]
+            ml, mh = sum(lo) / len(lo), sum(hi) / len(hi)
+            score = len(lo) * len(hi) * (mh - ml) ** 2
+            if best is None or score > best[0]:
+                best = (score, (es[i - 1] + es[i]) / 2, ml / mh, es[i] - es[i - 1])
+        return (best[1], best[2] * 1.0) if best and best[2] < 0.87 and best[3] >= 2 else None
+    # interligne du texte de la région (90e centile des médianes des pages, sur ±6 pages) : une
+    # coupure dont le groupe serré n'est pas nettement plus serré que le texte sépare deux sortes de lignes
+    # de texte, pas le texte et les notes (page sans notes, ou entièrement en notes)
+    def centile(es, q):
+        es = sorted(x for x in es if x)
+        return es[int(len(es) * q)] if es else None
+    meds = [centile(ecarts(lignes), 0.5) for W, H, lignes in brut]
+    ref = []
+    for k in range(len(brut)):
+        v = sorted(x for x in meds[max(0, k - 6):k + 7] if x)
+        ref.append(v[int(len(v) * 0.9)] if v else 0)
+    propres = []
+    for k, (W, H, lignes) in enumerate(brut):
+        r = seuil(ecarts(lignes))
+        if r and ref[k]:
+            lo = [x for x in ecarts(lignes) if x and x < r[0]]
+            if lo and sum(lo) / len(lo) > 0.88 * ref[k]:
+                r = None
+        propres.append(r[0] if r else None)
+    seuils = []
+    for k in range(len(brut)):
+        if propres[k]:
+            seuils.append(propres[k])
+        elif ref[k] and sum(1 for x in ecarts(brut[k][2]) if x and x < 0.85 * ref[k]) <= 2:
+            seuils.append(0)                                   # page de texte sans notes
+        else:
+            voisins = sorted(x for x in propres[max(0, k - 4):k + 5] if x)
+            seuils.append(voisins[len(voisins) // 2] if voisins else 0)
+    qh = []
+    for W, H, lignes in brut:
+        hs = sorted(h for ws, h in lignes if len(ws) >= 5)
+        qh.append(hs[int(len(hs) * 0.85)] if hs else 25)
+    for (W, H, lignes), thr, href in zip(brut, seuils, qh):
+        ec = ecarts(lignes)
+        pg = {"w": W, "h": H, "pars": []}
+        # une ligne d'un ou deux mots (« [12828]. ») a une ligne de base peu sûre : elle ne vote pas
+        brutes = [None if e is None or len(ws) < 3 else (e < thr) for e, (ws, h) in zip(ec, lignes)]
+        petites = []
+        for k in range(len(brutes)):                               # lissage : majorité sur 5 lignes
+            v = [x for x in brutes[max(0, k - 2):k + 3] if x is not None]
+            petites.append(sum(v) > len(v) / 2 if v else False)
+            if thr and ec[k] and ec[k] > 1.6 * thr and k + 1 < len(lignes):
+                petites[-1] = False                                # suivie d'un grand blanc : fin du texte
+        for (ws, h), e, pt in zip(lignes, ec, petites):
+            if h > 1.35 * href:
+                fs = 14.0                                          # titre
+            elif e is not None:                                    # notes : interligne serré
+                fs = 8.5 if pt else 10.0
+            else:
+                fs = 8.5 if h < 0.9 * href else 10.0
+            base = sorted(w[3] for w in ws)[len(ws) // 2]
+            chars = []
+            for k, (l, t, r, b, w) in enumerate(ws):
+                if k:
+                    chars.append((" ", chars[-1][3], t, l, b, fs, False, False))
+                m = re.match(r"^(.*[A-Za-zÀ-ÿ\])»])(\d{1,2})([.,;:!?»)\]]*)$", w)
+                appel = m and (not re.fullmatch(r"[\d\W]*", m.group(1)) or m.group(1)[-1] in ")]»") \
+                    and int(m.group(2)) <= 20
+                seul = re.match(r"^()(\d{1,2})([.,;:!?»)]*)$", w)        # « Ludgershall 1. » : chiffre surélevé à part
+                if not appel and seul and k and re.search(r"[A-Za-zÀ-ÿ\])»]$", ws[k - 1][4]) \
+                        and (b < base - 0.2 * h or (len(seul.group(2)) == 1 and seul.group(3)[:1] in ".,;:")) \
+                        and not re.fullmatch(r"le|la|les|du|au|aux|de|des|et|ou|à|en|sur|vers|depuis|jusqu'au",
+                                             ws[k - 1][4]) \
+                        and not re.fullmatch(r"(?i)(p|t|v|vv|n|no|n°|ch|chap|col|fol|f|l|liv|an|en|note|notes|ligne|"
+                                             r"lignes|vers|page|pages|art|§|livre|tome|chant|ms|mss|janv|févr|fév|mars|avril|mai|juin|juill|juil|"
+                                             r"août|sept|oct|nov|déc|—|-)\.?,?", ws[k - 1][4]) \
+                        and int(seul.group(2)) <= 20:
+                    m, appel = seul, True
+                    if chars and chars[-1][0] == " ":
+                        chars.pop()                               # l'appel se colle au mot qui le précède
+                corps = m.group(1) + m.group(3) if appel else w
+                pas = (r - l) / max(1, len(w))
+                x = l
+                for c in (m.group(1) if appel else w):            # hauteur de la ligne : pas de faux exposant
+                    chars.append((c, int(x), int(base - h), int(x + pas), base, fs, False, False))
+                    x += pas
+                if appel:
+                    for c in m.group(2):
+                        chars.append((c, int(x), int(base - h), int(x + pas), int(base - 0.6 * h), fs, False, False))
+                        x += pas
+                    for c in m.group(3):
+                        chars.append((c, int(x), int(base - h), int(x + pas), base, fs, False, False))
+                        x += pas
+                del corps
+            box = (min(w[0] for w in ws), min(w[1] for w in ws), max(w[2] for w in ws), max(w[3] for w in ws))
+            if not pg["pars"]:
+                pg["pars"].append({"attr": {}, "lines": []})
+            pg["pars"][0]["lines"].append({"box": box, "base": base, "chars": chars, "djvu": True})
+        pages.append(pg)
     return pages
 
 
@@ -127,6 +321,8 @@ def appels(line):
             for c in ch]
     # signes qu'ABBYY met à la place d'un chiffre en exposant, même peu surélevés : « osl^ », « Jean* »
     for k, c in enumerate(ch):
+        if line.get("djvu"):                                   # DjVu : les appels sont déjà placés en exposant
+            break
         if c[0] in "^*<»'’\"" and k and (ch[k - 1][0].isalpha() or ch[k - 1][0] == " " and k >= 2
                                            and ch[k - 2][0] in "])" and c[0] in "^*<") \
                 and (k + 1 == len(ch) or not ch[k + 1][0].isalpha()) \
@@ -134,7 +330,7 @@ def appels(line):
             haut[k] = True
     out, i = [], 0
     while i < len(ch):
-        if ch[i][0] == "P" and i >= 2 and ch[i - 1][0] in "el" and ch[i - 2][0].isalpha() and ch[i - 2][0].islower() \
+        if not line.get("djvu") and ch[i][0] == "P" and i >= 2 and ch[i - 1][0] in "el" and ch[i - 2][0].isalpha() and ch[i - 2][0].islower() \
                 and (i + 1 == len(ch) or not ch[i + 1][0].isalpha()):
             out.append((i, i + 1, "l"))                        # « WherwelP » : « l » + appel fondus
             i += 1
@@ -202,6 +398,67 @@ class Livre:
         self.stats = collections.Counter()
         self.mots = collections.Counter()
 
+    @staticmethod
+    def gouttiere(ls):
+        """Abscisse (en dizaines de points) du bord gauche de la seconde colonne d'un tableau, ou None : là
+        où commencent le plus de mots dans le milieu de la page (les renvois, alignés à droite, sont épars)."""
+        if not ls:
+            return None
+        x0 = min(l["box"][0] for l in ls)
+        x1 = max(l["box"][2] for l in ls)
+        debuts = collections.Counter()
+        for l in ls:
+            for k, c in enumerate(l["chars"]):
+                if c[0].strip() and (k == 0 or not l["chars"][k - 1][0].strip()):
+                    debuts[int(c[1]) // 10] += 1
+        zone = [x for x in range(int(x0 + 0.35 * (x1 - x0)) // 10, int(x0 + 0.7 * (x1 - x0)) // 10)]
+        if not zone:
+            return None
+        pic = max(zone, key=lambda x: debuts[x] + debuts[x + 1])
+        if debuts[pic] + debuts[pic + 1] < 4:
+            return None
+        bord = min(x for x in range(pic - 6, pic + 1) if debuts[x] + debuts[x + 1] >= 0.4 * (debuts[pic] + debuts[pic + 1]))
+        return bord - 1
+
+    @classmethod
+    def deux_colonnes(cls, ls, g):
+        """Vrai si la plupart des lignes longues ont un blanc de gouttière (≥ 45 points ; entre deux mots justifiés, 35 au plus) près de g."""
+        if g is None:
+            return False
+        longues = [l for l in ls if l["box"][2] > g * 10 + 60 and l["box"][0] < g * 10 - 160]
+        if len(longues) < 5:
+            return False
+        ok = 0
+        for l in longues:
+            k = cls.couper(l, g)
+            ch = l["chars"]
+            if 0 < k < len(ch):
+                fin = max((c[3] for c in ch[:k] if c[0].strip()), default=0)
+                ok += ch[k][1] - fin >= 45
+        return ok >= 0.6 * len(longues)
+
+    @staticmethod
+    def couper(l, g):
+        """Index du premier caractère de la colonne de droite dans la ligne l : le plus grand blanc entre
+        deux mots près de la gouttière g (un peu à gauche : mois et jour précèdent le bord repéré)."""
+        ch = l["chars"]
+        mots = []
+        for k, c in enumerate(ch):
+            if c[0].strip() and (k == 0 or not ch[k - 1][0].strip()):
+                mots.append(k)
+        best = None
+        if max((c[3] for c in ch if c[0].strip()), default=0) < g * 10 + 60:
+            return len(ch)                                  # rien dans la colonne de droite
+        for a, b in zip(mots, mots[1:]):
+            fin = max(c[3] for c in ch[a:b] if c[0].strip())
+            debut = ch[b][1]
+            if debut >= g * 10 - 160 and fin <= g * 10 + 40:
+                if best is None or debut - fin > best[0]:
+                    best = (debut - fin, b)
+        if best:
+            return best[1]
+        return next((k for k in mots if (ch[k][1] + ch[k][3]) / 2 >= g * 10), len(ch))
+
     def gauche(self, pg, pars):
         xs = sorted(l["box"][0] for p in pars for l in p["lines"])
         return xs[len(xs) // 10] if xs else 0
@@ -213,13 +470,24 @@ class Livre:
         if not pars:
             return
         # titre courant : une ligne en haut de page (même si ABBYY ne la met pas en premier)
-        for p0 in pars:
-            t0 = texte_ligne(p0["lines"][0]).strip()
-            if p0["lines"][0]["box"][1] < 0.12 * pg["h"] and len(p0["lines"]) == 1 and len(t0) < 90 \
-                    and (p0 is pars[0] or re.search(r"^\S{1,6}\s|\s\S{1,6}$", t0)):
-                pars = [p for p in pars if p is not p0]
-                self.stats["titres courants"] += 1
-                break
+        tops = sorted(l["box"][1] for p in pars for l in p["lines"])
+        ecarts = sorted(b - a for a, b in zip(tops, tops[1:]) if b - a > 5)
+        pas = ecarts[len(ecarts) // 2] if ecarts else 0
+        l0 = pars[0]["lines"][0]
+        t0 = texte_ligne(l0).strip()
+        suivant = next((y for y in tops if y > l0["box"][1] + 5), None)
+        lettres = re.sub(r"[^A-Za-zÀ-ÿ]", "", re.sub(r"(?:^|\s)[ivxlcm]+\.?(?=\s|$)", " ", t0))   # sans le folio
+        capitales = lettres and sum(c.isupper() for c in lettres) > 0.6 * len(lettres)
+        numero = re.search(r"^(?:\d{1,3}\]?|[IVXLCivxlcmJl1]{1,7}\.?)\s|\s(?:\[?\d{1,4}(?:-\d)?|[IVXLCivxlcmJl1]{1,7})$", t0)
+        if len(t0) < 90 and (l0["box"][1] < (0.155 if l0.get("djvu") else 0.12) * pg["h"]
+                             or (suivant and pas and suivant - l0["box"][1] > 1.3 * pas
+                                 and re.search(r"^\S{1,8}\s|\s\S{1,8}$", t0))
+                             or (capitales and numero)):
+            if len(pars[0]["lines"]) == 1:
+                pars = pars[1:]
+            else:
+                pars = [{"attr": pars[0]["attr"], "lines": pars[0]["lines"][1:]}] + pars[1:]
+            self.stats["titres courants"] += 1
         if not pars:
             return
         # corps du texte de la page : la plus grande taille qui fait au moins 3 % des caractères (le texte est
@@ -255,19 +523,38 @@ class Livre:
             droite_p = sorted(bx[2] for bx in xs)[int(len(xs) * 0.97)]
             centree = abs((l["box"][0] + l["box"][2]) / 2 - (gauche_p + droite_p) / 2) < 0.05 * (droite_p - gauche_p) \
                 and l["box"][0] - gauche_p > 60 and droite_p - l["box"][2] > 60
-            suite_petite = all(collections.Counter(c[5] for c in x[1]["chars"] if c[0].strip()).most_common(1)[0][0]
-                               < corps - 0.5 for x in toutes[n:n + 3] if x[1]["chars"])
-            if not centree and ((re.match(r"^[1lI]\s*[.,]\s", t) and (blanc or petit) and l["box"][1] > 0.4 * pg["h"])
+            petites = [collections.Counter(c[5] for c in x[1]["chars"] if c[0].strip()).most_common(1)[0][0]
+                       < corps - 0.5 for x in toutes[n:n + 4] if x[1]["chars"] and x[1]["chars"][0][0].strip() != ""]
+            suite_petite = petites and sum(petites) >= 0.66 * len(petites)
+            blanc_fort = n and l["box"][1] - toutes[n - 1][1]["box"][1] > 1.5 * pas
+            if l.get("djvu") and not re.match(r"^(?:[\dlIS]{1,2}|[iï])\s*[.,]", t) and l["box"][1] < 0.6 * pg["h"] \
+                    and not any(re.match(r"^(?:[\dlIS]{1,2}|[iï])\s*[.,]\s*\S", texte_ligne(x[1]).strip())
+                                for x in toutes[n + 1:]):
+                continue                    # DjVu : liste en petit corps dans le texte, pas une suite de note
+            if not centree and ((blanc_fort and suite_petite and len(t) > 20 and l["box"][1] > 0.2 * pg["h"])
+                                or (re.match(r"^[1lI]\s*[.,]\s", t) and (blanc or petit)
+                                 and (l["box"][1] > 0.4 * pg["h"] or (petit and suite_petite)))
                                 or (petit and suite_petite and (blanc or re.match(r"^\d{1,2}\s*[.,]\s", t)))):
                 debut = n
                 break
+        if getattr(self, "tableau", False):
+            # tableau : les notes commencent à la première ligne de la moitié basse qui franchit la gouttière
+            g = self.gouttiere([l for k, l in toutes if l["box"][1] > 0.15 * pg["h"]])
+            debut = None
+            if g is not None:
+                for n, (k, l) in enumerate(toutes):
+                    if l["box"][1] > 0.3 * pg["h"] and any(c[0].strip() and c[1] < g * 10 < c[3] for c in l["chars"]) \
+                            and re.match(r"^\d{1,2}\s*[.,]\s", texte_ligne(l).strip()):
+                        debut = n
+                        break
         gauche_notes = min((l["box"][0] for n, (k, l) in enumerate(toutes) if debut is not None and n >= debut),
                            default=0)
         for n, (k, l) in enumerate(toutes):
             t = texte_ligne(l).strip()
             if debut is not None and n >= debut:
                 # nouvelle note : ligne en retrait (première ligne de note) qui commence par « 3. »
-                if not notes or (re.match(r"^[\dlIS]{1,2}\s*[.,]\s+\S", t) and l["box"][0] - gauche_notes > 25):
+                if not notes or ((re.match(r"^(?:[\dlIS]{1,2}|[iï])\s*[.,]\s+\S", t) or re.match(r"^\d{1,2}\.[A-ZÀ-Ý]", t))
+                                 and l["box"][0] - gauche_notes > 25):
                     notes.append({"attr": {}, "lines": []})
                 notes[-1]["lines"].append(l)
             else:
@@ -278,6 +565,44 @@ class Livre:
         anchor = '<a id="page-%s"></a>' % lab
         premiere = True
         n_appels = 0
+        if getattr(self, "tableau", False) and corps_pars:
+            # tableau sur deux colonnes (chronologie) : la colonne de gauche, puis celle de droite, ligne à ligne
+            ls = [l for p in corps_pars for l in p["lines"]]
+            titre = []
+            while ls and re.fullmatch(r"[^a-zà-ÿ]*[A-ZÀ-Ý]{2,}[^a-zà-ÿ]*", texte_ligne(ls[0]).strip()):
+                titre.append(texte_ligne(ls.pop(0)).strip())    # titre au-dessus du tableau (titre courant ensuite)
+            if titre and not any(b["type"] == "tableau" for b in self.blocs):
+                t = re.sub(r"(?<=[A-ZÉ])(\d)$", lambda m: "\x00" + m.group(1) + "\x03", " ".join(titre))     # appel de note du titre
+                self.ajoute("h1", html.escape(t, quote=False), lab, anchor if premiere else "")
+                n_appels += t.count("\x00")
+                premiere = False
+            if not ls:
+                corps_pars = []
+            g = self.gouttiere(ls)
+            cols = [[], []]
+            for l in ls:
+                cut = len(l["chars"]) if g is None else self.couper(l, g)
+                for side in (0, 1):
+                    chs = l["chars"][:cut] if side == 0 else l["chars"][cut:]
+                    while chs and not chs[0][0].strip():
+                        chs.pop(0)
+                    while chs and not chs[-1][0].strip():
+                        chs.pop()
+                    if chs:
+                        sub = dict(l, chars=chs, box=(chs[0][1], l["box"][1], chs[-1][3], l["box"][3]))
+                        cols[side].append(rendre_ligne(sub, appels(sub)).strip())
+            rows = []
+            for r in cols[0] + cols[1]:                     # suite d'une case (minuscule en tête) : recollée
+                if rows and (re.match(r"(?:<[^>]+>)*[a-zà-ÿ]", r) or rows[-1][-1].endswith("-")):
+                    rows[-1].append(r)
+                else:
+                    rows.append([r])
+            rows = [self.joindre(r) for r in rows]
+            n_appels += sum(h.count("\x00") for h in rows)
+            if rows:
+                self.ajoute("tableau", "<br />".join(rows), lab, anchor if premiere else "")
+                premiere = False
+            corps_pars = []
         # redécoupage ligne à ligne : retrait de première ligne, lignes centrées, lignes de vers
         droite = sorted(l["box"][2] for p in corps_pars for l in p["lines"])
         droite = droite[int(len(droite) * 0.97)] if droite else left + larg
@@ -287,6 +612,9 @@ class Livre:
         def genre(l):
             g, d = l["box"][0] - left, droite - l["box"][2]
             t = texte_ligne(l).strip()
+            if re.fullmatch(r"[IVX]{1,4}\. [A-ZÉ].{5,80}\.", t) and d > 30 \
+                    and abs((l["box"][0] + l["box"][2]) / 2 - milieu) < 0.06 * larg:
+                return "centre"                                # « V. Examen du poème… » : titre de section
             if g > 60 and abs((l["box"][0] + l["box"][2]) / 2 - milieu) < 0.05 * larg and d > 60 \
                     and (re.match(r"(?:[IVXL]+|§\s*\d+)\s*[.,]\s", t) or not re.search(r"[a-zà-ÿ]{3,}", t)):
                 return "centre"
@@ -298,6 +626,23 @@ class Livre:
             # table à retrait inversé, en colonnes : une entrée commence au bord gauche de sa colonne
             ls = [l for p in corps_pars for l in p["lines"]]
             mid = pg["w"] / 2
+            g = self.gouttiere(ls) if ls and ls[0].get("djvu") else None
+            if g is not None and self.deux_colonnes(ls, g):
+                # DjVu : les deux colonnes sont sur la même ligne ; coupées à la gouttière, gauche puis droite
+                cols = [[], []]
+                for l in ls:
+                    cut = len(l["chars"]) if g is None else self.couper(l, g)
+                    for side, chs in ((0, l["chars"][:cut]), (1, l["chars"][cut:])):
+                        chs = list(chs)
+                        while chs and not chs[0][0].strip():
+                            chs.pop(0)
+                        while chs and not chs[-1][0].strip():
+                            chs.pop()
+                        if chs:
+                            cols[side].append(dict(l, chars=chs, box=(chs[0][1], l["box"][1], chs[-1][3], l["box"][3])))
+                ls = cols[0] + cols[1]
+                if g is not None:
+                    mid = g * 10 - 20
             bords = {}
             for col in (0, 1):
                 xs = sorted(l["box"][0] for l in ls if (l["box"][0] >= mid) == bool(col))
@@ -358,12 +703,23 @@ class Livre:
         for p in notes:
             haut = [rendre_ligne(l, []) for l in p["lines"]]
             texte = self.joindre(haut)
-            m = re.match(r"^\s*([\dlIS]{1,2})\s*[.,]\s+(.*)$", texte, re.S)
+            m = re.match(r"^\s*([\dlIS]{1,2}|[iï])\s*[.,]\s+(.*)$", texte, re.S) or \
+                re.match(r"^\s*(\d{1,2})\.([A-ZÀ-Ý].*)$", texte, re.S)
             if m and (p is not notes[0] or n_notes == 0):
-                n_notes += 1
-                self.blocs.append({"type": "note", "html": m.group(2), "page": lab, "num": n_notes,
-                                   "id": "note-%s-%d" % (lab, n_notes)})
-                self.notes_ouvertes = self.blocs[-1]
+                reste = m.group(2)
+                suivant = n_notes + 1
+                while True:                     # plusieurs notes courtes sur une ligne : « … n. 5. 2. Voir … »
+                    n_notes = suivant
+                    coupe = next((c for c in re.finditer(r"(?<=[.)»\]?!]) ?(\d{1,2}|[ïî]) ?\. ?(?=[A-ZÀ-Ý«(])", reste)
+                                  if n_notes < (n_notes + 1 if c.group(1) in "ïî" else int(c.group(1))) <= n_notes + 3), None)  # une note perdue au plus deux
+                    self.blocs.append({"type": "note", "html": reste[:coupe.start()] if coupe else reste,
+                                       "page": lab, "num": n_notes, "id": "note-%s-%d" % (lab, n_notes)})
+                    self.notes_ouvertes = self.blocs[-1]
+                    if not coupe:
+                        break
+                    self.stats["notes séparées"] += 1
+                    suivant = n_notes + 1 if coupe.group(1) in "ïî" else int(coupe.group(1))
+                    reste = reste[coupe.end():]
             elif self.notes_ouvertes is not None:
                 self.notes_ouvertes["html"] += (" " if not self.notes_ouvertes["html"].endswith("-") else "") + texte
                 self.notes_ouvertes["html"] = re.sub(r"(\w)- (?=[a-zà-ÿ])", r"\1", self.notes_ouvertes["html"])
@@ -381,6 +737,8 @@ class Livre:
                 out = h
             elif re.search(r"\w-$", out) and re.match(r"[a-zà-ÿ]", h):
                 out = out + "\x01" + h                     # coupure : décidée plus tard (mots fréquents)
+            elif re.search(r"[a-zà-ÿ]$", out) and re.match(r"[a-zà-ÿ]", h):
+                out = out + "\x02" + h                     # coupure dont le trait d'union s'est perdu ?
             else:
                 out += " " + h
         return out
@@ -391,7 +749,8 @@ class Livre:
                 and (not re.search(r"[.!?»:)\]]\s*$", re.sub(r"<[^>]+>|\x00[^\x03]*\x03", "", dernier["html"]))
                      or re.match(r"(?:<[^>]+>)*[a-zà-ÿ]", texte)):
             prev = dernier
-            sep = "\x01" if re.search(r"\w-$", prev["html"]) and re.match(r"[a-zà-ÿ]", texte) else " "
+            sep = "\x01" if re.search(r"\w-$", prev["html"]) and re.match(r"[a-zà-ÿ]", texte) else \
+                ("\x02" if re.search(r"[a-zà-ÿ]$", prev["html"]) and re.match(r"[a-zà-ÿ]", texte) else " ")
             prev["html"] += sep + anchor + texte
             self.stats["paragraphes recollés"] += 1
             return
@@ -435,7 +794,7 @@ class Livre:
     def coupures(self):
         """« guer-\x01re » → « guerre » ou « Sainte-\x01Jamme » : la forme la plus fréquente ailleurs."""
         for b in self.blocs:
-            for w in re.findall(r"[A-Za-zÀ-ÿ]{2,}", re.sub(r"<[^>]+>", "", b["html"].replace("\x01", " "))):
+            for w in re.findall(r"[A-Za-zÀ-ÿ]{2,}", re.sub(r"<[^>]+>", "", b["html"].replace("\x01", " ").replace("\x02", " "))):
                 self.mots[w.lower()] += 1
 
         def choix(m):
@@ -443,9 +802,31 @@ class Livre:
             if self.mots[(a + b).lower()] >= self.mots[(a + "-" + b).lower()] or not re.match(r"[A-ZÀ-Ý]", b):
                 return a + b
             return a + "-" + b
+        if not hasattr(Livre, "dico"):
+            try:
+                from epub_longs import load_wordlist
+                Livre.dico = load_wordlist("auto") or set()
+            except Exception:
+                Livre.dico = set()
+
+        def sans_tiret(m):                                  # « mar\x02chait » → « marchait »
+            a, b = m.group(1), m.group(2)
+            ab = (a + b).lower()
+            connu = ab in Livre.dico or self.mots[ab] >= 2
+            deux_mots = a.lower() in Livre.dico and b.lower() in Livre.dico \
+                and not re.fullmatch(r"(?:ment|ments|tion|tions|sion|sions|ble|bles|que|ques|ture|tures|rent|ront|lement)", b)
+            if connu and not deux_mots:
+                self.stats["coupures sans trait d'union recollées"] += 1
+                return a + b
+            return a + " " + b
         for b in self.blocs:
             b["html"] = re.sub(r"([A-Za-zÀ-ÿ]+)-\x01((?:<[^>]+>)*[A-Za-zÀ-ÿ]+)", choix, b["html"])
-            b["html"] = b["html"].replace("\x01", " ")
+            b["html"] = re.sub(r"([A-Za-zÀ-ÿ]+)\x02(<a id=\"page-[^\"]+\"></a>)([a-zà-ÿ]+)",
+                               lambda m: (lambda r: r.replace(" ", m.group(2) + " ", 1) if " " in r else r + m.group(2))(
+                                   sans_tiret(type("M", (), {"group": lambda self, i: (m.group(1), m.group(3))[i - 1]})())),
+                               b["html"])
+            b["html"] = re.sub(r"([A-Za-zÀ-ÿ]+)\x02([a-zà-ÿ]+)", sans_tiret, b["html"])
+            b["html"] = b["html"].replace("\x01", " ").replace("\x02", " ")
 
     def relier_notes(self):
         """Appels → notes de la même page : un appel lu comme un chiffre va à la note de ce numéro ; les
@@ -463,25 +844,32 @@ class Livre:
                 lab = pages[-1] if pages else b["page"]
                 appels[lab].append([bi, m.start(), m.group(1), None])
         for lab, cs in appels.items():
-            notes = par_page.get(lab, [])
-            n = len(notes)
+            notes = {x["num"]: x for x in par_page.get(lab, [])}   # numéros des notes (une peut manquer)
+            nums = sorted(notes)
             pris = set()
             for c in cs:                                    # repères : chiffre bien lu
-                if c[2].isdigit() and 1 <= int(c[2]) <= n and int(c[2]) not in pris:
+                if c[2].isdigit() and int(c[2]) in notes and int(c[2]) not in pris:
                     c[3] = int(c[2])
                     pris.add(c[3])
             for k, c in enumerate(cs):                      # les autres, entre les repères
                 if c[3] is not None:
                     continue
                 bas = max([x[3] for x in cs[:k] if x[3]] or [0])
-                haut = min([x[3] for x in cs[k + 1:] if x[3]] or [n + 1])
-                libres = [j for j in range(bas + 1, haut) if j not in pris]
+                haut = min([x[3] for x in cs[k + 1:] if x[3]] or [10 ** 6])
+                libres = [j for j in nums if bas < j < haut and j not in pris]
                 if libres:
                     c[3] = libres[0]
                     pris.add(c[3])
+            # restes : appels et notes encore seuls sur la page, appariés dans l'ordre
+            seuls_a = [c for c in cs if c[3] is None]
+            seuls_n = [j for j in nums if j not in pris]
+            for c, j in zip(seuls_a, seuls_n):
+                c[3] = j
+                c.append("apparié")
+                pris.add(j)
             for c in cs:
                 if c[3] is not None:
-                    notes[c[3] - 1]["appel"] = "appel-%s-%d" % (lab, c[3])
+                    notes[c[3]]["appel"] = "appel-%s-%d" % (lab, c[3])
         # réécriture des blocs
         for bi, b in enumerate(self.blocs):
             if b["type"] == "note" or "\x00" not in b["html"]:
@@ -529,6 +917,7 @@ p.vers { text-indent: 0; margin: 0.6em 0 0.6em 3em; }
 span.numvers { float: left; margin-left: -3em; font-size: 0.8em; color: #666; }
 p.note { text-indent: 0; font-size: 0.85em; margin: 0.3em 0 0.3em 1em; }
 p.centre { text-align: center; text-indent: 0; }
+p.tableau { text-indent: 0; margin: 0.6em 0; text-align: left; }
 span.a-verifier { background: #ffef99; }
 """
 
@@ -548,6 +937,8 @@ def rendu(b):
         return '<p class="vers">%s</p>' % h
     if b["type"] == "centre":
         return '<p class="centre">%s</p>' % h
+    if b["type"] == "tableau":
+        return '<p class="tableau">%s</p>' % h
     if b["type"] == "note":
         retour = '<a href="#%s">%d</a>' % (b["appel"], b["num"]) if b.get("appel") else str(b["num"])
         return '<p class="note" id="%s">%s. %s</p>' % (b["id"], retour, h)
@@ -629,7 +1020,7 @@ def plage(spec):
 
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("abbyy", help="<livre>_abbyy.gz d'Internet Archive")
+    ap.add_argument("abbyy", help="<livre>_abbyy.gz d'Internet Archive, ou un DjVu à couche texte")
     ap.add_argument("-o", "--output", required=True)
     ap.add_argument("--titre", default="Livre")
     ap.add_argument("--auteur", default="")
@@ -637,7 +1028,7 @@ def main():
     ap.add_argument("--pagination", default="", help="vue=étiquette de départ, par ex. 16=1,320=i")
     ap.add_argument("--parties", required=True, help="vues:nom, par ex. « 320-443:Introduction,16-284:Traduction »")
     opts = ap.parse_args()
-    pages = lire(opts.abbyy)
+    pages = lire_djvu(opts.abbyy) if opts.abbyy.lower().endswith(".djvu") else lire(opts.abbyy)
     labels = etiquettes(opts.pagination, len(pages))
     parties = []
     stats = collections.Counter()
@@ -648,6 +1039,7 @@ def main():
         L = Livre(pages, labels, opts)
         L.sans_notes = "sans-notes" in drapeaux or "index" in drapeaux
         L.index = "index" in drapeaux
+        L.tableau = "tableau" in drapeaux
         L.run(plage(vues))
         L.titres()
         L.coupures()

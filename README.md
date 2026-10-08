@@ -283,8 +283,18 @@ position de chaque caractère : `abbyy_to_epub.py` en tire un EPUB avec notes de
 de repère), italique, citations en vers numérotées, titres, table en retrait suspendu (`:index`),
 paragraphes recollés d'une page à l'autre. `epub_ocr_prose.py` corrige ensuite la prose moderne
 (« TAngleterre » → « l'Angleterre », « j*ai », « 11 » pour « Il », ligatures « efifet »). Appels
-et notes qu'il n'a pas su apparier sont repérés `a-verifier`. Chaîne complète :
-`sh livres/guillaume-marechal-t3.sh` (le XML est téléchargé s'il manque).
+et notes qu'il n'a pas su apparier sont repérés `a-verifier`.
+
+Un DjVu dont la couche texte est celle de Google (`livre.djvu`, lu avec `djvused`) se donne au même
+script : texte complet et mieux lu, mais ni styles, ni tailles, ni paragraphes. La taille se déduit de
+l'interligne (les notes, en petit corps, sont plus serrées : coupure d'Otsu par page, validée contre
+l'interligne du texte des pages voisines, puis lissée), les appels de note des chiffres collés ou
+surélevés, les colonnes (`:index`, `:tableau` pour une chronologie à deux colonnes) du blanc de
+gouttière. `epub_fusion.py base.epub seconde.epub` reporte ensuite sur la base l'italique et les
+appels manquants de la lecture ABBYY (mêmes ancres de page). Chaîne complète du t. III :
+`sh livres/guillaume-marechal-t3.sh` (DjVu de `pdf/`, XML ABBYY et `djvu.txt` d'Internet Archive
+téléchargés s'ils manquent ; page de titre, titres et table des matières repris dans
+`livres/guillaume-marechal-t3-reprises.py`).
 
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
 
@@ -387,8 +397,9 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `pdf_glossaire.py` | glossaire ou vocabulaire sur deux colonnes en retrait suspendu → un paragraphe par article, vedette en gras |
 | `epub_abimes.py` | mots illisibles de l'OCR (« d~pen~sHce », souvent l'italique) réparés d'après une autre numérisation, par leur contexte |
 | `epub_errata_vers.py` | errata d'un poème numéroté : chaque correction vise un vers par son numéro (leçons « lis. », virgule ou point-virgule en fin de vers, ponctuation à supprimer) ; une liste sert à tous les tomes |
-| `abbyy_to_epub.py` | XML ABBYY d'Internet Archive → EPUB : notes reliées, italique, vers cités, titres, table en colonnes (`--parties "vues:Nom[:index|:sans-notes],…"`, `--pagination vue=page,…`) |
-| `epub_ocr_prose.py` | fautes d'ABBYY dans la prose française moderne (l' lu T/F/V, apostrophe lue * ou ^, « 11 » pour « Il », ligatures) ; jamais dans les vers cités |
+| `abbyy_to_epub.py` | XML ABBYY d'Internet Archive ou DjVu à couche texte → EPUB : notes reliées, italique, vers cités, titres, table en colonnes, tableau à deux colonnes (`--parties "vues:Nom[:index|:sans-notes|:tableau],…"`, `--pagination vue=page,…`) |
+| `epub_fusion.py` | deux EPUB du même livre (mêmes ancres de page) : italique et appels de note de la seconde reportés sur la base |
+| `epub_ocr_prose.py` | fautes d'OCR dans la prose française moderne (l' lu T/F/V, apostrophe lue * ou ^, « 11 » pour « Il », ligatures ; Google : « C 'est », « i l », chiffres romains « xxvm », « xn° siècle ») ; jamais dans les vers cités |
 | `epub_vers_reference.py` | poème vers par vers confronté à une ou deux autres lectures (vote, veto, accents) |
 | `epub_folios.py` | folios du manuscrit replacés en manchette d'après un PDF à couche texte |
 | `pdf_tesseract.py` | OCR Tesseract d'un PDF d'images, page par page (reprise possible) : seconde lecture pour `epub_reference.py --confirm` |
