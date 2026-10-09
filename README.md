@@ -350,6 +350,14 @@ indépendante, Tesseract sur les images du DjVu (`pdf_tesseract.py livre.djvu --
 manque ; page de titre, titres et table des matières repris dans
 `livres/guillaume-marechal-t3-reprises.py`).
 
+Du maître relu aux fichiers Gutenberg : `sh livres/guillaume-marechal-t3-gutenberg.sh` (marques retirées,
+puis `livres/guillaume-marechal-t3-finitions.py` : corrections faites à la relecture reportées sur les
+autres occurrences du même mot, mots coupés par une espace ou un trait d'union de fin de ligne,
+guillemets que l'imprimé répète en tête de chaque ligne d'une citation retirés, parenthèses lues en
+accolades, articles de la table recollés quand l'OCR les a coupés à chaque ligne ; une correction qui
+ne trouve plus rien arrête le script : elle a été faite à la main, retirer la ligne). La chronologie
+(tableau à deux colonnes) reste à relire sur le DjVu : les deux OCR y mêlent les colonnes.
+
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
 
 Après le s long, ajouter les listes de modernisation, à trancher dans les onglets de Prescel :
@@ -655,6 +663,9 @@ python3 epub_gutenberg.py livre-relu.epub -o Mon_livre      # → Mon_livre.txt,
 - tableaux (table des matières imprimée) : rendus en tableau HTML, avec des points de conduite
   dans le texte ; une page de table renvoie aux numéros de page ;
 - errata appliqué par `epub_errata.py` : signalé dans la note de transcription.
+- dans le dépôt, `.gitattributes` garde les `.txt` de `epub/` en CRLF à l'extraction (stockés en LF) :
+  un patch s'applique avec `git am` sans `--keep-cr`. Après la mise à jour, un `.txt` resté en LF dans
+  une copie de travail se refait par `rm epub/*.txt && git checkout -- epub/`.
 
 Avant l'envoi : faire vérifier les droits (scans de la page de titre et de son verso) sur
 https://copy.pglaf.org, puis déposer les fichiers sur https://upload.pglaf.org.
