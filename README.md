@@ -203,6 +203,48 @@ python3 epub_modernise.py 6.epub -o moderne.epub --epoque moyen --mode vocab --t
   joie »), à garder dans une orthographe modernisée ; dans Prescel, étapes « Modernisation du
   vocabulaire » (Époque : moyen français), « Orthographe du moyen français » et « Noms propres ».
 
+#### Rendre plus lisible un texte en ancien français (fin XIIᵉ - XIIIᵉ siècle)
+
+`epub_modernise.py --epoque ancien` vise une lisibilité partielle, pas une traduction : les mots
+outils et les formes les plus fréquentes, qui rapportent le plus (« e » → « et », « lor » →
+« leur », « quer » → « car », « unques » → « jamais », « aveit » → « avait », « li reis » →
+« le roi »). Les dates sont souples : la langue littéraire forgée à la fin du XIIᵉ siècle sert
+encore vers 1226 (Guillaume le Maréchal). Les variantes des scriptae sont réunies côte à côte, sans
+choisir de dialecte (un texte n'emploie que les siennes) : anglo-normand (« ei » pour « oi »,
+« u » pour « o » : « dreit », « sunt »), champenois et francien (« -aus », « -iaus », « -ax »,
+« -iax » : « chevaus », « chevax », « biax », « oisiaus » ; « an » pour « en » : « s'an »),
+picard (« jou », « chou »). Chaîne, de l'EPUB relu :
+
+```
+python3 epub_modernise.py relu.epub -o 1.epub --epoque ancien --mode cas --tsv livre-cas.tsv --wordlist auto
+python3 epub_modernise.py 1.epub -o 2.epub --epoque ancien --mode vocab --tsv livre-af.tsv --wordlist auto
+python3 epub_modernise.py 2.epub -o lisible.epub --epoque ancien --mode graphie --tsv livre-graphie.tsv --wordlist auto
+```
+
+- `--mode cas` (d'abord) : déclinaison à deux cas après « li ». Cas sujet singulier : « li reis »,
+  « li cuens », « li chevax », « li bons cuens » → « le roi », « le comte », « le cheval », « le bon
+  comte » (table `CAS_SUJET`, ou -s / -z retiré quand le reste est un mot : « li conseilz » → « le
+  conseil », « li venz » → « le vent ») ; cas sujet pluriel : « li chevalier » suivi d'un verbe au
+  pluriel → « les chevaliers ». « li » seul (le, les, lui, et « la » en picard) n'est jamais touché ;
+- `dictionnaires/ancien_francais.py` : formes sûres (~280) ; `FORCE` pour celles qui sont aussi un
+  mot moderne (« out » → « eut », « as » → « aux », « onques » → « jamais ») ; `CONTEXTE` : « ja »
+  → « jamais » près d'une négation, « déjà » sinon ; « molt » → « beaucoup » devant un verbe, un
+  déterminant ou en fin de membre, « très » devant un adjectif ; « cil qui » → « celui qui » ;
+  « mes il » → « mais il » (« mes chevaus » reste) ; « la mie del pain » garde « mie » (« pas »
+  ailleurs) ; « biax », « chevaus », « granz », « jorz » : pluriel après « les », « ses », « .xv. »…
+  ou devant un pluriel, singulier sinon (cas sujet ou cas régime pluriel) ; `VERSION_MODERNE`
+  (« cuidier »…) n'est jamais appliqué ;
+- `dictionnaires/graphie_ancien.py` : règles enchaînées, celles du moyen français en plus (« -eit »
+  → « -ait », « sunt » → « sont », « -iaus » → « -eaux », « pére » → « père », « -ier » → « -er »,
+  « dist », « prist » → « dit », « prit » : passé simple) ; « ei » ailleurs, « -z » final, « o » →
+  « ou » restent au choix (« meis » : mais ou mois ; « diz » : dis ou dits) ;
+- l'apparat de l'éditeur n'est pas touché : éléments de classe `variantes`, `glossaire`, `notes`,
+  `note` (`--sauf-classes` pour en changer) ; ni un mot coupé par une restitution (« E[n]mi ») ;
+  une élision devenue fautive est rétablie (« qu'onques » → « que jamais ») ;
+- Guillaume le Maréchal, tome 2 (vers seuls) : ≈ 50 % → 69 % de mots de la liste française,
+  pour 237 formes appliquées d'office ; restent la syntaxe et le vocabulaire (« cuidier »,
+  « gaaing », « remest »), à lire avec le glossaire.
+
 #### Poème édité vers par vers (Guillaume le Maréchal, éd. Paul Meyer)
 
 Les deux tomes se reconstruisent d'une traite depuis les sources du dépôt :
@@ -419,7 +461,7 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») |
-| `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), passé simple en « erent » (`--mode erent`), pluriels en « ans » (`--mode ants`), vocabulaire (`--mode vocab`), orthographe du moyen français par règles (`--mode graphie`) ; `--epoque 17-18|moyen` choisit les dictionnaires |
+| `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), passé simple en « erent » (`--mode erent`), pluriels en « ans » (`--mode ants`), vocabulaire (`--mode vocab`), orthographe du moyen ou de l'ancien français par règles (`--mode graphie`), cas sujet de l'ancien français (`--mode cas`) ; `--epoque 17-18|moyen|ancien` choisit les dictionnaires |
 | `epub_reference.py` | corrige l'EPUB d'après une autre édition du texte (PDF, EPUB ou texte), confirmée au besoin par une seconde lecture (`--confirm`) : alignement mot à mot, catégories au choix, rapport d'écarts |
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_errata.py` | applique l'errata imprimé du livre (« P. 24, l. 30, sont — font ») à la page indiquée ; liste à relire dans `<livre>-errata.tsv` |
@@ -476,6 +518,8 @@ De simples fichiers Python `{"ancien": "moderne", …}`, à compléter librement
 | `dictionnaires/pluriels_ez.py` | ez → és | formes qui ne suivent pas la règle (« excez » → « excès », « extremitez » → « extrémités ») |
 | `dictionnaires/pluriels_ants.py` | ans → ants | formes à accent ou abîmées (« presens » → « présents ») |
 | `dictionnaires/vocabulaire_17_18.py` | Modernisation | vocabulaire et expressions (« luy », « mesme », « païs », « aussi tost »), et erreurs d'OCR fréquentes relevées par comparaison avec une édition moderne (« vlande » → « viande », « fubtil » → « subtil ») |
+| `dictionnaires/ancien_francais.py` | `epub_modernise.py --epoque ancien` (vocab, cas) | ancien français fin XIIᵉ-XIIIᵉ, toutes scriptae : mots outils et formes fréquentes (« lor », « quer », « unques », « aveit »), choix d'après le contexte (« ja », « molt », « biax »), cas sujet (« cuens », « reis », « chevax ») |
+| `dictionnaires/graphie_ancien.py` | `epub_modernise.py --epoque ancien --mode graphie` | règles d'orthographe de l'ancien français (« ei », « -iaus », « -érent », « -ist ») en plus de celles du moyen français |
 
 Un dictionnaire passe toujours avant la règle générale de son étape.
 

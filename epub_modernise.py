@@ -39,6 +39,19 @@ Cinq modes :
                 (formes sûres, plus FORCE : « conte » → « comte ») ; --mode ez est refusé
                 (« -és » y est une 2ᵉ personne). Noms propres : --dict dictionnaires/noms_froissart.py.
 
+  --epoque ancien  pour l'ancien français (fin XIIᵉ - XIIIᵉ : Chrétien de Troyes, Guillaume le Maréchal),
+                toutes scriptae confondues (anglo-normand, champenois, picard) : --mode vocab prend
+                dictionnaires/ancien_francais.py (formes fréquentes sûres, plus FORCE et CONTEXTE :
+                « ja » → déjà / jamais près d'une négation, « molt » → très / beaucoup), --mode graphie
+                dictionnaires/graphie_ancien.py (« aveit » → avait, « sunt » → sont, « chevaus » → chevaux,
+                « parlérent » → parlèrent). But : une lecture plus aisée, pas une traduction.
+
+  --mode cas    (ancien français) cas sujet après l'article « li » : « li chevaliers » → « le chevalier »,
+                « li bons cuens » → « le bon comte », « li reis » → « le roi » (CAS_SUJET de
+                dictionnaires/ancien_francais.py, sinon -s / -z ôté quand le reste est un mot moderne).
+                « li » devant un nom sans -s (pluriel, ou pronom « lui ») n'est pas touché. À passer avant
+                --mode vocab.
+
   --mode vocab  vocabulaire (« luy » → « lui », « mesme » → « même », « faict » → « fait »,
                 « aussi tost » → « aussitôt ») : dictionnaires/vocabulaire_17_18.py.
                 Laissé au choix quand la graphie ancienne est aussi un mot moderne
@@ -69,7 +82,7 @@ import zipfile
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 from epub_longs import (Doc, decode_text, fix_doctype, get_attr, load_wordlist,  # noqa: E402
-                        read_tsv, resolve, text_holders, write_tsv, EPUB2)
+                        lname, read_tsv, resolve, text_holders, write_tsv, EPUB2)
 import xml.etree.ElementTree as ET  # noqa: E402
 
 LETTERS = "A-Za-zÀ-ÖØ-öø-ÿœŒæÆ"
@@ -152,11 +165,31 @@ def skeleton(s):
 # Propositions
 # --------------------------------------------------------------------------
 
+SAUF_CLASSES = set()   # classes d'éléments laissés tels quels (variantes, glossaire de l'éditeur…)
+
+
+def holders(body):
+    """text_holders, sans les éléments d'une classe de SAUF_CLASSES (leur « tail » reste)."""
+    if not SAUF_CLASSES:
+        return text_holders(body)
+    out = []
+
+    def walk(el):
+        if lname(el) in ("script", "style") or SAUF_CLASSES & set((el.get("class") or "").split()):
+            return
+        out.append((el, "text"))
+        for ch in el:
+            walk(ch)
+            out.append((ch, "tail"))
+    walk(body)
+    return out
+
+
 def book_counts(docs):
     counts, caps = collections.Counter(), collections.Counter()
     text = []
     for d in docs:
-        t = "".join(d.body.itertext())
+        t = "".join(getattr(h, a) or "" for h, a in holders(d.body))
         text.append(t)
         for m in WORD.finditer(t):
             w = m.group(0)
@@ -321,6 +354,9 @@ def propose_erent(counts, caps, wordlist):
     return rows
 
 
+IST_SUBJONCTIF = [True]   # « -ist » : subjonctif (moyen français) ; en ancien français, passé simple (« dist »)
+
+
 def graphie_variants(word, rules, depth=3):
     """Formes obtenues en enchaînant au plus `depth` règles : {forme: toutes les règles sûres ?}."""
     circ = {"a": "â", "e": "ê", "i": "î", "o": "ô", "u": "û"}
@@ -336,6 +372,8 @@ def graphie_variants(word, rules, depth=3):
                         choices = {v, circ[v], "é" if v == "e" else v}
                         if re.fullmatch(r"st", x[m.end() - 1:]):
                             choices = {circ[v]}         # « entrast », « descendist » : subjonctif (entrât)
+                            if v == "i" and not IST_SUBJONCTIF[0]:
+                                choices = {"i"}         # « dist », « prist » : passé simple (dit, prit)
                         for repl in choices:
                             y = x[:m.start()] + repl + x[m.end():]
                             if y not in out:
@@ -411,6 +449,77 @@ def propose_vocab(counts, caps, text, wordlist, vocab, force=None):
     return rows
 
 
+# formes en -s qui suivent « li » sans être un nom au cas sujet (verbe : « li dis », « li fais »)
+CAS_EXCLUS = set("""eues dis fais as es est vois sais puis plus mais pris mis vis fis jus sus lors pas tres trés
+chascuns autres tels quels nus nuls tuit tous plusors deus dous treis trois ses mes tes noz voz lor""".split())
+
+
+VERBES_PLURIEL = set("""sont sunt ont unt orent ourent furent erent érent font funt vont vunt dient distrent
+pristrent vindrent firent fistrent sevent pueent porent voldrent""".split())
+
+
+def propose_cas(text, wordlist, table):
+    """« li X » / « li A X », X au cas sujet singulier (-s, -z, ou forme de CAS_SUJET) → « le A' X' »."""
+    if wordlist is None:
+        raise SystemExit("--mode cas demande une liste de mots (--wordlist auto)")
+    low = text.replace("’", "'")
+    found = collections.Counter()
+    for m in re.finditer(r"(?<![%s'])[Ll]i\s+([%s]+)(?:\s+([%s]+))?" % (LETTERS, LETTERS, LETTERS), low):
+        found[(m.group(1), m.group(2) or "")] += 1
+
+    def cas(w):
+        """Forme moderne d'un nom ou adjectif au cas sujet, ou None."""
+        lw = w.lower()
+        if lw in table:
+            return table[lw]
+        if lw in CAS_EXCLUS or not re.search(r"[sz]$", lw) or len(lw) < 4:
+            return None
+        base = lw[:-1]
+        if lw.endswith("z"):
+            if not re.search(r"[nrl]z$", lw):               # « proz », « encloz », « tolez » : à la table
+                return None
+            if base + "t" in wordlist:                      # « venz », « monz », « quarz » : -z = -t + s
+                base = base + "t"
+        return base if base in wordlist else None
+
+    def article(w):
+        return "l'" if re.match(r"[aeiouéèêâîôû]", w) else "le "
+    rows = {}
+    plur, tot = collections.Counter(), collections.Counter()
+    for m in re.finditer(r"(?<![%s'])[Ll]i\s+([%s]+)((?:[\s']+(?:ne|n|se|s|en|nel|i|y|me|m|lor|li))*[\s']+([%s]+))?"
+                         % (LETTERS, LETTERS, LETTERS), low):
+        x = m.group(1)
+        if x[:1].isupper() or re.search(r"[sxz]$", x) or x.lower() not in wordlist or len(x) < 4:
+            continue
+        tot[x.lower()] += 1
+        v = (m.group(3) or "").lower()
+        if re.search(r"(?:ent|ont)$", v) or v in VERBES_PLURIEL:
+            plur[x.lower()] += 1
+    for x, n in plur.items():
+        if x in CAS_EXCLUS or n * 2 < tot[x]:
+            continue
+        pl = x[:-1] + "ux" if x.endswith("al") else x + "s"
+        if pl not in wordlist:
+            continue
+        rows["li " + x] = {"appliquer": "1" if n >= 2 or n == tot[x] else "0", "forme_lue": "li " + x,
+                           "correction": "les " + pl, "occurrences": str(tot[x]), "occ_correction": "0",
+                           "remarque": "cas sujet pluriel (%d fois devant un verbe au pluriel)" % n}
+    for (a, b), n in found.items():
+        if a[:1].isupper() and a.lower() not in table:
+            continue                                        # nom propre
+        ca, cb = cas(a), cas(b) if b else None
+        if ca and cb and a.lower() in table and table[a.lower()] in ("bon", "beau", "grand"):
+            key, val = "li %s %s" % (a.lower(), b.lower()), article(ca) + "%s %s" % (ca, cb)     # « li bons cuens »
+        elif ca:
+            key, val = "li %s" % a.lower(), article(ca) + ca
+        else:
+            continue
+        r = rows.setdefault(key, {"appliquer": "1", "forme_lue": key, "correction": val, "occurrences": "0",
+                                  "occ_correction": "0", "remarque": "cas sujet singulier"})
+        r["occurrences"] = str(int(r["occurrences"]) + n)
+    return sorted(rows.values(), key=lambda r: (-int(r["occurrences"]), r["forme_lue"]))
+
+
 # --------------------------------------------------------------------------
 # Application
 # --------------------------------------------------------------------------
@@ -434,6 +543,16 @@ main mains fin nuit nuits cour paix voix foi loi mort gent dent soif ardeur arde
 noise noises""".split())
 
 
+MES_MAIS = set("""il ils ele eles el je jo ge tu nos vos ne n nen si se s or ore quant que qu ce ço cil cist
+cel celui li lui il onques unques ja puis por pour a à de en tant tuit tot toz""".split())
+PLUR_DET = set("""les des ces cez mes tes ses noz nos voz vos lor lur leur as aux es plusors plusieurs
+maint mainz tuit toz tous deus dous treis trois quatre cinc cent mil""".split())
+MOLT_BEAUCOUP = set("""fu fut fust est ert iert ot out a ont avoit aveit valt vaut vaust pesa poise plot plut
+ama aime aimot amot preisa preise doute dotoit crient
+de d son sa ses le la les l li un une a à au as en me te se nos vos lor lur leur
+bien cel cele cels cest cist ce ço lui mei tei sei soi eus els par por pour""".split())
+
+
 def choose_in_context(m, choices):
     """« A|B » : choix d'après les mots voisins.
     - « parti|partit » : participe après un auxiliaire (« est », « avoit », en sautant « bien »,
@@ -448,6 +567,23 @@ def choose_in_context(m, choices):
     before = re.findall(r"[%s]+" % LETTERS, seg)
     nxt = re.match(r"[\s'’]*([%s]+)" % LETTERS, s[m.end():])
     nw = nxt.group(1).lower() if nxt else ""
+    if a == "déjà":                                    # ja : jamais près d'une négation
+        neg = {"ne", "n", "nen", "nel", "nes", "nu", "nus", "nul", "nule"}
+        after = re.findall(r"[%s]+" % LETTERS, re.split(r"[.;:!?«»()]", s[m.end():m.end() + 40])[0])[:4]
+        return b if any(w.lower() in neg for w in before[-3:] + after) else a
+    if a == "pas":                                     # mie : « la mie del pain » reste
+        return None if before and before[-1].lower() in ("la", "une", "sa", "ma", "ta") else a
+    if a == "très":                                    # molt : beaucoup devant déterminant, pronom…
+        return b if nw in MOLT_BEAUCOUP or not nw else a
+    if a == "mais":                                    # mes : mais devant un pronom, une négation…
+        return a if nw in MES_MAIS else None
+    if b in (a + "s", a + "x") or (a.endswith("al") and b == a[:-1] + "ux"):   # biax : beau | beaux
+        prev = before[-1].lower() if before else ""
+        plur = prev in PLUR_DET or re.search(r"\.[ivxlc]+\.\s*$", s[max(0, m.start() - 12):m.start()]) or (len(nw) > 3 and re.search(r"[sxz]$", nw) and nw not in MES_MAIS
+                                    and (WORDLIST[0] is None or nw[:-1] in WORDLIST[0]))
+        return b if plur else a
+    if a == "celui":                                   # cil qui, cil que : celui
+        return a if nw in ("qui", "que", "qu", "dont", "dunt", "ki", "ke", "k", "cui") else None
     if b == a + "t":                                   # parti | partit
         if before and before[-1].lower() in NOUN_BEFORE:
             return a
@@ -467,7 +603,7 @@ def choose_in_context(m, choices):
             return a
         if nw in FEMININE_WORDS or FEMININE.search(nw):
             return b
-        if nw and re.search(r"[^aeiouyé]$", nw.rstrip("s")) and not nw.endswith(("e", "es")):
+        if nw and not nw.endswith(("e", "es", "é", "és")):   # « grant cop », « grant roi » (pas « pitié »)
             return a
         return None
     return a
@@ -495,10 +631,16 @@ def build_replacer(mapping, counts_out, ez_guard=None, kept=None):
         new = words.get(w.lower())
         if new is None:
             return w
+        st = m.string
+        if st[m.end():m.end() + 1] == "[" or st[max(0, m.start() - 1):m.start()] == "]":
+            return w                                   # « E[n]mi », « e[i]nznez » : mot coupé par l'éditeur
         if "|" in new:                                 # deux formes : le contexte décide
             new = choose_in_context(m, new)
             if new is None:
                 return w
+        if re.match(r"[aeiouéèêh]", w, re.I) and not re.match(r"[aeiouéèêâîôûh]", new, re.I) and \
+                re.search(r"(?<![%s])[LlSsCc]['’]$" % LETTERS, st[max(0, m.start() - 3):m.start()]):
+            return w                                   # « l'estut » : « l'fallut » impossible
         if ez_guard is not None and w.lower().endswith("ez") and ez_is_verb_here(m, w.lower() in ez_guard):
             if kept is not None:
                 kept[w.lower()] += 1
@@ -509,13 +651,22 @@ def build_replacer(mapping, counts_out, ez_guard=None, kept=None):
     def apply(s):
         if phrase_re is not None:
             s = phrase_re.sub(repl_phrase, s)
-        return WORD.sub(repl_word, s)
+        return ELISION.sub(desélider, WORD.sub(repl_word, s))
     return apply
+
+
+# « qu'onques » → « qu'jamais » → « que jamais » : élision devant un mot moderne à consonne
+ELISION = re.compile(r"(?<![%s])([Qq]u|[NnDdJjMmTt])['’](?=(?:jamais|là|tant|tel|telle|celle|celui|ce|"
+                     r"maintenant|lors|pas|fallut|faut|dans|sur)(?![%s]))" % (LETTERS, LETTERS))
+
+
+def desélider(m):
+    return m.group(1) + ("e " if m.group(1).lower() != "qu" else "e ")
 
 
 def apply_doc(doc, replace):
     changed = False
-    for holder, attr in text_holders(doc.body):
+    for holder, attr in holders(doc.body):
         s = getattr(holder, attr)
         if not s:
             continue
@@ -536,33 +687,48 @@ def main():
     ap = argparse.ArgumentParser(description="Modernisation : imparfaits en oi, vocabulaire ancien.")
     ap.add_argument("epub")
     ap.add_argument("-o", "--output", help="EPUB modernisé (défaut : en place)")
-    ap.add_argument("--mode", choices=["oi", "ez", "erent", "ants", "vocab", "graphie"], required=True)
-    ap.add_argument("--epoque", choices=["17-18", "moyen"], default="17-18",
-                    help="profil de dictionnaires : 17-18 (XVIIᵉ-XVIIIᵉ, défaut) ou moyen (moyen français, "
-                         "XIVᵉ-XVᵉ, Froissart) ; le mode graphie et le lexique en dépendent")
+    ap.add_argument("--mode", choices=["oi", "ez", "erent", "ants", "vocab", "graphie", "cas"], required=True)
+    ap.add_argument("--epoque", choices=["17-18", "moyen", "ancien"], default="17-18",
+                    help="profil de dictionnaires : 17-18 (XVIIᵉ-XVIIIᵉ, défaut), moyen (moyen français, "
+                         "XIVᵉ-XVᵉ, Froissart) ou ancien (fin XIIᵉ-XIIIᵉ) ; le mode graphie et le lexique "
+                         "en dépendent")
     ap.add_argument("--tsv", required=True, help="liste des corrections (créée ou relue)")
     ap.add_argument("--use-tsv", action="store_true", help="respecter les choix d'un TSV existant")
     ap.add_argument("--no-apply", action="store_true", help="liste seulement, rien n'est corrigé")
     ap.add_argument("--wordlist", help="liste de mots français (fichier ou « auto »)")
     ap.add_argument("--dict", help="dictionnaire Python à utiliser (défaut : dictionnaires/…)")
+    ap.add_argument("--sauf-classes", default=None,
+                    help="classes d'éléments à laisser tels quels, séparées par des virgules (défaut avec "
+                         "--epoque ancien : variantes,glossaire,notes,note — l'apparat de l'éditeur)")
     opts = ap.parse_args()
+    sauf = opts.sauf_classes if opts.sauf_classes is not None else (
+        "variantes,glossaire,notes,note" if opts.epoque == "ancien" else "")
+    SAUF_CLASSES.update(c for c in sauf.split(",") if c.strip())
 
-    if opts.epoque == "moyen" and opts.mode == "ez":
-        sys.exit("--mode ez ne convient pas au moyen français : chez Froissart, « -és » est la 2ᵉ personne "
-                 "(« avés » → « avez »), traitée par --mode graphie.")
-    lexique = "moyen_francais.py" if opts.epoque == "moyen" else "vocabulaire_17_18.py"
+    if opts.epoque in ("moyen", "ancien") and opts.mode == "ez":
+        sys.exit("--mode ez ne convient pas au moyen ni à l'ancien français : « -ez », « -és » y sont "
+                 "souvent la 2ᵉ personne, traitée par --mode graphie.")
+    if opts.mode == "cas" and opts.epoque != "ancien":
+        sys.exit("--mode cas ne sert qu'à l'ancien français (--epoque ancien).")
+    lexique = {"moyen": "moyen_francais.py", "ancien": "ancien_francais.py"}.get(opts.epoque, "vocabulaire_17_18.py")
     dict_path = opts.dict or os.path.join(HERE, "dictionnaires",
                                           "verbes_oi.py" if opts.mode == "oi" else lexique)
     force = {}
     if opts.mode == "graphie":
         dict_path = ""
-        rules_ns = runpy.run_path(opts.dict or os.path.join(HERE, "dictionnaires", "graphie_moyen.py"))
+        rules_ns = runpy.run_path(opts.dict or os.path.join(
+            HERE, "dictionnaires", "graphie_ancien.py" if opts.epoque == "ancien" else "graphie_moyen.py"))
         rules, exceptions = rules_ns["RULES"], rules_ns.get("EXCEPTIONS", set())
         prefer = rules_ns.get("PREFERE", {})
+        IST_SUBJONCTIF[0] = rules_ns.get("IST_SUBJONCTIF", True)
     elif opts.mode == "vocab" and dict_path and os.path.exists(dict_path):
         ns_ = runpy.run_path(dict_path)
         force = {k.lower(): v for k, v in ns_.get("FORCE", {}).items()}
         force.update({k.lower(): v for k, v in ns_.get("CONTEXTE", {}).items()})   # « grant » → grand|grande
+    cas_table = {}
+    if opts.mode == "cas":
+        cas_table = runpy.run_path(opts.dict or os.path.join(HERE, "dictionnaires", lexique)).get("CAS_SUJET", {})
+        dict_path = ""
     if opts.mode == "erent" and not opts.dict:
         dict_path = ""
     if opts.mode in ("ez", "ants") and not opts.dict:
@@ -607,6 +773,8 @@ def main():
             rows = propose_erent(counts, caps, wordlist)
         elif opts.mode == "graphie":
             rows = propose_graphie(counts, caps, wordlist, rules, exceptions, prefer)
+        elif opts.mode == "cas":
+            rows = propose_cas(text, wordlist, cas_table)
         else:
             rows = propose_vocab(counts, caps, text, wordlist, dict(table, **force), force)
         if opts.no_apply:
@@ -631,7 +799,8 @@ def main():
         pending = [r for r in rows if r.get("appliquer", "0").strip() != "1"]
         label = {"oi": "Imparfaits et conditionnels en oi", "ez": "Pluriels en -ez",
                  "ants": "Pluriels en -ans / -ens", "erent": "Passé simple en -erent",
-                 "vocab": "Vocabulaire ancien", "graphie": "Orthographe ancienne (règles)"}[opts.mode]
+                 "vocab": "Vocabulaire ancien", "graphie": "Orthographe ancienne (règles)",
+                 "cas": "Cas sujet après « li »"}[opts.mode]
         print("%s : %d formes (%d occurrences) — %d à appliquer, %d laissées au choix"
               % (label, len(rows), sum(int(r["occurrences"]) for r in rows), len(chosen), len(pending)))
         print("Liste : %s" % opts.tsv)

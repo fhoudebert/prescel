@@ -232,7 +232,7 @@ MOYEN_FRANCAIS = {
     'emprès': 'auprès',
     'encor': 'encore',
     'encores': 'encore',
-    'endemain': 'lendemain',
+    'endemain': 'lendemain', 'l\'endemain': 'le lendemain',
     'enfans': 'enfants',
     'enfantz': 'enfants',
     'enffans': 'enfants',
