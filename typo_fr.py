@@ -46,7 +46,8 @@ def _rules(s):
     s = re.sub(r"([.,;:!?…)»])(%s)(?=[%s«(\[])" % (_M, LETTER), r"\1\2 ", s)
     # « ] » : seulement s'il ferme un passage entre crochets commencé hors d'un mot ;
     # « bruis[i]ée », « cheval[i]ers » (lettres restituées par l'éditeur) restent collés
-    s = re.sub(r"((?<![%s])\[[^\]]*\])(%s)(?=[%s«(\[])" % (LETTER, _M, LETTER), r"\1\2 ", s)
+    # ni après quelques lettres restituées en tête de mot (« [des]corda », « [l']eve », « [Tres]tot »)
+    s = re.sub(r"((?<![%s])\[(?![%s'’]{1,5}\])[^\]]*\])(%s)(?=[%s«(\[])" % (LETTER, LETTER, _M, LETTER), r"\1\2 ", s)
     # tiret « — » collé (« France.— 1-2 », « Gens.—3-4 ») : une espace de chaque côté
     s = re.sub(r"(?<=[^\s—(\[%s])(%s)—" % (M, _M), r"\1 —", s)
     s = re.sub(r"—(%s)(?=[^\s—.,;:)\]%s])" % (_M, M), r"—\1 ", s)

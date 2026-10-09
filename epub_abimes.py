@@ -79,7 +79,11 @@ def main():
                 orig = " ".join(toks[q].group(0) for q in range(j, e))
                 if len(hits) == 1 and all(CLEAN.match(x) or re.fullmatch(r"[\d,.;:]+", x) for x in hits[0]) \
                         and (re.search(r"\d", orig) or not re.search(r"\d", " ".join(hits[0]))) \
-                        and len(hits[0]) <= run + 1:
+                        and len(hits[0]) <= run + 1 \
+                        and all(d in "".join(hits[0]) for d in re.findall(r"\d{3,}", orig)) \
+                        and len(" ".join(hits[0])) <= 2 * len(orig) + 4:
+                    # un numéro de vers (trois chiffres ou plus) de l'EPUB doit se retrouver dans la
+                    # réparation : sinon la référence a été lue à un autre endroit
                     new = " ".join(hits[0]).replace("’", "'")
                     out.append(seg[last:toks[j].start()] + new)
                     last = toks[e - 1].end()

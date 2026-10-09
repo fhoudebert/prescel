@@ -4,16 +4,18 @@
 #   sh livres/guillaume-marechal-t3.sh [dossier de travail]
 # Base : le DjVu (exemplaire de Harvard, couche texte de Google), complet et le mieux lu, dans l'ordre de
 # l'imprimé. Seconde source : le XML ABBYY d'Internet Archive (exemplaire de Toronto, sans les pages
-# cxxii-cxli), qui apporte l'italique et des appels de note, puis sa lecture brute (djvu.txt) pour les
-# mots que le DjVu a mal lus.
+# cxxii-cxli), qui apporte l'italique et des appels de note ; son texte sert ensuite de référence pour
+# les mots que Google a mal lus, une correction n'étant appliquée que si une troisième lecture,
+# Tesseract sur les images du DjVu (pdf/guillaume-t3-tesseract.txt), lit la même chose.
 set -e
 P=$(pwd); W=${1:-travail-guillaume-t3}; mkdir -p "$W"
 DJ=$(ls "$P"/pdf/*tome_3.djvu | head -1)
 X="$P/pdf/lhistoiredeguill03meyeuoft_abbyy.gz"
-T="$P/pdf/lhistoiredeguill03meyeuoft_djvu.txt"
+TS="$P/pdf/guillaume-t3-tesseract.txt"
 IA=https://archive.org/download/lhistoiredeguill03meyeuoft
 [ -f "$X" ] || curl -sSL -o "$X" $IA/lhistoiredeguill03meyeuoft_abbyy.gz
-[ -f "$T" ] || curl -sSL -o "$T" $IA/lhistoiredeguill03meyeuoft_djvu.txt
+# troisième lecture (une dizaine de minutes) : modèle fra de github.com/tesseract-ocr/tessdata_best
+[ -f "$TS" ] || python3 "$P/pdf_tesseract.py" "$DJ" -o "$TS" --pages 12-475 --jobs 2 --scale 1 ${TESSDATA:+--tessdata "$TESSDATA"}
 cd "$W"
 TITRE="L'Histoire de Guillaume le Maréchal, tome III"
 python3 "$P/abbyy_to_epub.py" "$DJ" -o t3-djvu.epub --titre "$TITRE" --auteur "Paul Meyer" \
@@ -23,8 +25,9 @@ python3 "$P/abbyy_to_epub.py" "$X" -o t3-abbyy.epub --titre "$TITRE" --auteur "P
     --pagination 16=1,286=271,320=i,441=cxlii \
     --parties "12-14:Titre:sans-notes,320-443:Introduction,444-455:Chronologie et itinéraire,456-459:Additions et corrections,16-284:Traduction abrégée,286-319:Table:index" > abbyy.log
 python3 "$P/epub_fusion.py" t3-djvu.epub t3-abbyy.epub -o t3-1.epub --report t3-fusion.tsv
-python3 "$P/epub_reference.py" t3-1.epub "$T" --prudent --apply ocr -o t3-2.epub --report t3-ecarts.html
-python3 "$P/epub_ocr_prose.py" t3-2.epub -o t3-3.epub --report t3-prose.tsv
+python3 "$P/epub_ocr_prose.py" t3-1.epub -o t3-2.epub --report t3-prose.tsv
+python3 "$P/abbyy_to_epub.py" "$X" --texte t3-abbyy.txt
+python3 "$P/epub_reference.py" t3-2.epub t3-abbyy.txt --confirm "$TS" --apply ocr,graphie,variante --max-variant-words 1 -o t3-3.epub --report t3-ecarts.html
 python3 "$P/epub_typo.py" t3-3.epub -o t3-4.epub
 python3 "$P/livres/guillaume-marechal-t3-reprises.py" t3-4.epub Guillaume_le_Marechal_T3.epub
 python3 "$P/epub_review.py" Guillaume_le_Marechal_T3.epub --report guillaume-t3-relecture.html --mark Guillaume_le_Marechal_T3-a-relire.epub

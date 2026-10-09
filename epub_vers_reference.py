@@ -229,6 +229,11 @@ class Arbitre:
             elif not self.vote_seul and (p1 or p2):
                 ins[i] = p1 or [p for p in p2 if p in ":;«»?!"]
             if ins.get(i):
+                # guillemet déjà collé au mot voisin dans l'EPUB (« «sans », « l'arbre» ») : rien à ajouter
+                ins[i] = [p for p in ins[i] if not (
+                    p == "«" and i < len(a) and a[i].startswith("«") or
+                    p == "»" and 0 < i <= len(a) and a[i - 1].endswith("»"))]
+            if ins.get(i):
                 self.log.append((ctx, "ponctuation", "", " ".join(ins[i])))
             elif i in ins:
                 del ins[i]

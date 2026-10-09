@@ -1021,14 +1021,27 @@ def plage(spec):
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("abbyy", help="<livre>_abbyy.gz d'Internet Archive, ou un DjVu à couche texte")
-    ap.add_argument("-o", "--output", required=True)
+    ap.add_argument("-o", "--output")
     ap.add_argument("--titre", default="Livre")
     ap.add_argument("--auteur", default="")
     ap.add_argument("--source", default="")
     ap.add_argument("--pagination", default="", help="vue=étiquette de départ, par ex. 16=1,320=i")
-    ap.add_argument("--parties", required=True, help="vues:nom, par ex. « 320-443:Introduction,16-284:Traduction »")
+    ap.add_argument("--parties", help="vues:nom, par ex. « 320-443:Introduction,16-284:Traduction »")
+    ap.add_argument("--texte", help="écrire seulement le texte brut, ligne à ligne (référence pour "
+                                    "epub_reference.py ; remplace le _djvu.txt d'Internet Archive)")
     opts = ap.parse_args()
     pages = lire_djvu(opts.abbyy) if opts.abbyy.lower().endswith(".djvu") else lire(opts.abbyy)
+    if opts.texte:
+        with open(opts.texte, "w", encoding="utf-8") as f:
+            for pg in pages:
+                for p in pg["pars"]:
+                    for l in p["lines"]:
+                        f.write("".join(c[0] for c in l["chars"]).strip() + "\n")
+                    f.write("\n")
+        print("Texte écrit : %s" % opts.texte)
+        return
+    if not opts.parties or not opts.output:
+        ap.error("--parties et -o sont nécessaires pour écrire l'EPUB")
     labels = etiquettes(opts.pagination, len(pages))
     parties = []
     stats = collections.Counter()

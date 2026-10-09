@@ -28,7 +28,7 @@ NB = " "
 PRIV = "-"
 FOLIO_REF = re.compile(r"\(\s*f\s*\.?\s*(\d+)\s*\.?\s*([abcd])?\s*\)")
 # fragments de folio dans le texte d'un vers (fin de vers), ou manchette qui en est un morceau
-FRAG_TEXTE = re.compile(r"[ %s]*[({]\s*(?:[f/ƒ]|if)[^()\w]{0,3}[\w ]{0,6}[^()\s]{0,4}\)?[ %s]*$" % (NB, NB))
+FRAG_TEXTE = re.compile(r"[ %s]*[[({]\s*(?:[f/ƒ]|if)[^()\w]{0,3}[\w ]{0,6}[^()\s]{0,4}\)?[ %s]*$" % (NB, NB))
 DEBUT_TEXTE = re.compile(r"^[ %s]*\(\s*f\s*\.?\s*\d+\s*[abcd]?\s*\)[ %s]*" % (NB, NB))
 DATE = re.compile(r"\d{3,4}\)|janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre")
 
@@ -108,11 +108,33 @@ def main():
                 continue
             for j, l in enumerate(re.split(r"<br\s*/>", m.group(4))):
                 txt = html.unescape(re.sub(r"<span class=\"(?:numvers|manchette)\">[^<]*</span>|<[^>]+>", " ", l))
+                txt = FRAG_TEXTE.sub("", txt.rstrip())             # « … endormir. (f. » : fragment de folio
                 vers.append((n, k, j, squelette(txt)))
+
+    # 1b. folio mal lu par la référence, seul hors de rang entre deux voisins en ordre (« (f. 80 d) » entre
+    #     « (f. 79 c) » et « (f. 80) », « (f. 102) » entre « (f. 106 d) » et « (f. 107 b) ») : le suivant attendu
+    def cle(f):
+        m = FOLIO_REF.fullmatch(f)
+        return (int(m.group(1)), m.group(2) or "a") if m else None
+
+    def suivant(k):
+        return (k[0], chr(ord(k[1]) + 1)) if k[1] < "d" else (k[0] + 1, "a")
+    log = []
+    cles = [cle(f) for _, f in refs]
+    for j in range(1, len(refs) - 1):
+        a_, k, b_ = cles[j - 1], cles[j], cles[j + 1]
+        if not (a_ and k and b_) or a_ < k < b_:
+            continue
+        att = suivant(a_)
+        if att < b_ and (k > b_ or k < a_):           # seul hors de rang entre deux voisins en ordre
+            neuf = folio_txt(att[0], att[1] if att[1] != "a" else None)
+            log.append(("folio corrigé", refs[j][1] + " → " + neuf, refs[j][0]))
+            refs[j] = (refs[j][0], neuf)
+            cles[j] = att
 
     # 2. chaque folio de la référence → un vers de l'EPUB (dans l'ordre)
     poser = {}
-    log = []
+    places = {}                                           # n° du vers → (folio, texte)
     pos = 0
     for texte, folio in refs:
         sq = squelette(texte)
@@ -125,12 +147,54 @@ def main():
                 best, bi = r, i
                 if r > 0.95:
                     break
+        if bi is None or best < 0.75:
+            # pas devant : le folio précédent a peut-être été posé trop loin ; on cherche en arrière
+            for i in range(max(0, pos - 700), pos):
+                if abs(len(vers[i][3]) - len(sq)) > max(6, len(sq) // 3):
+                    continue
+                r = difflib.SequenceMatcher(None, sq, vers[i][3], autojunk=False).ratio()
+                if r > best and r >= 0.85:
+                    best, bi = r, i
+        if bi is None or best < 0.75:
+            # vers lu en partie par la référence (« Ne me puis endormir. » pour « Il dist : « Ne me… ») :
+            # la fin du vers de l'EPUB, près de la position attendue
+            for i in range(max(0, pos - 50), min(len(vers), pos + 300)):
+                if len(sq) >= 10 and (vers[i][3].endswith(sq) or vers[i][3].startswith(sq)):
+                    best, bi = 0.9, i
+                    break
         if bi is not None and best >= 0.75:
-            poser[vers[bi][:3]] = folio
+            if bi < pos:
+                log.append(("retrouvé en arrière", folio, texte))
+            places[bi] = (folio, texte)
             pos = bi + 1
             log.append(("posé", folio, texte))
         else:
             log.append(("non retrouvé", folio, texte))
+    # 2b. folio posé hors de son ordre (vers répété plus loin) : cherché de nouveau entre ses voisins
+    for _ in range(3):
+        idx = sorted(places)
+        horsrang = [i for a, i, b in zip([None] + idx, idx, idx[1:] + [None])
+                    if a is not None and b is not None
+                    and cle(places[i][0]) < cle(places[a][0]) and cle(places[i][0]) < cle(places[b][0])]
+        if not horsrang:
+            break
+        for i in horsrang:
+            folio, texte = places.pop(i)
+            k = cle(folio)
+            avant = max([j for j in places if cle(places[j][0]) < k] or [0])
+            apres = min([j for j in places if cle(places[j][0]) > k and j > avant] or [len(vers)])
+            sq = squelette(texte)
+            best, bi = 0, None
+            for j in range(avant + 1, apres):
+                r = difflib.SequenceMatcher(None, sq, vers[j][3], autojunk=False).ratio()
+                if r > best:
+                    best, bi = r, j
+            if bi is not None and best >= 0.6:
+                places[bi] = (folio, texte)
+                log.append(("reposé dans l'ordre", folio, texte))
+            else:
+                log.append(("non retrouvé", folio, texte))
+    poser = {vers[i][:3]: f for i, (f, _) in places.items()}
 
     # 3. réécriture
     stats = {"posés": len(poser), "fragments ôtés": 0, "ponctuation remise": 0}
@@ -149,8 +213,11 @@ def main():
                 for man in mans:
                     v = html.unescape(man).strip()
                     if re.fullmatch(r"[«»;:!?.,\s]+", v):                     # ponctuation rejetée en marge
-                        stats["ponctuation remise"] += 1
                         l = l.replace('<span class="manchette">%s</span>' % man, "", 1)
+                        fin = html.unescape(re.sub(r'<span class="numvers">[^<]*</span>|<[^>]+>', "", l)).rstrip()
+                        if fin[-1:] in ";:!?.,»" or not fin:
+                            continue                                   # le vers a déjà son signe : tache
+                        stats["ponctuation remise"] += 1
                         l = re.sub(r"(\s*<span class=\"numvers\">)", NB + v + r"\1", l, count=1) \
                             if '<span class="numvers">' in l else l.rstrip() + NB + v
                     elif est_fragment(man) or FOLIO_REF.fullmatch(v):

@@ -273,6 +273,14 @@ python3 epub_review.py maitre.epub --ancien --report relecture.html --mark a-rel
 - t. I, du maître relu aux fichiers Gutenberg : `sh livres/guillaume-marechal-t1-gutenberg.sh`
   (marques retirées, folios, vote des autres lectures, reprises vérifiées sur le PDF Google dans
   `livres/guillaume-marechal-t1-reprises.py`).
+- t. II, de même : `sh livres/guillaume-marechal-t2-gutenberg.sh` (reprises propres au tome dans
+  `livres/guillaume-marechal-t2-reprises.py` : balisage abîmé à la relecture, vers perdus en haut ou en
+  bas de page, vers mal lus).
+- avant les folios, `epub_vers_controle.py livre.epub google.pdf -o … --premier N --dernier M` contrôle
+  le poème d'après le PDF Google : vers passés en tête d'une note de variantes rendus au poème, titres
+  courants et morceaux de notes ôtés des vers, numéros de vers reposés et compte des vers vérifié de
+  bout en bout (les écarts restants sont listés : vers perdu, ou lacune numérotée par l'éditeur),
+  crochets de restitution abîmés, doubles signes en fin de vers, dates en manchette, « ms. » mal lu.
 
 #### Prose savante depuis Internet Archive (t. III de Guillaume le Maréchal)
 
@@ -291,9 +299,13 @@ l'interligne (les notes, en petit corps, sont plus serrées : coupure d'Otsu par
 l'interligne du texte des pages voisines, puis lissée), les appels de note des chiffres collés ou
 surélevés, les colonnes (`:index`, `:tableau` pour une chronologie à deux colonnes) du blanc de
 gouttière. `epub_fusion.py base.epub seconde.epub` reporte ensuite sur la base l'italique et les
-appels manquants de la lecture ABBYY (mêmes ancres de page). Chaîne complète du t. III :
-`sh livres/guillaume-marechal-t3.sh` (DjVu de `pdf/`, XML ABBYY et `djvu.txt` d'Internet Archive
-téléchargés s'ils manquent ; page de titre, titres et table des matières repris dans
+appels manquants de la lecture ABBYY (mêmes ancres de page). Les mots mal lus par Google sont ensuite
+corrigés d'après le texte ABBYY (`abbyy_to_epub.py livre_abbyy.gz --texte t.txt`, qui remplace le
+`_djvu.txt` d'Internet Archive : c'est la même lecture), mais seulement quand une troisième lecture
+indépendante, Tesseract sur les images du DjVu (`pdf_tesseract.py livre.djvu --pages … --jobs 2
+--scale 1`), lit la même chose (`epub_reference.py --confirm`). Chaîne complète du t. III :
+`sh livres/guillaume-marechal-t3.sh` (DjVu et lecture Tesseract dans `pdf/`, XML ABBYY téléchargé s'il
+manque ; page de titre, titres et table des matières repris dans
 `livres/guillaume-marechal-t3-reprises.py`).
 
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
@@ -401,8 +413,9 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_fusion.py` | deux EPUB du même livre (mêmes ancres de page) : italique et appels de note de la seconde reportés sur la base |
 | `epub_ocr_prose.py` | fautes d'OCR dans la prose française moderne (l' lu T/F/V, apostrophe lue * ou ^, « 11 » pour « Il », ligatures ; Google : « C 'est », « i l », chiffres romains « xxvm », « xn° siècle ») ; jamais dans les vers cités |
 | `epub_vers_reference.py` | poème vers par vers confronté à une ou deux autres lectures (vote, veto, accents) |
-| `epub_folios.py` | folios du manuscrit replacés en manchette d'après un PDF à couche texte |
-| `pdf_tesseract.py` | OCR Tesseract d'un PDF d'images, page par page (reprise possible) : seconde lecture pour `epub_reference.py --confirm` |
+| `epub_folios.py` | folios du manuscrit replacés en manchette d'après un PDF à couche texte (folio mal lu corrigé par ses voisins, folio hors de rang reposé) |
+| `epub_vers_controle.py` | poème numéroté contrôlé d'après le PDF Google : vers passés dans les notes, lignes étrangères, numéros et compte des vers, crochets, dates, doubles signes |
+| `pdf_tesseract.py` | OCR Tesseract d'un PDF d'images ou d'un DjVu, page par page, en parallèle (`--jobs`), reprise possible : seconde lecture pour `epub_reference.py --confirm` |
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») |

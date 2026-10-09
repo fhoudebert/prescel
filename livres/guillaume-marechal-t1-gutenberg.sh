@@ -1,6 +1,7 @@
 #!/bin/sh
 # T. I de Guillaume le Maréchal : du maître relu (epub/Guillaume_le_Marechal_T1-a-relire.epub) aux fichiers
-# Gutenberg. Marques de relecture retirées, folios replacés d'après le PDF Google, vote des deux autres
+# Gutenberg. Marques de relecture retirées, contrôle d'après le PDF Google (vers passés dans les notes,
+# numéros de vers, crochets : epub_vers_controle.py), folios replacés d'après ce PDF, vote des deux autres
 # lectures (Tesseract Gallica, Google), règles OCR, reprises vérifiées sur le PDF Google.
 #   sh livres/guillaume-marechal-t1-gutenberg.sh [dossier de travail]
 set -e
@@ -9,7 +10,8 @@ GT1=$(ls "$P"/pdf/*google-t1.pdf | head -1)
 T2="$P/epub/Guillaume_le_Marechal_T2-a-relire.epub"
 cd "$W"
 python3 "$P/epub_review.py" "$P/epub/Guillaume_le_Marechal_T1-a-relire.epub" --unmark -o t1-0.epub
-python3 "$P/epub_folios.py" t1-0.epub "$GT1" -o t1-a.epub --report t1-folios.tsv
+python3 "$P/epub_vers_controle.py" t1-0.epub "$GT1" -o t1-k.epub --premier 1 --dernier 10152 > t1-controle.txt
+python3 "$P/epub_folios.py" t1-k.epub "$GT1" -o t1-a.epub --report t1-folios.tsv
 python3 "$P/epub_vers_reference.py" t1-a.epub "$P/pdf/bpt6k203426d-tesseract.txt" --ref2 "$GT1" --vote-seul --accents-ref2 -o t1-b.epub --vocab "$T2" --report t1-votes.tsv
 python3 "$P/epub_ocr_vers.py" t1-b.epub -o t1-c.epub --sans l-lu --vocab "$T2" --report t1-ocr.tsv
 python3 "$P/livres/guillaume-marechal-t1-reprises.py" t1-c.epub Guillaume_le_Marechal_T1.epub

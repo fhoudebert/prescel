@@ -11,7 +11,7 @@ import zipfile
 
 NB = "&#160;"
 
-# (fichier, avant, après, nombre attendu) — remplacements exacts dans le XHTML
+# (fichier, avant, après, nombre attendu : None = 0 ou 1, déjà fait plus tôt dans la chaîne)
 REMPLACEMENTS = [
     ("texte-001", "Société de l'Histoibe de France", "Société de l'Histoire de France", 1),
     ("texte-001", "toutes les questions-historiques", "toutes les questions historiques", 1),
@@ -40,21 +40,31 @@ REMPLACEMENTS = [
     # lectures isolées (PDF Google) ; « naien[t[ fu » est une coquille de l'imprimé
     ("texte-001", "Li chastels, naien[t[fu del rendre", "Li chastels, naien[t] fu del rendre", 1),
     ("texte-001", "« Certes, vos ri'i morrés uimès. »", "« Certes, vos n'i morrés uimès. »", 1),
-    ("texte-002", "Veist l'om f[amb[e]ier al vent.", "Veïst l'om flamb[e]ier al vent.", 1),
+    ("texte-002", "Veist l'om f[amb[e]ier al vent.", "Veïst l'om flamb[e]ier al vent.", None),
     ("texte-002", "Fait fu reis a Fasompcion. (15 août, corr. <span class=\"manchette\">3 sept.)</span>",
      "Fait fu reis a l'Asompcion. <span class=\"manchette\">(15 août, corr. 3 sept.)</span>", 1),
     ("texte-001", "Sor lui comence la bataille :<span class=\"manchette\">&#160;»^-</span>",
      "Sor lui comence la bataille :", 1),
-    # débuts de notes de variantes restés dans les vers (rendus à leur note, ôtés des vers)
+    # débuts de notes de variantes restés dans les vers : epub_vers_controle.py les a remis en tête de la note
+    # de variantes voisine ; ici, à leur note et avec leur numéro de vers
+    ("texte-002", '<p class="variantes" title="p. 306">Ce vers semble une fin de phrase. Lacune entre ce vers et le ',
+     '<p class="variantes" title="p. 306">', 1),
     ("texte-002", '<p class="variantes" title="p. 307">précédent. — 8505',
      '<p class="variantes" title="p. 307">8503 Ce vers semble une fin de phrase. Lacune entre ce vers et le '
      'précédent. — 8505', 1),
+    ("texte-002", '<p class="variantes" title="p. 327">persie, les deux dern. lettres sont écrites en surcharge. Cf. ',
+     '<p class="variantes" title="p. 327">', 1),
     ("texte-002", 'title="p. 328">V. 6915. — 9095',
      'title="p. 328">9087 persie, les deux dern. lettres sont écrites en surcharge. Cf. v. 6915. — 9095', 1),
-    ("texte-002", '<p class="variantes" title="p. 353">lacune. — 9790',
-     '<p class="variantes" title="p. 353">9789 La restitution proposée est douteuse parce qu\'elle porte sur '
-     'deux endroits du vers. Il est possible que l\'enlumineur ait mis une capitale pour une autre ; il est '
-     'possible aussi qu\'il y ait ici une lacune. — 9790', 1),
+    ("texte-002", '<p class="variantes" title="p. 353">La restitution proposée',
+     '<p class="variantes" title="p. 353">9789 La restitution proposée', 1),
+    ("texte-001", '<p class="variantes" title="p. 73">Qu\'os est douteux', '<p class="variantes" title="p. 73">1977 Qu\'os est douteux', 1),
+    ("texte-001", '<p class="variantes" title="p. 76">eslite est surchargé', '<p class="variantes" title="p. 76">2059 eslite est surchargé', 1),
+    # vers à l'initiale perdue (Google : « O simple voiz »)
+    ("texte-001", '<p class="vers">simple voiz &amp; o doz son.', '<p class="vers">O simple voiz &amp; o doz son.', 1),
+    # « 3447 Dist. », seule variante de la p. 126, restée parmi les vers
+    ("texte-001", "Alcun[s] demande : « Qui sera<br />Dist.<br />", "Alcun[s] demande : « Qui sera<br />", 1),
+    ("texte-001", "3438 jorneis.</p>", '3438 jorneis.</p>\n<p class="variantes" title="p. 126">3447 Dist.</p>', 1),
 ]
 
 # lignes de vers à supprimer (morceaux de notes) : motif de la ligne entière, <br /> qui la précède compris
@@ -94,12 +104,12 @@ def main():
                 if f == nom:
                     motif = souple(a)
                     k = len(re.findall(motif, t))
-                    assert k == n, (f, a[:60], k)
+                    assert k == n or n is None and k <= 1, (f, a[:60], k)
                     t = re.sub(motif, lambda m: b, t)
-            for f, motif in LIGNES_OTEES:
+            for f, motif in LIGNES_OTEES:                 # déjà ôtées par epub_vers_controle.py, d'ordinaire
                 if f == nom:
                     t, k = re.subn(motif, "", t)
-                    assert k == 1, (f, motif[:50], k)
+                    assert k <= 1, (f, motif[:50], k)
             # notes de variantes : manchettes = texte de la note ; « ~ » lu pour « — », « ^ » pour « ? »
             def note(m):
                 x = re.sub(r'<span class="manchette">([^<]*)</span>', r"\1", m.group(2))
