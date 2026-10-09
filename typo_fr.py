@@ -37,7 +37,7 @@ def _rules(s):
     # aucune espace après ( [
     s = re.sub(r"([(\[])(%s)%s+" % (_M, SP), r"\1\2", s)
     # espace insécable avant ; : ! ?  (pas entre deux chiffres : « 10:30 »)
-    s = re.sub(r"(?<=[^\s;:!?%s])(%s)%s*(%s)([;!?])" % (M, _M, SP, _M), r"\1\2" + NBSP + r"\3", s)
+    s = re.sub(r"(?<=[^\s;:!?(\[%s])(%s)%s*(%s)([;!?])" % (M, _M, SP, _M), r"\1\2" + NBSP + r"\3", s)   # pas « (?) »
     s = re.sub(r"(?<=[^\s;:!?\d%s])(%s)%s*(%s)(:)" % (M, _M, SP, _M), r"\1\2" + NBSP + r"\3", s)
     # espace insécable avant » et après «
     s = re.sub(r"(?<=[^\s%s«])(%s)%s*(%s)(»)" % (M, _M, SP, _M), r"\1\2" + NBSP + r"\3", s)

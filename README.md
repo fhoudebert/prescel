@@ -241,6 +241,11 @@ python3 epub_modernise.py 2.epub -o lisible.epub --epoque ancien --mode graphie 
 - l'apparat de l'éditeur n'est pas touché : éléments de classe `variantes`, `glossaire`, `notes`,
   `note` (`--sauf-classes` pour en changer) ; ni un mot coupé par une restitution (« E[n]mi ») ;
   une élision devenue fautive est rétablie (« qu'onques » → « que jamais ») ;
+- `LEXIQUE` (ancien et moyen français) : mots disparus ou dont le sens a changé, remplacés par leur
+  sens (« cuidier » → « penser », « meschief » → « malheur », « arroy » → « ordre », « maisnie » →
+  « suite », « chaut » → « importe », « remanant » → « reste »), aux formes conjuguées rencontrées ;
+  au choix quand la forme est aussi un mot moderne (« lais », « faix », « desserte ») ; marqués « sens
+  moderne » dans la liste ; `--sans-lexique` pour s'en tenir à l'orthographe ;
 - Guillaume le Maréchal, tome 2 (vers seuls) : ≈ 50 % → 69 % de mots de la liste française,
   pour 237 formes appliquées d'office ; restent la syntaxe et le vocabulaire (« cuidier »,
   « gaaing », « remest »), à lire avec le glossaire.
@@ -356,7 +361,11 @@ autres occurrences du même mot, mots coupés par une espace ou un trait d'union
 guillemets que l'imprimé répète en tête de chaque ligne d'une citation retirés, parenthèses lues en
 accolades, articles de la table recollés quand l'OCR les a coupés à chaque ligne ; une correction qui
 ne trouve plus rien arrête le script : elle a été faite à la main, retirer la ligne). La chronologie
-(tableau à deux colonnes) reste à relire sur le DjVu : les deux OCR y mêlent les colonnes.
+(p. cxlv-clvi, tableau à deux colonnes que les deux OCR mêlaient) est transcrite sur les images du DjVu
+dans `livres/guillaume-marechal-t3-chronologie.txt` (une ligne « date | lieu ou fait | référence » par
+entrée, « = année », « #n » pour les notes, « [n] » pour les appels) ;
+`livres/guillaume-marechal-t3-chronologie.py maitre.epub sortie.epub` en refait `partie-03.xhtml` (une
+table par page, notes à la suite) : corriger le texte puis relancer.
 
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
 

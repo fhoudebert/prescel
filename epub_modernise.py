@@ -697,6 +697,9 @@ def main():
     ap.add_argument("--no-apply", action="store_true", help="liste seulement, rien n'est corrigé")
     ap.add_argument("--wordlist", help="liste de mots français (fichier ou « auto »)")
     ap.add_argument("--dict", help="dictionnaire Python à utiliser (défaut : dictionnaires/…)")
+    ap.add_argument("--sans-lexique", action="store_true",
+                    help="--mode vocab : ne pas remplacer les mots disparus par leur sens (LEXIQUE du "
+                         "dictionnaire : « cuidier » → « penser », « meschief » → « malheur »)")
     ap.add_argument("--sauf-classes", default=None,
                     help="classes d'éléments à laisser tels quels, séparées par des virgules (défaut avec "
                          "--epoque ancien : variantes,glossaire,notes,note — l'apparat de l'éditeur)")
@@ -713,7 +716,7 @@ def main():
     lexique = {"moyen": "moyen_francais.py", "ancien": "ancien_francais.py"}.get(opts.epoque, "vocabulaire_17_18.py")
     dict_path = opts.dict or os.path.join(HERE, "dictionnaires",
                                           "verbes_oi.py" if opts.mode == "oi" else lexique)
-    force = {}
+    force, lexique_sens = {}, {}
     if opts.mode == "graphie":
         dict_path = ""
         rules_ns = runpy.run_path(opts.dict or os.path.join(
@@ -725,6 +728,8 @@ def main():
         ns_ = runpy.run_path(dict_path)
         force = {k.lower(): v for k, v in ns_.get("FORCE", {}).items()}
         force.update({k.lower(): v for k, v in ns_.get("CONTEXTE", {}).items()})   # « grant » → grand|grande
+        if not opts.sans_lexique:                     # « cuidier » → « penser » : mot remplacé par son sens
+            lexique_sens = {k.lower(): v for k, v in ns_.get("LEXIQUE", {}).items()}
     cas_table = {}
     if opts.mode == "cas":
         cas_table = runpy.run_path(opts.dict or os.path.join(HERE, "dictionnaires", lexique)).get("CAS_SUJET", {})
@@ -734,6 +739,7 @@ def main():
     if opts.mode in ("ez", "ants") and not opts.dict:
         dict_path = os.path.join(HERE, "dictionnaires", "pluriels_%s.py" % opts.mode)
     table = load_dict(dict_path, opts.mode) if dict_path and os.path.exists(dict_path) else {}
+    table.update(lexique_sens)
     if not table and opts.mode == "vocab":
         sys.exit("Dictionnaire de vocabulaire introuvable : %s" % dict_path)
 
@@ -777,6 +783,9 @@ def main():
             rows = propose_cas(text, wordlist, cas_table)
         else:
             rows = propose_vocab(counts, caps, text, wordlist, dict(table, **force), force)
+            for r in rows:
+                if r["forme_lue"] in lexique_sens and r["forme_lue"] not in force:
+                    r["remarque"] = ("sens moderne ; " + r["remarque"]).rstrip(" ;")
         if opts.no_apply:
             for r in rows:
                 r["appliquer"] = "0"

@@ -281,6 +281,8 @@ def read_epub(path):
                 num = note_of_el.get(id(el))
                 runs = clean_runs(runs_of(el, notemap))
                 # le numéro imprimé (« 1. ») et la ponctuation finale de l'OCR (« , » « .. »)
+                if len(runs) > 1 and re.fullmatch(r"\s*\d{1,3}\s*", runs[0][0]) and re.match(r"[.)]", runs[1][0]):
+                    runs = [(runs[0][0] + runs[1][0], runs[1][1])] + runs[2:]     # « <a>1</a>. » : numéro lié
                 if runs and isinstance(runs[0][0], str):
                     runs[0] = (re.sub(r"^\s*\(?\d{1,3}[.)]\s*", "", runs[0][0]), runs[0][1])
                 if runs:
@@ -318,6 +320,16 @@ def read_epub(path):
 # --------------------------------------------------------------------------
 # Texte brut
 # --------------------------------------------------------------------------
+
+def notes_of(b):
+    """Numéros des notes appelées dans un bloc (cellules comprises pour un tableau), sans doublon."""
+    runs = list(b["runs"]) + [r for cells in b.get("rows", []) for c in cells for r in c]
+    out = []
+    for _, s in runs:
+        if isinstance(s, tuple) and s[0] == "note" and s[1] not in out:
+            out.append(s[1])
+    return out
+
 
 def plain_runs(runs, italic="_"):
     out = []
@@ -396,6 +408,8 @@ def table_text(b, width):
             dots = width - len(last) - len(tr[1]) - 2
             lines[-1] = last + " " + "." * max(1, dots) + " " + tr[1] if dots > 2 else last + " " + tr[1]
             out += lines
+        elif len(cells) == 1 and "chronologie" in b["cls"]:
+            out += ["", plain_runs(cells[0]).strip()]                  # année en tête
         else:
             out += hanging("   ".join(plain_runs(c).strip() for c in cells if c), width)
     return out
@@ -433,7 +447,7 @@ def to_text(book, width, note_txt, title_lines):
             current = chapter
         k = b["kind"]
         text = plain_runs(b["runs"])
-        notes_here = [s[1] for _, s in b["runs"] if isinstance(s, tuple) and s[0] == "note"]
+        notes_here = notes_of(b)
         if k in ("h1", "h2"):
             blank(4)
             out += center(text, width)
@@ -470,7 +484,7 @@ def to_text(book, width, note_txt, title_lines):
         else:
             out += wrap(text, width)
             out.append("")
-        pending_notes.extend(notes_here)
+        pending_notes.extend(n for n in notes_here if n not in pending_notes)
     flush_notes()
     if book.variants:
         blank(4)
@@ -524,8 +538,12 @@ sup.var { font-size: 0.6em; color: #777; }
 table.tableau { margin: 1em auto; border-collapse: collapse; }
 table.tableau td { padding: 0.1em 0.5em; vertical-align: top; }
 table.tableau td.num { text-align: right; }
+table.chronologie th { padding-top: 0.8em; }
 p.variante { text-indent: -2em; margin: 0.3em 0 0.3em 2em; font-size: 0.9em; }
 """
+
+
+ANCRES = {}
 
 
 def html_runs(runs):
@@ -543,7 +561,9 @@ def html_runs(runs):
                 out.append('<span class="pagenum" id="%s">[%s]</span>' % (pid, html.escape(lab)))
         elif isinstance(s, tuple):
             n = s[1]
-            out.append('<a id="FNanchor_%d" href="#Footnote_%d" class="fnanchor">[%d]</a>' % (n, n, n))
+            ident = "FNanchor_%d" % n if n not in ANCRES else "FNanchor_%d_%d" % (n, len(ANCRES[n]) + 1)
+            ANCRES.setdefault(n, []).append(ident)       # note appelée deux fois : ancre distincte
+            out.append('<a id="%s" href="#Footnote_%d" class="fnanchor">[%d]</a>' % (ident, n, n))
         elif s == "var":
             out.append('<sup class="var">%s</sup>' % html.escape(t, quote=False))
         elif s == "numvers":
@@ -600,7 +620,7 @@ def to_html(book, title_lines, note_txt):
             current = chapter
         k = b["kind"]
         body = html_runs(b["runs"])
-        notes_here = [s[1] for _, s in b["runs"] if isinstance(s, tuple) and s[0] == "note"]
+        notes_here = notes_of(b)
         if k in ("h1", "h2"):
             out.append('<hr class="chap">')
             out.append("<h2>%s</h2>" % body)
@@ -616,9 +636,12 @@ def to_html(book, title_lines, note_txt):
                     pg = tr[1]
                     num = ('<a href="#page_%s">%s</a>' % (pg, pg)) if FOLIOS[0] and pg in PAGES.values() else pg
                     rows.append('<tr><td>%s</td><td class="num">%s</td></tr>' % (html_runs(tr[0]), num))
+                elif len(cells) == 1 and "chronologie" in b["cls"]:
+                    rows.append('<tr><th colspan="3">%s</th></tr>' % html_runs(cells[0]))
                 else:
                     rows.append("<tr>%s</tr>" % "".join("<td>%s</td>" % html_runs(c) for c in cells))
-            out.append('<table class="tableau">\n%s\n</table>' % "\n".join(rows))
+            cls = "tableau chronologie" if "chronologie" in b["cls"] else "tableau"
+            out.append('<table class="%s">\n%s\n</table>' % (cls, "\n".join(rows)))
         elif "sommaire" in b["cls"]:
             out.append('<p class="summary">%s</p>' % body)
         elif "vers" in b["cls"]:
@@ -629,7 +652,7 @@ def to_html(book, title_lines, note_txt):
             out.append('<p class="right">%s</p>' % body)
         else:
             out.append("<p>%s</p>" % body)
-        pending.extend(notes_here)
+        pending.extend(n for n in notes_here if n not in pending)
     flush()
     if book.variants:
         out.append('<hr class="chap">')

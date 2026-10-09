@@ -750,15 +750,37 @@ CONTEXTE = {
     'quant': 'quand|quant',
 }
 
+# Mots remplacés par leur sens moderne (le mot ancien a disparu ou changé de sens) : appliqués d'office
+# par --mode vocab, au choix quand la forme ancienne est aussi un mot moderne (« lais », « desserte »).
+LEXIQUE = {
+    'chevance': 'richesse', 'chevances': 'richesses', 'bachelerie': 'jeunesse', 'bachellerie': 'jeunesse',
+    'arroy': 'ordre', 'arroi': 'ordre', 'arrois': 'ordres', 'coulpe': 'faute', 'coulpes': 'fautes',
+    'cuider': 'penser', 'cuidier': 'penser', 'cuide': 'pense', 'cuident': 'pensent', 'cuidoie': 'pensais',
+    'cuidoit': 'pensait', 'cuidoient': 'pensaient', 'cuida': 'pensa', 'cuidièrent': 'pensèrent',
+    'cuidèrent': 'pensèrent', 'cuidions': 'pensions', 'cuidiés': 'pensez', 'cuidast': 'pensât',
+    'faix': 'poids', 'gaite': 'sentinelle', 'gaites': 'sentinelles',
+    'issir': 'sortir', 'yssir': 'sortir', 'issirent': 'sortirent', 'yssirent': 'sortirent', 'yssi': 'sortit',
+    'issit': 'sortit', 'yssit': 'sortit', 'issoient': 'sortaient', 'yssoient': 'sortaient',
+    'lais': 'testament', 'maisnie': 'suite', 'mesnie': 'suite', 'mesnies': 'suites',
+    'menoison': 'dysenterie', 'meschief': 'malheur', 'meschiefs': 'malheurs', 'meschiés': 'malheurs',
+    'navier': 'naviguer', 'mesiaus': 'lépreux', 'meseaux': 'lépreux',
+    'eschamel': 'escabeau', 'chaloir': 'se soucier', 'chault': 'importe', 'chaut': 'importe',
+    'challoit': 'importait', 'chaloit': 'importait', 'chalut': 'importa',
+    'barguignier': 'marchander', 'barguigner': 'marchander', 'assemer': 'parer', 'atticier': 'exciter',
+    'berrie': 'plaine', 'costement': 'coût', 'coustement': 'coût', 'coustemens': 'coûts', 'courine': 'haine',
+    'créanter': 'promettre', 'creanter': 'promettre', 'darrain': 'dernier', 'darrains': 'derniers',
+    'derrain': 'dernier', 'darrainement': 'dernièrement', 'derrainement': 'dernièrement',
+    'desserte': 'mérite', 'desvé': 'enragé', 'eshidé': 'épouvanté',
+    'estoirer': 'approvisionner', 'fournier': 'boulanger', 'mezelerie': 'lèpre', 'meselerie': 'lèpre',
+    'oirre': 'voyage', 'pooir': 'pouvoir', 'remanant': 'reste', 'remenant': 'reste',
+    'relenquir': 'abandonner', 'relinquir': 'abandonner',
+}
+
 VERSION_MODERNE = {
     'aucques': 'quelque peu',
     'consieuvirent': 'poursuivirent',
     'consieuvy': 'poursuivi',
     'coustages': 'coûts',
-    'cuida': 'crut',
-    'cuidièrent': 'crurent',
-    'cuidoient': 'croyaient',
-    'cuidoit': 'croyait',
     'dalés': 'près de',
     'emmy': 'parmi',
     'enssieuvant': 'suivant',
@@ -768,10 +790,8 @@ VERSION_MODERNE = {
     'férir': 'frapper',
     'greigneur': 'plus grand',
     'illec': 'là',
-    'issirent': 'sortirent',
     'liement': 'joyeusement',
     'lyement': 'joyeusement',
-    'meschief': 'malheur',
     'navie': 'flotte',
     'nennil': 'non',
     'nulluy': 'personne',
@@ -783,8 +803,5 @@ VERSION_MODERNE = {
     'toudis': 'toujours',
     'trairent': 'tirèrent',
     'voirement': 'vraiment',
-    'yssi': 'sortit',
-    'yssir': 'sortir',
-    'yssirent': 'sortirent',
 }
 

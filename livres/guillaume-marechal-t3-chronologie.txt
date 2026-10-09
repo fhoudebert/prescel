@@ -1,0 +1,810 @@
+# Chronologie et itinéraire de Guillaume le Maréchal (t. III, p. cxlv-clvi), transcrite sur les images
+# du DjVu (exemplaire de Harvard), les deux OCR mêlant les colonnes du tableau.
+# Format : « @page » ; « = année » ; « date | lieu ou fait | référence » (« — » : idem, comme l'imprimé) ;
+# « #n texte » : note n de la page ; appel de note « [n] » ; italique « _…_ ».
+@cxlv
+= 1144 (?).
+ | Naissance de Guillaume le Maréchal[2]. | Hist. 383.
+= 1152.
+ | Le jeune Guillaume est donné en otage au roi Étienne lors du siège de Newbury. | — 485 ss.
+= 1164.
+ | Guillaume armé chevalier[3]. | — 815 ss.
+= 1166.
+ | Tournoi entre Sainte-Jamme et Valennes[4]. | Hist. 1201 ss.
+= 1167-8.
+ | Guillaume se rend en Angleterre auprès du comte Patrice de Salisbury. | — 1551 ss.
+= 1168.
+ | Il accompagne en Poitou le comte Patrice. | — 1601 ss.
+#1 Ce tableau chronologique est rédigé, jusqu'à l'année 1188, à peu près uniquement à l'aide de l'_Histoire_. Je renvoie soit au poème, cité par vers, soit aux pages du t. III. Ce second mode de référence est employé lorsque les notes de la traduction fournissent une date. Les ouvrages le plus souvent cités sous forme abrégée sont les suivants :
+#1 Deville. — Deville, _Chartes de Richard Cœur-de-Lion_. Recueil manuscrit formé par A. Deville et conservé à la Bibl. nat. sous le numéro Nouv. acq. lat. 1244. Je cite, pour plus de brièveté et de commodité, ce recueil pour les pièces dont je ne connais pas d'édition.
+#1 P. R. S. — _The publications of the Pipe Roll Society_, vol. X, 1888. (_Ancient charters, royal and private, prior to A. D._ 1200, edited and annotated by J. H. Round). — Vol. XVII, 1894. (_Feet of fines of the reign of Henry II and of the seven first years of the reign of Richard I_, 1182-1196).
+#1 R. ch. — _Rotuli chartarum_ (1199-1216). Londres, 1837, in-fol.
+#1 R. cl. — _Rotuli litterarum clausarum_ (1204-1224). Londres, 1833, in-fol.
+#1 R. lib. — _Rotuli de liberate ac de misis et præstitis regnante Johanne_. Londres, 1844, in-8°.
+#1 R. Norm. — _Rotuli Normanniæ_ (1200-1205). Londres, 1835, in-8°.
+#1 R. pat. — _Rotuli litterarum patentium_ (1201-1216). Londres, 1835, in-fol.
+#1 Tous ces rôles sont édités par Thomas Duffus Hardy.
+#1 Roberts. — _Excerpta e rotulis finium..._ (1216-1272), ed. by Ch. Roberts. Londres, 1835-6, in-8°.
+#1 Les tables de tous ces rôles sont très défectueuses et ne donnent qu'accidentellement l'identification des noms de lieux.
+#2 Voir III, xxv.
+#3 _Ibid._, xxvi.
+#4 _Ibid._, xxvii.
+@cxlvi
+ | Il est fait prisonnier par les Poitevins et délivré par la reine Aliénor. | Hist. 1706 ss.
+= 1170.
+Juin ou juillet. | Il est désigné par Henri II pour être l'un des chevaliers du jeune roi. | — 1936 ss.
+= 1173.
+Juillet. | Il se distingue au combat de Drincourt. | — 827 ss.
+ | Arme le jeune roi chevalier[1]. | — 2071 ss.
+= 1174.
+Sept. ou oct. | Falaise. | Hist. III, xxxii[2].
+Déc. (?). | Quevilli. | — III, xxxiii.
+= 1175.
+Mai. | Retourne en Angleterre avec le jeune roi. | — III, 35, n. 5.
+Juin. | Oxford. | Eyton, p. 191.
+— | Westminster. | Hist. III, xxxiii.
+= 1176.
+Avril 19. | Part pour le continent avec le jeune roi. | — III, 35, n. 5.
+= 1177.
+Sept. | Argentan. | — III, xxxiii.
+= 1180-1.
+ | Tournoi de Lagni-sur-Marne. | — III, 58, n. 4.
+= 1182.
+Déc. | Présent à la cour plénière de Caen. | Hist. III, 69, n. 3.
+= 1183.
+Janv. | Tournoi entre Ressons et Gournai. | — 5973 ss.
+Juin. | Assiste aux derniers moments du jeune roi. | — 6865 ss.
+= 1183-4.
+ | Angleterre. | — 7259 ss.
+= 1184-6.
+ | Terre-Sainte. | — 7275 ss.
+= 1187.
+ | Revient en France et retrouve le roi à Lyons-la-Forêt. | — 7302 ss.
+= 1188.
+Févr. | Geddington[3]. | — III, 86, n. 5.
+Mars-juill. | Wiltshire. | — —
+Août. | Gisors. | — III, 91, n. 2[4].
+= 1189.
+Avril. | Tours. | — III, 99, n. 1.
+Mai-juin. | Le Mans. | — 8381.
+Juillet. | Chinon. | — 9162.
+— | Fontevrault. | — 9215.
+— | Se rend en Angleterre. | — 9503.
+Août (?). | Épouse Isabelle de Clare. | — 9537.
+Sept. 3. | Westminster. | — III, 123, n. 2.
+— 5. | — | _Mon. angl._ I, 704.
+— 10. | Northampton. | — V, 604.
+#1 La date de l'adoubement du jeune roi n'étant pas connue, on ne saurait dire si cet événement est antérieur ou postérieur à l'affaire de Drincourt.
+#2 L'acte auquel le Maréchal est témoin est le traité entre le roi Henri et ses fils. Je l'ai mentionné (p. xxxii, note) d'après l'original (ou du moins une copie ancienne), maintenant endommagé dans la partie inférieure. J'aurais dû dire que cet acte a été imprimé par Rymer alors que l'acte était entier (éd. Holmes, p. 12 _b_, éd. de 1816, p. 30) ou du moins d'après une copie complète.
+#3 Comté de Northampton.
+#4 Cf. Eyton, p. 289.
+@cxlvii
+Sept. 16. | Geddington. | Delaville Le Roulx, _Cart. Hosp._, I, 558.
+— 17. | — | _Mon. angl._ II, 605.
+— 18. | — | — I, 47.
+— 22. | Fackenham[1]. | Deville f. 131.
+Oct. 7. | Westminster. | — f. 135.
+— 10. | — | Rymer.
+Nov. 10. | — | Madox, _Form. angl._ n° xcv.
+— 12. | — | Deville f. 160.
+— 14. | — | _Mon. angl._ II, 982[2].
+— 25. | — | Rymer.
+— 26. | Cantorbéry. | —
+— 27. | — | Arch. de la Cath. de Wells[3].
+Déc. 1. | — | Gervais, I, 503[4].
+— 4. | — | _Mon. angl._ III, 225.
+= 1190.
+Mars 14. | Nonancourt. | Rymer.
+— 18. | Rouen. | Deville f. 494.
+— 20. | — | Rymer.
+Avril 6. | Argentan. | _Gall. chr._, XI, instr. 168.
+Juin 9. | Bordeaux. | Bibl. nat., Nouv. acq. fr. 6191.
+— 22. | Chinon. | Deville f. 295.
+— 27. | Tours. | Teulet, _Layettes_, n° 369.
+— 28. | — | Round, _Cal._, n° 112[5].
+= 1191.
+Janv. 24. | Northampton. | P. R. S. XVII, n° 7.
+Mai 15. | Westminster. | — n° 8.
+Juill. | Nottingham (?). | Hist. III, 130, n. 1.
+Oct. 8. | Londres. | Hist. III, 129, n. 1.
+Nov. 18. | Westminster. | P. R. S. XVII, n° 10.
+— 20. | — | — n° 11.
+= 1192.
+Mai 8. | Westminster. | — n° 12.
+= 1193.
+ | Le Maréchal passe toute cette année en Angleterre. Ses séjours ne nous sont pas connus. |
+= 1194.
+Fin de mars. | Striguil. | Hist. 10018.
+Avril. | Huntingdon. | — 10081.
+— (?). | Nottingham. | — 10180 ss.
+— 17. | Winchester. | Rymer[6].
+— 21. | — | Deville f. 509.
+— 23. | — | Houard, _Anc. lois_, II, 329[7].
+— 24. | Portsmouth. | P. R. S. X, n° 62.
+Juillet. | Freteval. | Hist. III, 140, n. 3.
+= 1195.
+Janv. 18. | La Londe. | Deville f. 404.
+? | Rouen. | — f. 405.
+Juin 10. | Pont-de-l'Arche. | — f. 417.
+— 12. | Cahaignes[8]. | — f. 418.
+= 1196.
+Avril 6. | Westminster. | P. R. S. XVII, p. 110.
+Mai 7. | Vaudreuil. | Deville f. 428.
+— 25. | Île d'Andeli[9]. | — f. 429.
+Juin. | Vierzon. | Hist. 10680.
+Août 27. | Évreux. | Deville p. 464.
+#1 Il y a deux villages de ce nom en Suffolk et un en Norfolk.
+#2 Ou Deville, fol. 164.
+#3 _Report on the mss. of Wells Cathedral_ (Historical mss. commission, 1885), p. 3.
+#4 Gervais de Cantorbéry, éd. Stubbs.
+#5 Ou Deville, fol. 308.
+#6 Cf. Hist. 10341 ss.
+#7 Pour d'autres éditions, voir W. de Gray Birch, _The historical charters... of the city of London_ (1887), p. 308.
+#8 Arr. d'Andeli, cant. d'Écos (Eure).
+#9 « Apud insulam. » Ce ne peut être que l'île d'Andeli.
+@cxlviii
+= 1197.
+Avril 22. | Château-Gaillard[1]. | Deville f. 434.
+Mai (?). | Flandre[2]. |
+Juin 15. | Château-Gaillard. | P. R. S. X, n° 66.
+Juill. 14. | — | Rymer[3].
+Août 22. | Orival. | —
+Sept. 8. | Rouen. | —
+Oct. 16. | — | Deville f. 439[4].
+= 1198.
+Janvier. | Le Goulet. | Hist. 11420 ss.
+Avril 20. | Orival. | Deville f. 450.
+Mai 14. | Lyons-la-Forest. | — f. 454.
+— 16. | S.-Georges de Bocherville. | — f. 458.
+— 18. | Jumièges. | — f. 459.
+— 22. | Orival. | P. R. S. X, n° 68.
+Juin 15. | Château-Gaillard. | Deville f. 463.
+— 30. | — | — f. 464.
+Août 13. | Orival. | — f. 474.
+— 22. | — | — f. 476.
+— 26-8. | Rouen. | _Vita S. Hugonis_[5].
+? | Milli. | Hist. 11117.
+Déc. 17. | Rouen. | 4th Rep., 452[6].
+= 1199.
+Janv. 22. | Andeli[7]. | Deville f. 509.
+Avril 7. | Vaudreuil. | Hist. III, 158.
+— 10. | Rouen. | Hist. 11836.
+Mai 21. | Dieppe. | Chéruel, n° iv[8].
+— 27. | Londres. | Rog. Howd. IV, 30.
+Juin 20. | Shoreham. | R. ch. 79 _b_.
+— 29. | Orival. | — 51 _b_.
+Juill. 1. | Rouen. | — 9 _b_.
+Août 1. | — | — 7 _b_, 8.
+— 4. | — | — 9 _b_.
+— 6. | Argentan. | — —
+— 7. | — | — 10.
+— | — Séez. | — —
+— 18. | Andeli. | — 30 _b_.
+— 20. | Vaudreuil. | — 11.
+Août 23-6. | Rouen. | — 11 _b_-12 _b_, 13 _b_, 14 _b_.
+— 30. | Andeli. | — 15, 16.
+— 31. | — | — 14 _b_, 22 _b_.
+Sept. 3. | Rouen. | — 24.
+— 4. | Orival. | — 16 _b_.
+— 6. | Rouen. | — 16 _b_, 17[9].
+Oct. 18. | Brionne. | — 28.
+— 21. | Andeli. | — 28 _b_, 29.
+— 26. | — | — 28 _b_.
+— 29. | Harcourt. | — 29.
+Nov. 5. | La Flèche. | — 30.
+— 12. | La Haye[10]. | — 62.
+— 22. | Niort. | — 62 _b_.
+Déc. 3. | Poitiers. | — 36 _b_, 63.
+— 4. | — | — 63.
+— 5. | Faye[11]. | — —
+— 6. | Chinon. | — 32.
+— 26. | Bur-le-Roi[12]. | — —
+— | — Caen. | — —
+— 27. | — | — 34.
+— 28. | — | — 32 _b_, 33.
+= 1200.
+Janv. 4. | Bonneville-sur-Touque. | — 32 _b_.
+— 6. | Lisieux. | — —
+#1 « Apud Bellum Castellum de Rupe. »
+#2 La mission du Maréchal auprès du comte de Flandre et de Renaut de Boulogne est assez douteuse ; voir ci-dessus, p. lxiv.
+#3 Cf. W. de Gray Birch, _l. c._
+#4 La pièce est publiée, mais datée à tort de 1196, dans _Gall. christ._, XI, instr., p. 29. Fac-similé dans Deville, _Hist. du Château-Gaillard_.
+#5 _Magna vita S. Hugonis ep. Lincolnensis_, éd. Dimock, p. 237 ; cf. _Giraldi Cambrensis opera_, VII, p. 105, note.
+#6 _Fourth Report of the royal commission on historical mss._
+#7 « Apud Rupem Andeli. » C'est toujours Château-Gaillard.
+#8 _Histoire de Rouen_, t. I.
+#9 Le Maréchal dut rester en Normandie, tandis que le roi se rendait dans le Maine.
+#10 Indre-et-Loire.
+#11 Maine-et-Loire.
+#12 Comm. de Noron, arr. de Bayeux, Calvados.
+@cxlix
+Janv. 7. | Lire. | R. ch. 33.
+— 11. | Andeli. | — 33.
+— 14. | Orival. | — 33 _b_.
+— 24. | Caen. | — 35 _b_.
+— 28. | — | — 58 _b_, 59.
+— 30. | Bur-le-Roi. | — 34.
+— | — Carentan. | — 34 _b_.
+Févr. 1-4. | Valognes. | — 34 _b_, 35.
+— 5-10. | Barfleur. | — 35, 36.
+— 16-7. | Valognes. | — 36.
+— 19. | Cherbourg. | — 36 _b_.
+— 24. | Barfleur. | — —
+Mars 1. | Winchester. | — —
+— 2. | Freemantle[1]. | — 37.
+— 3. | Windsor. | — 60.
+— 4. | — | — 37, 39.
+— 10. | Woodstock[2]. | — 37 _b_.
+— 11. | — | — —
+— 12. | — | — 60.
+— 15. | — | — 37 _b_.
+— 16. | Northampton. | — 38.
+Avril 10. | Woodstock. | — 54.
+— | — Worcester. | — 60 _b_.
+— 11. | — | — 43 _b_-45.
+— 13. | Faringdon[3]. | — 46.
+— 16. | Windsor. | — 45 _b_, 48.
+— 17. | Worcester. | — 48 _b_.
+— 18. | Westminster. | — 51 _b_, 67 _b_.
+— 19. | — | — 46 _b_, 68.
+— 20. | — | — 45 _b_, 46, 53 _b_.
+— 21. | Fulham[4]. | — 48, 49 _b_, 54.
+— 22. | Guildford. | — 54 _b_.
+— 23. | Alton[5]. | — 54 _b_, 56 _b_.
+— 24. | Guildford. | — 62.
+— | — Waltham. | — 61 _b_.
+— 25. | Porchester. | — 49 _b_-52.
+— 26. | — | — 51 _b_, 54, 61.
+— 27. | — | — 51 _b_, 54.
+— 28. | Porchester. | — 52 _b_.
+— | — Waltham. | — 61 _b_.
+Mai 16. | Le Goulet. | — 58.
+— 22. | Andeli. | — 70 _b_.
+Mai 23. | Andeli. | R. ch. 68 _b_.
+— 24. | — | — 64 _b_.
+— 25. | Orival. | — 65.
+— 29. | Pont-Audemer. | — 66.
+Juin 5. | Saumur. | — 70 _b_.
+— 6-7. | Argentan. | — 68, 69.
+— 7. | — | — — —
+— 10. | La Flèche. | — 70.
+— 16. | Chinon. | — 71 _b_.
+— 18. | Le Genest[6]. | — 70 _b_.
+— 19-21. | Angers. | — 70 _b_, 71.
+— 24-5. | Chinon. | — 71-2.
+— 26-30. | Tours. | — 72-3.
+Juill. 4. | Poitiers. | — 82.
+— 11. | Barbezieux. | — 73 _b_.
+— 16. | Le Bois[7]. | — —
+— 18. | Bordeaux. | — 74.
+— 27. | S.-Sever. | — —
+Août 1. | Condom. | — 74.
+— 11. | Agen. | — —
+— 12. | — | — 74 _b_.
+— 14-5. | La Réole. | — —
+— 22. | Périgueux. | — —
+— 26. | Angoulême. | — —
+— 30. | Baugé. | — 75.
+— | — Chinon. | — 75 _b_.
+— 31. | — | — 75.
+Sept. 1. | Baugé. | — 75[8].
+— 2. | La Flèche. | — —
+— 3. | La Suze[9]. | — —
+ | Nous perdons de vue le Maréchal depuis cette dernière date jusqu'en mars 1201. Il est probable que, durant cette période, il résida dans ses terres d'Irlande. C'est alors, en effet, qu'il fonda l'abbaye de Tintern ou du Vœu, en accomplissement d'un vœu qu'il avait fait pendant une tempête, en passant d'Angleterre en Irlande ; voir ci-après, p. 183, note 8. |
+#1 Hampshire.
+#2 Oxfordshire.
+#3 Hampshire.
+#4 Middlesex, maintenant compris dans l'agglomération de paroisses qui forment Londres.
+#5 Hampshire.
+#6 Mayenne, arr. de Laval.
+#7 Charente-Inférieure, arr. de La Rochelle.
+#8 Voir aussi Teulet, _Layettes du Tr. des ch._, n° 597.
+#9 Arr. du Mans.
+@cl
+= 1201.
+Mars 17. | Barnwell[1]. | R. ch. 92.
+— 25. | Cantorbéry. | — 91 _b_.
+— 28. | — | — —
+Avril 4. | Windsor. | — 92, 95 _b_.
+— 5. | — | — 103 _b_.
+— 6. | — | — 92, 103 _b_.
+— 9. | Marlborough. | — 92 _b_.
+— 10. | — | — 39 _b_.
+Mai 1. | Tewkesbury. | — 95 _b_[2].
+Juin 9. | Île d'Andeli. | R. lib. 15.
+Juill. 1. | Paris. | — 18.
+— 18. | Alençon. | — —
+Août 2. | Chinon. | R. pat. 3.
+— 30. | — | R. lib. 20.
+Sept. 26. | Verneuil. | R. pat. 1.
+— 27. | Breteuil. | — 1 _b_.
+— 29. | Harcourt. | R. lib. 20.
+Déc. 14. | Vaudreuil. | R. pat. 3 _b_.
+— 24. | Argentan. | — 4.
+— 26. | — | R. lib. 24.
+= 1202.
+Avril 28. | Andeli. | R. pat. 8.
+— | — Orival. | — 10.
+— 30. | Rouen. | — —
+Mai 18. | Arques. | — 11.
+Juin 4. | Rouen. | — 12.
+— 28. | — | — 13.
+Août 3 ou 4. | Englesqueville. | Hist. 12136. Cf. III, 164, n. 6.
+— 5 ou 6. | Rouen. | Hist. 12328.
+— 11. | Argentan. | R. pat. 16.
+— 18. | Le Mans. | — 16 _b_.
+— 30. | Chinon. | R. lib. 20.
+Sept. 7. | Le Mans. | R. pat. 18.
+Oct. 17. | Bourg-Achard. | — 19.
+Déc. 28. | Arques. | — 22.
+= 1203.
+Janv. | Conches. | Hist. 12678.
+Janv. 31 (?). | Falaise. | Hist. 12703.
+Juin 15. | Orival. | R. ch. 105, 106 ; R. pat. 31.
+— 16. | — | R. ch. 107.
+— 21-5. | Rouen. | — 106.
+— 29. | — | R. lib. 45.
+— 30. | — | R. ch. 107.
+Juill. 1. | — | — 107, 109 _b_.
+— 4. | — | — 106 _b_.
+— 5. | — | — 107 ; R. pat. 31.
+— 8-17. | — | R. ch. 107 _b_-109.
+— 24. | Montfort. | R. pat. 32 _b_.
+— 25. | — | R. ch. 109.
+— 26. | — | R. Norm. 100.
+— 29. | Rouen. | R. pat. 31 _b_.
+Août 12. | Alençon. | R. ch. 110.
+— 14. | — | — 109 _b_.
+— 15. | — | R. pat. 33 _b_.
+— 22. | Trianon. | — 34.
+— 24. | — | R. lib. 60.
+— 25. | — | R. ch. 110.
+— 27. | Montfort. | R. lib. 60.
+— 28. | — | R. ch. 110 _b_.
+— 30. | Rouen. | — 110.
+Sept. 2. | — | — 110 _b_.
+— 3. | — | — 114 _b_.
+— 4. | — | R. Norm. 104.
+Oct. 1. | Montfort. | R. ch. 112.
+— 4. | Rouen. | — 111 _b_, 112.
+— 5. | — | — 113.
+— 7. | Bonneville-sur-Touque. | — 111 _b_.
+Oct. 9. | Rouen. | R. lib. 72.
+Nov. 1. | Verneuil. | R. ch. 112 _b_.
+— 2. | — | — 112 _b_, 114 _b_.
+— 9. | Rouen. | R. ch. 113 _b_ ; R. lib. 72.
+— 10. | — | R. ch. 114 ; R. Norm. 111.
+— 12. | — | R. ch. 113.
+— 29. | Gonneville-sur-Saire. | — 114.
+#1 Cambridge.
+#2 Les _Rotuli chartarum_, qui fournissent le plus grand nombre de mentions, parce que les principaux personnages de la cour du roi y figurent comme témoins, manquent pour les années 3 et 4, de Jean (3 mai 1201-17 mai 1203). Nous savons par le poème (ci-après, p. 163, n. 2) que, vers la fin de mai 1201, le Maréchal fut envoyé en Normandie par le roi.
+@cli
+Nov. 30. | Gonneville-sur-Saire. | R. Norm. 116-7.
+Déc. 3. | Cherbourg. | — 118.
+— 4. | — | R. ch. 114 ; R. Norm. 118.
+— 10. | Marlborough. | R. ch. 114.
+— 11. | — | — —
+— 29. | Brill[1]. | — 115 _b_.
+= 1204.
+Janv. 1. | Brill. | — 114.
+— 2. | Oxford. | — 115 _b_.
+— 10. | Marlborough. | — —
+— 11. | Bradenstoke. | — 116 _b_.
+— 16. | Marlborough. | — —
+Févr. 4. | Northampton. | — 121 _b_.
+Mars 13. | Bridgenorth[2]. | — 122 _b_.
+— 14. | — | — 122 _b_.
+— 15. | — | — —
+— 18. | Woodstock. | — 122 _b_, 123, 126.
+Mars 22-9. | Westminster. | — 122 _b_-124.
+— 30. | Marlborough. | — 124.
+Avril 1. | — | — —
+— 9. | Porchester. | — 125 _b_.
+— 11. | Portsmouth. | — 127 _b_.
+Mai 15-31. | Le Maréchal traite avec le roi de France. | Hist. 12859 ; III, 177, n. 1.
+Juin 15. | Merton[3]. | R. ch. 134 _b_.
+— 20. | Winchester. | — 135 _b_.
+— 26. | Gillingham[4]. | R. pat. 43 _b_.
+Juill. 29. | Le Maréchal est envoyé au-devant de Llewelin et de Maddoc Fils Griffin, se rendant à Worcester avec sauf-conduit. | R. pat. 44.
+Août 3. | Oxford. | R. ch. 135 _b_, 136.
+— 5. | Silverstone[5]. | — 136.
+Sept. 8. | Oxford. | — 136 _b_.
+— | — Oseney[6]. | — 137.
+Sept. 18. | Cricklade[7]. | R. ch. 137 _b_.
+— | — Chelworth[8]. | — —
+— 27. | Clarendon. | — 137 _b_, 139.
+Oct. 5. | Winchester. | — 138.
+— 6. | — | — —
+Déc. 16. | Clere[9]. | — 140 _b_, 141.
+= 1205.
+Janv. 13. | Sutton[10]. | — 141 _b_.
+— 16. | Lambeth. | — 141.
+Févr. 7. | Abingdon[11]. | — 141 _b_.
+— 8. | Woodstock. | — —
+— 10. | — | R. cl. 19 _b_.
+— 11. | — | — —
+— 13. | Northampton. | — —
+Mars ou avril. | Le Maréchal fait hommage au roi de France[12]. | Hist. 12989.
+Mai 31. | Porchester. | R. ch. 152 _b_.
+Juin 1. | — | — 153, 154.
+— 9. | Northampton. | — 166.
+Juill. 24. | Windsor. | — 156.
+Août 5. | Lambeth. | — 156 _b_, 168.
+— 7. | Havering[13]. | — 157.
+— 10. | Ongar[14]. | — 166.
+Sept. 9. | Bristol. | — 159 _b_.
+— 10. | — | — 158 _b_.
+Oct. 10. | — | — 158 _b_.
+— 31. | Guildford. | — 159 _b_.
+Nov. 30. | Le Maréchal est chargé d'accompagner Guillaume, roi d'Écosse, se rendant à York à une entrevue avec le roi Jean. | Hist. III, 183, n. 2.
+Déc. 28. | Oxford. | R. ch. 161.
+— | — Marlborough. | — —
+— 29. | — | — 161 _b_.
+= 1206.
+Févr. 10. | York. | — 162 _b_.
+— 12. | — | — —
+#1 Comté de Buckingham.
+#2 Shropshire.
+#3 Surrey.
+#4 Dorset.
+#5 Northampton.
+#6 Oxfordshire.
+#7 Wilts.
+#8 Wilts.
+#9 Hampshire.
+#10 Hampshire.
+#11 Berks.
+#12 Le Maréchal se rendit probablement à Lisieux ; voy. Stapleton, _Magni Rot. Norm._, II, cxxxviii.
+#13 Essex.
+#14 Essex.
+@clii
+Mars 27. | Otford[1]. | R. ch. 165 _b_.
+Avril 4. | Romney[2]. | — 163 _b_.
+— 28. | Lambeth. | — 165 _b_.
+Juin à déc. | Angleterre. | Hist. 13289.
+= 1207.
+Février. | Striguil. | — 13371.
+Mars à sept. | Irlande. | — 13420.
+Nov. | Bristol. | Arch. de la Cath. de Wells[3].
+= 1208.
+Janv. 25. | Guildford. | R. ch. 175[4].
+Mars 5. | Bristol. | R. cl. I, 105[5].
+— 6. | — | R. pat. 79 _b_.
+— 12. | Luggershall. | R. ch. 175 _b_.
+— 17. | Marlborough. | — 176 _b_.
+— 18. | — | — 175 _b_, 176.
+— 20. | Clarendon. | — 176.
+Fin de mars. | Glaskarrik. | Hist. 13941.
+Avril. | Kilkenni. | — 14607.
+ | Le Maréchal reste en Irlande jusque vers le mois de mai 1210. |
+= 1210.
+Mai (?). | Angleterre. | Hist. 14250.
+Juin 6. | Pembroke ou Cross on the sea. | — III, 197, n. 2.
+— 23-4. | Kilkenni. | Hist. 14259.
+ | Le Maréchal reste en Irlande jusque vers le mois de juin 1211. |
+= 1211.
+Juill. à août. | Galles. | Hist. 14475.
+Fin d'août. | Irlande. | — 14488.
+ | Le Maréchal reste en Irlande jusqu'au commencement de mai 1213. | Hist. III, 202, n. 1.
+= 1213.
+Mai 27. | Wingham[6]. | R. ch. 193.
+— 30. | — | — 192 _b_.
+— 31. | — | — —
+Juin 8. | Rochester. | — 193.
+— 27. | Beer-Regis[7]. | — 193.
+Juill. 8. | Gillingham[8]. | — 194.
+— 14. | Ashley[9]. | — 193 _b_.
+— 24. | Corfe[10]. | — 194.
+Oct. 3. | S.-Paul de Londres. | — 195 _b_.
+= 1214.
+Oct. 29. | Tour de Londres. | — 202.
+Nov. 22. | Temple. | — 202 _b_[11].
+— 23. | Westminster. | R. cl. I, 179 _b_.
+Déc. 27. | Worcester. | R. ch. 206[12].
+= 1215.
+Janv. 15. | Temple. | — 204 _b_.
+— 21. | — | — 204.
+Mars ou avril. | Le Maréchal est envoyé en France auprès de Philippe-Auguste. | R. de Coggeshall, p. 180.
+Mai 5. | Reading. | R. ch. 206 _b_.
+— 30. | Odiham[13]. | — 209 _b_.
+Juin 20. | Runneymead[14]. | — 210 _b_.
+— 25. | Windsor. | — 210.
+— 27. | Winchester. | — —
+Juill. 3. | Marlborough. | — 210 _b_, 211.
+— 4. | — | — 212.
+— 18-23. | Oxford. | — 213 _b_, 214, 215, 217 _b_.
+#1 Kent.
+#2 Kent.
+#3 _Report on the mss. of Wells Cathedral_, p. 3.
+#4 Cf. Hist., v. 13801.
+#5 Cf. Hist., III, 188, n. 2.
+#6 Kent.
+#7 Dorset.
+#8 Dorset.
+#9 Hampshire.
+#10 Dorset.
+#11 Il existe un acte (R. ch. 203) daté du Temple, 22 décembre ; mais il est probable que le copiste a écrit, par mégarde, _decembris_ au lieu de _novembris_, car le 22 décembre le roi Jean, et probablement aussi le Maréchal, était à Hereford.
+#12 Cf. Hist., III, 209, n. 4.
+#13 Hampshire.
+#14 Surrey.
+@cliii
+Juill. 25. | Woodstock[1]. | R. ch. 216.
+= 1216.
+Mai 28. | Winchester[2]. | — 222.
+Juill. 25. | Hereford. | — 223 _b_.
+Oct. 18. | Gloucester. | Hist. 15210.
+— 20 (?). | Worcester. | — 15213.
+— 23 (?). | Gloucester. | — 15232.
+— 25. | Malmesbury. | — 15257.
+— 28. | Gloucester. | — 15332.
+Nov. 1-2. | — | R. cl. 293.
+— 3. | Tewkesbury. | — —
+— 13-21. | Bristol. | — 293 _b_, 294.
+— 22-30. | Gloucester. | — 294.
+Déc. 1-9. | — | — 294 _a b_.
+— 12. | Devizes. | — 294 _b_.
+— 14. | Oxford. | — —
+— 16-7. | Fairford[3]. | — —, 335.
+— 20-28. | Gloucester. | — 294 _b_, 295.
+= 1217.
+Janv. 2-7. | Nottingham. | — 295, 335 _b_.
+— 13-20. | Oxford. | — 295 _b_, 296.
+— 22-3. | Gloucester. | — 296 _b_.
+— 27. | Oxford. | — 297.
+— 30. | Reading. | — —
+— 31. | Oxford. | — —
+Févr. 1. | — | — —
+— 4-17. | Gloucester. | — 297-8, 335 _b_.
+— 20. | Witney[4]. | — 298 _b_.
+— 20-2. | Oxford. | — —
+— 22-5. | Reading. | — 298-9.
+— 27. | Dorking[5]. | — 299.
+Mars 7-12. | Farnham[6]. | — 299 _a b_.
+— 13. | Alton[7]. | — 299 _b_.
+— 14-31. | Winchester. | — 299 _b_-304.
+Avril 1-28. | — | — 304-307 _b_.
+— 30. | Marlborough. | — 307 _b_.
+Mai 2-5. | Devizes[8]. | R. cl. 307 _b_-8.
+— 8. | Faringdon[9]. | — 308.
+— 9-11. | Oxford. | — —
+— 13. | Northampton. | — 308 _b_.
+— 16. | Oakham[10]. | — —
+— 17-19. | Newark. | Hist. III, 228, n. 2.
+— 20. | Torksey[11]. | — — 229.
+— 22-5. | Lincoln. | R. cl. 308 _b_, 309.
+— 24-5. | Grantham[12]. | — 309.
+— 25. | Lincoln. | — —
+— 26-7. | Geddington. | — —
+— 28. | Northampton. | — 309 _b_.
+— | — Stamford[13]. | — —
+— 29. | Brackley[14]. | — —
+— 31. | Oxford. | — 310.
+Juin 1-2. | — | — —
+— 5-6. | Reading. | — —
+— | — Chertsey[15]. | — —
+— 7. | — | — —
+— 8. | Reading. | — —
+— 10-2. | Chertsey. | — 310 _a b_.
+— 13-7. | Stanwell[16]. | — 311 _a b_.
+— 17. | Windsor. | — 311 _b_.
+— 21-2. | Stanwell. | — 311 _b_, 312.
+— 22-3. | Chertsey. | — —
+— 23-6. | Stanwell. | — 312 _b_.
+— 27. | Reading. | — —
+— 29-30. | Oxford. | — 313 _a b_.
+— 30. | Fairford[17]. | — 313 _b_.
+Juill. 3-4. | Gloucester. | — —
+— 5. | Goodrich[18]. | — 314.
+— 7-13. | Striguil. | — —
+— 14-5. | Gloucester. | — —
+— 20. | Eynsham[19]. | — 315.
+— 21-5. | Oxford. | — 314 _b_-317.
+— 27-9. | Gloucester. | — 317 _a b_.
+#1 A partir de cette date, jusqu'au 28 mai de l'année suivante, le Maréchal ne paraît comme témoin dans aucune des chartes royales.
+#2 Les deux actes du 28 mai et du 25 juillet sont les seuls de l'année, jusqu'à la mort de Jean, où paraisse le Maréchal. On voit par le poème qu'il n'était pas auprès du roi lorsque celui-ci mourut.
+#3 Gloucestershire.
+#4 Oxfordshire.
+#5 Surrey.
+#6 Surrey.
+#7 Hampshire.
+#8 Wiltshire.
+#9 Hampshire.
+#10 Rutland.
+#11 Lincolnshire.
+#12 Lincolnshire.
+#13 Lincolnshire, sur la limite du comté de Northampton. L'acte n'est pas daté, mais il ne peut avoir été passé que le 28 ou le 29.
+#14 Northampton.
+#15 Surrey.
+#16 Middlesex.
+#17 Gloucestershire.
+#18 Voy. III, 214, n. 4.
+#19 Oxfordshire.
+@cliv
+Juill. 30. | Flaxley[1]. | R. cl. 317 _b_.
+Août 7-13. | Oxford. | — 317-9.
+— 14. | Reading. | — 320.
+— 15-6. | Farnham. | — —
+— 20-2. | Rochester. | Hist. des ducs de Norm. p. 202.
+— 24-8. | Sandwich[2]. | R. cl. 320 _b_.
+— 29. | Cantorbéry. | — —
+Sept. 1-4. | Douvres. | Hist. III, 248, n. 5.
+— 6-10. | Chertsey. | R. cl. 320 _b_, 321.
+— 13-9. | Kingston[3]. | — 321-2.
+— 20-1. | Lambeth. | — 322 _b_.
+— 22-3. | Westminster. | — 323.
+— 23. | Lambeth. | — 323 _b_, 324.
+— 24. | Gillingham. | — 324.
+— 27. | Cantorbéry. | — 324 _b_.
+— 28-9. | Ewell[4]. | — 325, 336 _b_.
+— 29-30. | Cantorbéry. | — 325.
+Oct. 1. | Rochester. | — —
+— 2-6. | Lambeth. | — 325 _b_-328.
+— 6-9. | Westminster. | — 327-8.
+— 10-2. | Lambeth. | — 329.
+— 12-3. | Westminster. | — 329-30.
+— 13-4. | Lambeth. | — 330.
+— 15-20. | Caversham[5]. | — 330 _b_.
+— 21-5. | Londres. | — 330 _b_, 331.
+— 25. | Westminster. | — 335.
+— 26-8. | Londres. | — 332-4.
+— 30-1. | Westminster. | — 339.
+Nov. 2-5. | — | — 339-41.
+— 6. | Londres. | — 341 _b_, 342.
+— 10-2. | Caversham. | — 343, 375.
+— 13-4. | Oxford. | — 343 _b_.
+— 17-9. | Gloucester. | — 343 _b_-344.
+— 26. | Westminster. | — 344.
+— | — Lambeth. | — —
+— 28. | Westminster. | — 344 _b_.
+— 29. | Lambeth. | — 344 _b_, 345.
+Déc. 1. | — | — 345.
+— 2. | Westminster. | — 345 _a b_.
+Déc. 3-4. | Lambeth. | R. cl. 346.
+— 8. | Weston[6]. | — 346 _b_.
+— 8. | Chipping-Warden[6]. | — 346 _b_.
+— 10. | Olney[7]. | — —
+— 10-8. | Northampton. | — 346 _b_-347 _b_.
+— 18. | Daventry. | — 348 _b_, 376 _b_.
+— 20. | Warwick. | — 348.
+— 26. | Gloucester. | — —, 376 _b_.
+— 28. | Usk[8]. | — —
+= 1218.
+Janv. 2-3. | Gloucester. | — —
+— 5. | Kinnesmerford[9]. | — 348 _b_.
+— 9. | Hampstead[10]. | — —
+— 10. | Caversham. | — —
+— 15. | Lambeth. | — —
+— 16-24. | Westminster. | — 348 _b_-349 _b_.
+— 25. | Tour de Londres. | — 349 _b_.
+— 25. | Stanwell. | — 350 _b_.
+— 28. | Hampstead. | — 351.
+— 29. | Marlborough. | — —
+Févr. 1. | Shaftesbury[11]. | — —
+— 2. | Sturminster. | — —
+— 4. | Frampton[12]. | — —
+— 5. | Dorchester. | — 351 _b_.
+— | — Bridport[13]. | — —
+— 11-5. | Exeter. | — 351 _b_, 352 _b_.
+— 16-8. | Stoke[14]. | — 352 _b_, 377.
+— 19. | Ilminster[15]. | Roberts, I, 5.
+— 20. | Sherborne[16]. | R. cl. 353.
+— 22-7. | Sturminster[17]. | — 352, 377.
+Mars 2. | Wilton[18]. | — 353.
+— 3-4. | Marlborough. | — 353 _b_.
+— 5-6. | Hampstead. | — —
+— 7. | Faringdon. | — 354.
+— 8. | Cirencester. | — 377 _b_.
+— 8-10. | Gloucester. | — 354, 377 _b_.
+#1 Gloucester.
+#2 Cf. Hist. 17265.
+#3 Cf. Hist., III, 250, n. 2.
+#4 Kent.
+#5 En face Reading, sur la rive gauche de la Tamise. Le Maréchal y avait un manoir (Hist. 17919) et c'est là qu'il mourut.
+#6 Northampton.
+#7 Bucks.
+#8 Monmouth.
+#9 Ce lieu, que je ne puis identifier, n'est pas relevé dans l'index des _Rot. litt. cl._
+#10 Berks.
+#11 Dorset.
+#12 Dorset.
+#13 Dorset.
+#14 Devon.
+#15 Somerset.
+#16 Dorset.
+#17 Dorset.
+#18 Wilts.
+@clv
+Mars 12-8. | Worcester. | R. cl. 354 _b_-356 _b_, 378.
+— 18-22. | Inceburgh[1]. | — 356 _b_.
+— 25. | Enestan (?)[2]. | — —
+— 26-30. | Oxford. | — 356 _b_, 357, 378 _b_.
+Avril 2-5. | Westminster. | — 357 _b_, 378 _b_.
+— 6. | Stanwell. | — 358 _b_.
+— 6-9. | Caversham. | — — ; Roberts, I, 6.
+— 10. | Hampstead. | Roberts, I, 6.
+— | — Marlborough. | R. cl. 358 _b_.
+— 11. | Winchester. | Roberts, I, 7.
+— 15-6. | Marlborough. | R. cl. 358-9.
+— 17-8. | Hampstead. | — 359.
+— 20. | Gloucester. | — 359 _b_.
+— 21-2. | Worcester. | — —
+— 24. | Bradewey[3]. | — —
+— 25. | Spelsbury. | — —
+— 27. | Oxford. | — —
+Mai 2-5. | Westminster. | — 359 _b_, 360 ; Roberts, I, 7.
+Mai 5. | Tour de Londres. | R. cl. 360.
+Mai 6-17. | Westminster. | Roberts, I, 8, 9 ; R. cl. 360 _b_-362.
+— 25-6. | Woodstock. | R. cl. 362 _b_.
+— 27. | Crendon[4]. | — 363.
+— 29-31. | Tour de Londres. | — —
+Juin 1-3. | — | — 363 _a b_.
+— 3. | Amersham. | Roberts, I, 11.
+— 15-7. | Westminster. | R. cl. 363 _b_.
+— 17-31. | Tour de Londres. | — 363 _b_-364, 379.
+Juill. 1-8. | — | — 364-5.
+— 9-10. | Waltham. | — 365 _a b_.
+— 12. | Bassingbourn[5]. | — 365 _b_.
+— 19-22. | Newark. | — 365 _b_, 379 _b_, 380.
+Juill. 23. | Nottingham. | R. cl. 366.
+— 24. | Leicester. | — 366 _b_.
+— 25. | Brinklow[6]. | — —
+— 26. | Banbury. | — —
+— 28. | Wallingford[7]. | — 367.
+— 29. | Hampstead. | — —
+— 30. | Marlborough. | — —
+Août 4-7. | Caversham. | — 367, 378 _a_.
+— 8. | Wallingford. | — 367.
+— 9. | Crendon. | — —
+— 11-3. | Oxford. | — 367 _b_.
+— 17. | Somerton[8]. | — 368.
+— 19. | Wallingford. | — —
+— 20. | Hampstead. | — —
+— 21. | Hussebourn[9]. | — 368 _b_.
+— 12-27. | Winchester. | — 368-9, 378 _b_.
+— 30. | Tour de Londres. | — 369.
+Sept. 1-3. | — | — 369 _b_.
+— 5-8. | Bramber[10]. | — —, 370.
+— 13. | Mapledurham[11]. | — 378.
+— 14. | Winchester. | — 370.
+— 18. | Gloucester. | — 369 _b_.
+— 23. | Striguil. | — —
+— 28. | Goodrich. | — —
+— 29. | Gloucester. | — —
+Oct. 4-6. | Dunstable[12]. | — —, 378.
+— 9-18. | Westminster. | — —, 370.
+— 19. | Wallingford. | — 370 _b_.
+— | — Westminster. | — —
+— 21. | Tour de Londres. | — 371.
+— 23-30. | Westminster. | — 371-2, 380.
+Nov. 2-30[13]. | — | — 372 _b_, 380-3.
+Déc. 5. | Saint-Paul (Londres). | — 383 _b_.
+— 8-12. | Tour de Londres. | — 383 _b_, 384, 404.
+— 14. | Westminster. | — 404 _b_.
+— 31. | Marlborough. | — 404.
+#1 Ou _Inceberewe_ ; n'est pas relevé dans l'index des _Rot. litt. cl._
+#2 N'est pas relevé dans le même index.
+#3 Non relevé ; Broadway, Dorset ?
+#4 Bucks.
+#5 Cambridge.
+#6 Warwick, près de Rugby.
+#7 Berks.
+#8 Oxfordshire.
+#9 Hampshire.
+#10 Sussex.
+#11 Oxford.
+#12 Bedford.
+#13 En novembre et décembre, c'est, le plus souvent, l'évêque de Winchester qui est témoin.
+@clvi
+= 1219.
+Janv. 1-6. | Marlborough. | — 385.
+— 11. | Reading. | — —
+Janv. 16-29. | Westminster. | — 385 _b_-387, 404 _b_.
+Févr. 7-24. | — | — 387-8, 405.
+Mars 7-15. | Tour de Londres[1]. | — 389.
+Mars 21. | Caversham[2]. | Roberts, I, 29.
+— 24. | Caversham. | R. cl. 389.
+— 28. | — | — 390.
+Avril 4-9. | — | — —
+ | Le Maréchal mourut à Caversham le 14 mai 1219. A partir du 10, les actes sont passés en présence de l'évêque de Winchester. |
+#1 Le poème nous apprend que le Maréchal tomba malade à la Chandeleur (2 février) et, quoique souffrant, se rendit à cheval à la Tour de Londres (vv. 17881 et suiv.).
+#2 Cf. Hist., v. 17936.

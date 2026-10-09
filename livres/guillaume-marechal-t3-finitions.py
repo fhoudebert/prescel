@@ -40,7 +40,7 @@ REPORTS = [
 # Mots coupés par une espace (ligne de l'imprimé) ; motif exact → mot
 COUPES = """co mte|comte  Angle terre|Angleterre  Phi lippe|Philippe  mou rut|mourut  plu sieurs|plusieurs
 Plu sieurs|Plusieurs  beau coup|beaucoup  ail leurs|ailleurs  entre vue|entrevue  toute fois|toutefois
-Toute fois|Toutefois  long temps|longtemps  main tenant|maintenant  Poi tou|Poitou  Don né|Donné
+Toute fois|Toutefois  long temps|longtemps  Don né|Donné
 bien tôt|bientôt  r egis|regis  trou ver|trouver  chance lier|chancelier  rai son|raison  pré sent|présent
 cher cher|chercher  con sentit|consentit  mes sage|message  Mal gré tous|Malgré tous  pou voir|pouvoir
 for tune|fortune  For tune|Fortune  As siège|Assiège  don nées|données  ré volte|révolte
@@ -54,7 +54,7 @@ con tenus|contenus  De vient|Devient  au près|auprès  ré tif|rétif  ras semb
 Man tes|Mantes  do nation|donation  bel le lum|bellum  parti sans du|partisans du  par donne|pardonne
 prison nier|prisonnier  Il en voie|Il envoie  l'ai de donnée|l'aide donnée  Henri I I|Henri II
 X XX I I|XXXII  an nées|années  plu part|plupart  sen tir|sentir  ras sembla|rassembla
-atten dez|attendez  per sonne|personne  rem plaça|remplaça  sauf-con duit|sauf-conduit  Voirp.8|Voir p. 8  (t cueiu|li cuens  Bonnevillesur|Bonneville-sur  Worcesteravec|Worcester avec"""
+atten dez|attendez  per sonne|personne  rem plaça|remplaça  sauf-con duit|sauf-conduit  Voirp.8|Voir p. 8  (t cueiu|li cuens"""
 COUPES = [x for x in re.split(r"\s{2,}|\n", COUPES) if x.strip()]
 
 # Lectures fautives sûres : (motif, remplacement)
@@ -64,7 +64,7 @@ OCR = [
     (r"(?<=[.!?] )II (?=[a-zé])", "Il "), (r"\b11y a\b", "Il y a"), (r"\bIlyadans\b", "Il y a dans"),
     (r"\bformequi\b", "forme qui"),
     (r"\béd\. FOrster\b", "éd. Förster"), (r"\bCambrUe\b", "Cambriæ"), (r"\bqueLavostre\b", "que La vostre"),
-    (r"\bDurTus\b", "Duffus"), (r"\bannoUted\b", "annotated"), (r"\bHistorUv anglicanx\b", "Historiæ anglicanæ"),
+    (r"\bHistorUv anglicanx\b", "Historiæ anglicanæ"),
     (r"\bCotL charters\b", "Cott. charters"), (r"\bVVigani\b", "Wigani"), (r"\bOfQcium\b", "Officium"),
     (r"\bNormannUe\b", "Normanniæ"), (r"\bVArchxologia\b", "l'Archæologia"), (r"\blUntrartum Ricardl\b",
     "Itinerarium Ricardi"), (r"\bdeLongchamp\b", "de Longchamp"), (r"\bl'IIe-aux-Bœufs", "l'Île-aux-Bœufs"),
@@ -78,7 +78,7 @@ OCR = [
     (r"\bRobert 11I\b", "Robert III"), (r"\bDicet, 1I\b", "Dicet, II"), (r"\bLe([24]) (juillet|septembre)\b",
     r"Le \1 \2"), (r"\bl e8 décembre 1 174\b", "le 8 décembre 1174"), (r"\bl e1 octobre\b", "le 1er octobre"),
     (r"\bedited by6\. H\. Orpen\b", "edited by G. H. Orpen"), (r"\bFils 6erout\b", "Fils Gerout"),
-    (r"\b8imonde\b", "Simonde"), (r"\bFreemantleI\b", "Freemantle"), (r"\bMar[éê]chai\b", "Maréchal"),
+    (r"\b8imonde\b", "Simonde"), (r"\bMar[éê]chai\b", "Maréchal"),
 ]
 
 # Remplacements dans le XHTML (à cheval sur une balise ou un paragraphe), vérifiés sur le DjVu

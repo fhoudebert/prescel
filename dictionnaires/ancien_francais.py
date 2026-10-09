@@ -111,9 +111,92 @@ CONTEXTE = {
     'boens': 'bon|bons', 'buens': 'bon|bons', 'granz': 'grand|grands',
 }
 
+# Mots remplacés par leur sens moderne (le mot ancien n'existe plus ou a changé de sens), pour une
+# lisibilité accrue : appliqués d'office par --mode vocab, sauf quand la forme ancienne est aussi un mot
+# moderne (« faix », « lais », « lobe », « desserte », « fournier ») : alors au choix dans la liste.
+# Les verbes sont donnés aux formes rencontrées dans les textes (anglo-normand et francien).
+LEXIQUE = {
+    # chevance : richesse ; bachelerie : jeunesse ; arroi : ordre ; coulpe : faute
+    'chevance': 'richesse', 'chevances': 'richesses', 'chevaunce': 'richesse',
+    'bachelerie': 'jeunesse', 'bachellerie': 'jeunesse', 'bacheleries': 'jeunesses',
+    'arroi': 'ordre', 'arroy': 'ordre', 'arrois': 'ordres', 'arroiz': 'ordres',
+    'coulpe': 'faute', 'coulpes': 'fautes', 'colpe': 'faute', 'colpes': 'fautes', 'culpe': 'faute',
+    # cuidier : penser
+    'cuidier': 'penser', 'cuider': 'penser', 'quidier': 'penser', 'quider': 'penser',
+    'cuit': 'pense', 'cuid': 'pense', 'quid': 'pense', 'cuide': 'pense', 'quide': 'pense',
+    'cuides': 'penses', 'cuidons': 'pensons', 'quidons': 'pensons', 'cuidiez': 'pensez', 'quidiez': 'pensez',
+    'cuident': 'pensent', 'quident': 'pensent',
+    'cuidoie': 'pensais', 'quidoie': 'pensais', 'cuidoe': 'pensais', 'quidoe': 'pensais',
+    'cuidout': 'pensait', 'quidout': 'pensait', 'cuidot': 'pensait', 'cuidoit': 'pensait',
+    'quidoit': 'pensait', 'cuideit': 'pensait', 'quideit': 'pensait',
+    'cuidoent': 'pensaient', 'quidoent': 'pensaient', 'cuidoient': 'pensaient', 'cuideient': 'pensaient',
+    'cuida': 'pensa', 'quida': 'pensa', 'cuidai': 'pensai', 'quidai': 'pensai',
+    'cuidérent': 'pensèrent', 'quidérent': 'pensèrent', 'cuidierent': 'pensèrent', 'cuidièrent': 'pensèrent',
+    'cuidast': 'pensât', 'quidast': 'pensât', 'cuidasse': 'pensasse', 'cuidassent': 'pensassent',
+    'cuidié': 'pensé', 'cuidé': 'pensé', 'quidié': 'pensé',
+    'cuidereie': 'penserais', 'quidereie': 'penserais', 'quiderraie': 'penserais', 'cuidereit': 'penserait',
+    'quidereit': 'penserait',
+    # faix : poids ; gaite : sentinelle
+    'faix': 'poids', 'gaite': 'sentinelle', 'gaites': 'sentinelles', 'guaite': 'sentinelle',
+    'gaitent': 'veillent',
+    # issir : sortir (pas « issi », « eissi », qui sont surtout « ainsi » en anglo-normand)
+    'issir': 'sortir', 'eissir': 'sortir', 'oissir': 'sortir', 'issirent': 'sortirent', 'eissirent': 'sortirent',
+    'issent': 'sortent', 'eissent': 'sortent', 'isseit': 'sortait', 'issoit': 'sortait', 'issoient': 'sortaient',
+    'eissist': 'sortît', 'issist': 'sortît', 'eissu': 'sorti', 'eissue': 'sortie', 'eissuz': 'sortis',
+    # lais : testament ; lobe : raillerie ; maisnie : suite
+    'lais': 'testament', 'lobe': 'raillerie', 'lobes': 'railleries', 'lober': 'railler',
+    'maisnie': 'suite', 'maisniee': 'suite', 'maisniée': 'suite', 'mesnie': 'suite', 'maisnies': 'suites',
+    'mesnies': 'suites', 'mainie': 'suite',
+    # menoison : dysenterie ; meschief : malheur
+    'menoison': 'dysenterie', 'menison': 'dysenterie',
+    'meschief': 'malheur', 'meschiefs': 'malheurs', 'meschiés': 'malheurs', 'mescheance': 'malheur',
+    'meschaance': 'malheur',
+    # navier : naviguer ; mesiaus : lépreux ; eschamel : escabeau
+    'navier': 'naviguer', 'navia': 'navigua', 'navierent': 'naviguèrent', 'naviérent': 'naviguèrent',
+    'mesiaus': 'lépreux', 'mesiax': 'lépreux', 'meseaus': 'lépreux', 'mesel': 'lépreux', 'mesels': 'lépreux',
+    'mezel': 'lépreux', 'mezels': 'lépreux', 'mesele': 'lépreuse',
+    'eschamel': 'escabeau', 'eschamels': 'escabeaux', 'eschamiaus': 'escabeaux', 'eschamaus': 'escabeaux',
+    # chaloir : se soucier (impersonnel « ne li chaut » : ne lui importe)
+    'chaloir': 'se soucier', 'chaleir': 'se soucier', 'chaut': 'importe', 'chalt': 'importe',
+    'chaleit': 'importait', 'chaloit': 'importait', 'challoit': 'importait', 'chalut': 'importa',
+    'chausist': 'importât', 'chalsist': 'importât',
+    # barguignier : marchander ; assemer : parer ; aticier : exciter
+    'barguignier': 'marchander', 'barguigner': 'marchander', 'barguigna': 'marchanda',
+    'barguignent': 'marchandent', 'barguignoit': 'marchandait',
+    'assemer': 'parer', 'assemé': 'paré', 'assemée': 'parée', 'assemez': 'parés', 'assemés': 'parés',
+    'atticier': 'exciter', 'aticier': 'exciter', 'atisier': 'exciter', 'atiça': 'excita', 'aticié': 'excité',
+    'aticiez': 'excités', 'atice': 'excite',
+    # berrie : plaine ; costement : coût ; corine : haine
+    'berrie': 'plaine', 'berries': 'plaines',
+    'costement': 'coût', 'costemens': 'coûts', 'costemenz': 'coûts', 'coustement': 'coût',
+    'corine': 'haine', 'courine': 'haine', 'curine': 'haine',
+    # créanter : promettre ; darrains : derniers ; desserte : mérite
+    'creanter': 'promettre', 'créanter': 'promettre', 'creantier': 'promettre', 'creanta': 'promit',
+    'créanta': 'promit', 'creanterent': 'promirent', 'creantérent': 'promirent', 'creante': 'promet', 'creantent': 'promettent', 'creanté': 'promis', 'créanté': 'promis', 'creantez': 'promis',
+    'darrain': 'dernier', 'darrains': 'derniers', 'darraine': 'dernière', 'derrain': 'dernier',
+    'derrains': 'derniers', 'derraine': 'dernière', 'darreniers': 'derniers',
+    'desserte': 'mérite', 'dessertes': 'mérites',
+    # desvé : enragé ; eshidé : épouvanté ; estorer : fonder ; estoirer : approvisionner
+    'desvé': 'enragé', 'desvez': 'enragés', 'desvée': 'enragée', 'desvés': 'enragés', 'dervé': 'enragé',
+    'eshidé': 'épouvanté', 'eshidez': 'épouvantés', 'eshidée': 'épouvantée', 'eshidés': 'épouvantés',
+    'estorer': 'fonder', 'estora': 'fonda', 'estoré': 'fondé', 'estorée': 'fondée',
+    'estoirer': 'approvisionner', 'estoiré': 'approvisionné', 'estoirée': 'approvisionnée',
+    'estoirez': 'approvisionnés',
+    # fournier : boulanger ; mezelerie : lèpre ; oirre : voyage ; pec : émotion
+    'fournier': 'boulanger', 'forniers': 'boulangers', 'fornier': 'boulanger',
+    'mezelerie': 'lèpre', 'meselerie': 'lèpre', 'mesellerie': 'lèpre',
+    'oirre': 'voyage', 'oirres': 'voyages',
+    'pec': 'émotion',
+    # pooir : pouvoir ; remanant : reste ; relenquir : abandonner
+    'pooir': 'pouvoir', 'pooirs': 'pouvoirs',
+    'remanant': 'reste', 'remenant': 'reste', 'remanans': 'restes',
+    'relenquir': 'abandonner', 'relinquir': 'abandonner', 'relenqui': 'abandonna', 'relenquist': 'abandonna',
+    'relenquie': 'abandonnée', 'relinqui': 'abandonna',
+}
+
 # Mots dont le sens a changé : jamais appliqués à une lecture modernisée (version reformulée seulement)
 VERSION_MODERNE = {
-    'cuidier': 'croire', 'cuida': 'crut', 'cuit': 'crois', 'nonchaleir': 'insouciance',
+    'nonchaleir': 'insouciance',
     'mesestance': 'malheur', 'ainz': 'mais, plutôt', 'einz': 'mais, plutôt', 'fors': 'hors, sauf',
     'or': 'maintenant', 'si': 'ainsi, et', 'cist': 'ce, celui-ci', 'cest': 'ce, cet',
 }
