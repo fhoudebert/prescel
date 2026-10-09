@@ -1,0 +1,2 @@
+# Fichiers Gutenberg : texte en CRLF dans la copie de travail, LF dans le dépôt (les patchs passent sans --keep-cr)
+epub/*.txt text eol=crlf

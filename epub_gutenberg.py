@@ -139,6 +139,10 @@ def runs_of(el, notemap, out=None, style=""):
             if FOLIOS[0] and ch.get("id") in PAGES:
                 out.append(("", ("page", PAGES[ch.get("id")])))
             runs_of(ch, notemap, out, style)          # ancre de page : on garde son texte éventuel
+        elif n == "span" and "numvers" in classes(ch):
+            out.append(("".join(ch.itertext()).strip(), "numvers"))   # numéro de vers
+        elif n == "span" and "manchette" in classes(ch):
+            out.append(("".join(ch.itertext()).strip(), "manchette"))
         elif n == "sup" and "var" in classes(ch):
             out.append(("".join(ch.itertext()).strip(), "var"))   # appel de variante
         elif n in ("i", "em", "cite"):
@@ -248,6 +252,7 @@ def read_epub(path):
                 walk(ch, up + (e,))
         walk(body, ())
     chapter = 0
+    carry = []
     for p, body in docs:
         if not any(("".join(e.itertext())).strip() for e in body.iter()):
             continue                                   # page d'image seule (couverture)
@@ -277,6 +282,8 @@ def read_epub(path):
                 num = note_of_el.get(id(el))
                 runs = clean_runs(runs_of(el, notemap))
                 # le numéro imprimé (« 1. ») et la ponctuation finale de l'OCR (« , » « .. »)
+                if len(runs) > 1 and re.fullmatch(r"\s*\d{1,3}\s*", runs[0][0]) and re.match(r"[.)]", runs[1][0]):
+                    runs = [(runs[0][0] + runs[1][0], runs[1][1])] + runs[2:]     # « <a>1</a>. » : numéro lié
                 if runs and isinstance(runs[0][0], str):
                     runs[0] = (re.sub(r"^\s*\(?\d{1,3}[.)]\s*", "", runs[0][0]), runs[0][1])
                 if runs:
@@ -295,7 +302,10 @@ def read_epub(path):
                 continue
             if n == "p" and "variantes" in classes(el):
                 page = re.sub(r"^p\.\s*", "", el.get("title") or "")
-                runs = [r for r in clean_runs(runs_of(el, notemap)) if not (isinstance(r[1], tuple) and r[1][0] == "page")]
+                allruns = clean_runs(runs_of(el, notemap))
+                # une ancre de page tombée dans les variantes passe au bloc suivant du texte
+                carry.extend(r for r in allruns if isinstance(r[1], tuple) and r[1][0] == "page")
+                runs = [r for r in allruns if not (isinstance(r[1], tuple) and r[1][0] == "page")]
                 runs = typo_runs(clean_runs(runs))
                 if runs:
                     if book.variants and book.variants[-1][0] == page:
@@ -306,6 +316,9 @@ def read_epub(path):
             runs = typo_runs(clean_runs(runs_of(el, notemap)))
             if not runs:
                 continue
+            if carry:
+                runs = carry + runs
+                carry.clear()
             kind = n if n in ("h1", "h2", "h3", "h4") else "p"
             book.blocks.append((chapter, {"kind": kind, "cls": classes(el), "runs": runs, "src": p}))
     return book
@@ -314,6 +327,16 @@ def read_epub(path):
 # --------------------------------------------------------------------------
 # Texte brut
 # --------------------------------------------------------------------------
+
+def notes_of(b):
+    """Numéros des notes appelées dans un bloc (cellules comprises pour un tableau), sans doublon."""
+    runs = list(b["runs"]) + [r for cells in b.get("rows", []) for c in cells for r in c]
+    out = []
+    for _, s in runs:
+        if isinstance(s, tuple) and s[0] == "note" and s[1] not in out:
+            out.append(s[1])
+    return out
+
 
 def plain_runs(runs, italic="_"):
     out = []
@@ -327,6 +350,10 @@ def plain_runs(runs, italic="_"):
             out.append("[%d]" % s[1])
         elif s == "var":
             out.append(t.translate(SUPER))
+        elif s == "numvers":
+            out.append("\x02%s\x02" % t)
+        elif s == "manchette":
+            out.append(" [%s]" % t)
         elif s == "i" and t.strip():
             lead, core, trail = re.match(r"^(\s*)(.*?)(\s*)$", t, re.S).groups()
             out.append("%s%s%s%s%s" % (lead, italic, core, italic, trail))
@@ -336,7 +363,8 @@ def plain_runs(runs, italic="_"):
             out.append(t)
     text = "".join(out)
     # numéro de page : séparé des mots par une espace, jamais deux
-    text = re.sub(r"\s*\x01(\{\d+\})\x01\s*", lambda m: " %s " % m.group(1), text)
+    text = re.sub(r"[ \t]*\x01(\{\d+\})\x01[ \t]*", lambda m: " %s " % m.group(1), text)
+    text = re.sub(r"\n (\{\d+\}) ", r"\n\1 ", text)
     text = re.sub(r"^ (\{\d+\}) ", r"\1 ", text)
     text = text.strip(" ") if text.startswith(" {") else text
     if not TYPO[0]:
@@ -387,6 +415,8 @@ def table_text(b, width):
             dots = width - len(last) - len(tr[1]) - 2
             lines[-1] = last + " " + "." * max(1, dots) + " " + tr[1] if dots > 2 else last + " " + tr[1]
             out += lines
+        elif len(cells) == 1 and "chronologie" in b["cls"]:
+            out += ["", plain_runs(cells[0]).strip()]                  # année en tête
         else:
             out += hanging("   ".join(plain_runs(c).strip() for c in cells if c), width)
     return out
@@ -424,7 +454,7 @@ def to_text(book, width, note_txt, title_lines):
             current = chapter
         k = b["kind"]
         text = plain_runs(b["runs"])
-        notes_here = [s[1] for _, s in b["runs"] if isinstance(s, tuple) and s[0] == "note"]
+        notes_here = notes_of(b)
         if k in ("h1", "h2"):
             blank(4)
             out += center(text, width)
@@ -451,12 +481,17 @@ def to_text(book, width, note_txt, title_lines):
             out.append("")
         elif "vers" in b["cls"]:
             for l in text.split("\n"):              # un vers trop long continue en retrait
-                out += hanging("    " + l, width, "        ") if len(l) + 4 > width else ["    " + l]
+                num = re.search(r"\x02(\d+)\x02", l)
+                l = re.sub(r"\s*\x02\d+\x02", "", l).strip()
+                if num and len(l) + 4 + len(num.group(1)) + 2 <= width:
+                    out.append(("    " + l).ljust(width - len(num.group(1))) + num.group(1))   # numéro à droite
+                else:
+                    out += hanging("    " + l, width, "        ") if len(l) + 4 > width else ["    " + l]
             out.append("")
         else:
             out += wrap(text, width)
             out.append("")
-        pending_notes.extend(notes_here)
+        pending_notes.extend(n for n in notes_here if n not in pending_notes)
     flush_notes()
     if book.variants:
         blank(4)
@@ -505,11 +540,17 @@ hr.chap { width: 60%; margin: 3em auto 1em; clear: both; }
            color: #777; }
 .pagenum a { color: #777; text-decoration: none; }
 sup.var { font-size: 0.6em; color: #777; }
+.linenum { position: absolute; left: 5%; font-size: 0.75em; color: #777; }
+.manchette { font-size: 0.8em; color: #777; }
 table.tableau { margin: 1em auto; border-collapse: collapse; }
 table.tableau td { padding: 0.1em 0.5em; vertical-align: top; }
 table.tableau td.num { text-align: right; }
+table.chronologie th { padding-top: 0.8em; }
 p.variante { text-indent: -2em; margin: 0.3em 0 0.3em 2em; font-size: 0.9em; }
 """
+
+
+ANCRES = {}
 
 
 def html_runs(runs):
@@ -520,16 +561,22 @@ def html_runs(runs):
         elif isinstance(s, tuple) and s[0] == "page":
             lab = s[1]
             pid = "page_" + re.sub(r"[^\w-]", "_", lab)
-            if lab in VARPAGES:
+            if lab in VARPAGES and lab.isdigit():
                 out.append('<span class="pagenum" id="%s">[<a href="#var_%s">%s</a>]</span>'
                            % (pid, pid[5:], html.escape(lab)))
             elif lab.isdigit():
                 out.append('<span class="pagenum" id="%s">[%s]</span>' % (pid, html.escape(lab)))
         elif isinstance(s, tuple):
             n = s[1]
-            out.append('<a id="FNanchor_%d" href="#Footnote_%d" class="fnanchor">[%d]</a>' % (n, n, n))
+            ident = "FNanchor_%d" % n if n not in ANCRES else "FNanchor_%d_%d" % (n, len(ANCRES[n]) + 1)
+            ANCRES.setdefault(n, []).append(ident)       # note appelée deux fois : ancre distincte
+            out.append('<a id="%s" href="#Footnote_%d" class="fnanchor">[%d]</a>' % (ident, n, n))
         elif s == "var":
             out.append('<sup class="var">%s</sup>' % html.escape(t, quote=False))
+        elif s == "numvers":
+            out.append('<span class="linenum">%s</span>' % html.escape(t, quote=False))
+        elif s == "manchette":
+            out.append(' <span class="manchette">%s</span>' % html.escape(t, quote=False))
         elif s == "i":
             out.append("<i>%s</i>" % html.escape(t, quote=False))
         elif s == "b":
@@ -580,7 +627,7 @@ def to_html(book, title_lines, note_txt):
             current = chapter
         k = b["kind"]
         body = html_runs(b["runs"])
-        notes_here = [s[1] for _, s in b["runs"] if isinstance(s, tuple) and s[0] == "note"]
+        notes_here = notes_of(b)
         if k in ("h1", "h2"):
             out.append('<hr class="chap">')
             out.append("<h2>%s</h2>" % body)
@@ -596,9 +643,12 @@ def to_html(book, title_lines, note_txt):
                     pg = tr[1]
                     num = ('<a href="#page_%s">%s</a>' % (pg, pg)) if FOLIOS[0] and pg in PAGES.values() else pg
                     rows.append('<tr><td>%s</td><td class="num">%s</td></tr>' % (html_runs(tr[0]), num))
+                elif len(cells) == 1 and "chronologie" in b["cls"]:
+                    rows.append('<tr><th colspan="3">%s</th></tr>' % html_runs(cells[0]))
                 else:
                     rows.append("<tr>%s</tr>" % "".join("<td>%s</td>" % html_runs(c) for c in cells))
-            out.append('<table class="tableau">\n%s\n</table>' % "\n".join(rows))
+            cls = "tableau chronologie" if "chronologie" in b["cls"] else "tableau"
+            out.append('<table class="%s">\n%s\n</table>' % (cls, "\n".join(rows)))
         elif "sommaire" in b["cls"]:
             out.append('<p class="summary">%s</p>' % body)
         elif "vers" in b["cls"]:
@@ -609,7 +659,7 @@ def to_html(book, title_lines, note_txt):
             out.append('<p class="right">%s</p>' % body)
         else:
             out.append("<p>%s</p>" % body)
-        pending.extend(notes_here)
+        pending.extend(n for n in notes_here if n not in pending)
     flush()
     if book.variants:
         out.append('<hr class="chap">')
@@ -625,7 +675,10 @@ def to_html(book, title_lines, note_txt):
             out.append("<p>%s</p>" % e(para, quote=False))
         out.append("</div>")
     out += ["</body>", "</html>", ""]
-    return "\n".join(out)
+    page = "\n".join(out)
+    ids = set(re.findall(r'\sid="([^"]+)"', page))
+    # lien vers une page dont l'ancre n'est pas dans le texte (page de titre, page sans texte) : texte seul
+    return re.sub(r'<a href="#(page_[^"]+)">(.*?)</a>', lambda m: m.group(0) if m.group(1) in ids else m.group(2), page)
 
 
 # --------------------------------------------------------------------------
@@ -687,10 +740,16 @@ def main():
         notes.append("Les corrections indiquées dans l'errata du volume ont été faites dans le texte"
                      + ("." if done_ == total_ else " (%d sur %d)." % (done_, total_)))
     if book.variants:
+        poeme = any("vers" in b["cls"] for _, b in book.blocks)
         notes.append("Les variantes, imprimées au bas des pages, sont regroupées à la fin du volume, "
-                     "page par page ; leurs appels sont en exposant dans le texte. Les numéros de page "
-                     "du livre imprimé sont indiqués entre accolades {12} dans le texte brut, en marge "
-                     "dans le HTML (un clic mène aux variantes de la page).")
+                     "page par page ; "
+                     + ("elles renvoient aux numéros des vers, donnés de quatre en quatre dans la marge"
+                        if poeme else "leurs appels sont en exposant dans le texte")
+                     + ". Les numéros de page du livre imprimé sont indiqués entre accolades {12} dans le "
+                     "texte brut, en marge dans le HTML (un clic mène aux variantes de la page).")
+        if poeme:
+            notes.append("Les folios du manuscrit sont donnés entre crochets [(f. 12 b)] en fin de vers. "
+                         "Les crochets [ ] dans les vers marquent les restitutions de l'éditeur.")
     txt = to_text(book, opts.width, notes, title_lines)
     with open(opts.output + ".txt", "w", encoding="utf-8", newline="") as f:
         f.write(txt)

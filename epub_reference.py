@@ -517,6 +517,35 @@ def main():
                                     blocked = True    # « IIIIxx », « VIIIm », « Vc » : exposant (mille, cents, e)
                                 elif any(kn(x) and len(x) <= 3 for x in ew):
                                     blocked = True    # « est »/« et », « un »/« en » : à la relecture
+                                elif len(ew) == len(rw) and all(kn(x) for x in ew) and not all(kn(y) for y in rw):
+                                    blocked = True    # « Excerpta » → « Excerpla » : un mot connu ne devient pas inconnu
+                                elif len(ew) == len(rw) and any(
+                                        difflib.SequenceMatcher(None, x.lower(), y.lower()).ratio() < 0.5
+                                        for x, y in zip(ew, rw)):
+                                    blocked = True    # « monde » → « Salisbury » : mauvais alignement
+                                elif any(re.fullmatch(r"[ivxlcdmj]+[.,;:]?", x) and x != y for x, y in zip(ew, rw)):
+                                    blocked = True    # « lxxx » → « Ixxx » : chiffres romains en bas de casse
+                            if not blocked and len(ei) > 1:
+                                # plusieurs mots de l'EPUB recollés : jamais par-dessus une ponctuation ou
+                                # une balise (« AunomdeDieu, »ditleMaréchal » → guillemets perdus)
+                                h0, a0, s0 = slots[ei[0]][0], slots[ei[0]][1], slots[ei[0]][2]
+                                if not all(slots[k][0] is h0 and slots[k][1] == a0 for k in ei) or \
+                                        re.search(r"[«»,;:!?()]", (getattr(h0, a0) or "")[s0:slots[ei[-1]][3]]):
+                                    blocked = True
+                            if not blocked and len(ew) == len(rw):
+                                # « t » lu « l » par les deux OCR (« Excerpta » → « Excerpla ») : jamais
+                                for x, y in zip(ew, rw):
+                                    for op_, a1, a2, b1, b2 in difflib.SequenceMatcher(None, x, y).get_opcodes():
+                                        if op_ == "replace" and "t" in x[a1:a2] and "l" in y[b1:b2]:
+                                            blocked = True
+                            if not blocked and ew and rw:
+                                # ponctuation de l'EPUB (guillemets, virgules…) jamais perdue ; mot jamais
+                                # tronqué (« Hal » : « Ha! » dont le point d'exclamation est lu « l »)
+                                pe = collections.Counter(c for c in " ".join(ew) if c in "«»,;:!?()")
+                                pr = collections.Counter(c for c in " ".join(rw) if c in "«»,;:!?()")
+                                if pe - pr or (len(ew) == len(rw) == 1 and len(rw[0]) < len(ew[0])
+                                               and ew[0].lower().startswith(rw[0].lower())):
+                                    blocked = True
                             if not blocked and cat in ("graphie", "casse"):
                                 # deux OCR perdent souvent le même accent pâle (« Français » →
                                 # « Francais », « remède » → « remede ») : retirer un accent n'est
@@ -663,6 +692,8 @@ def ocr_guard(ew, rw, wordlist, vocab):
         known = lambda w: vocab.get(w.lower(), 0) >= 3 or (wordlist is not None and is_word(w, wordlist, vocab))
         if any(known(w) for w in ew) or not all(known(w) for w in rw):
             return False
+        if any(re.search(r"[\[\]|]", w) for w in ew):
+            return False                         # lettres restituées par l'éditeur (« ga[a]igne »)
         if len(ew) == len(rw) == 1:
             e, r = ew[0], rw[0]
             if e[:1].isupper() != r[:1].isupper():

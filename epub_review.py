@@ -63,6 +63,7 @@ p.a-verifier, h1.a-verifier, h2.a-verifier { background: none; outline: 2px dash
 LETTERS = "A-Za-zÀ-ÖØ-öø-ÿŒœÆæß"
 WORD_RE = re.compile(r"[%s]+" % LETTERS)
 ALLOWED_SINGLE = set("aàyoôAÀYOÔ&")
+OLD_FRENCH = [False]   # --ancien : « e » (et), « i » (y), « o » (avec, ou), « u » sont des mots
 CHAPTER_RE = re.compile(r"^(?:[^a-zà-ÿ]{0,30}?\s)?(?:CHA)?(?:CHAPITRE|Chapitre|CHAP|Chap)\b\s*\.?\s*(.+?)[\s.]*$")
 GLOBAL_FIXES = [
     ("ß", "ss", "« ß » : s long + s mal lu (außi → aussi)"),
@@ -324,8 +325,11 @@ class Reviewer:
             # abréviations de l'éditeur : « (n. s.) », « (v. st.) », « p. 45 », « n° 8354 »,
             # « 15e jour » (ordinal collé à un nombre)
             abbrev = (b < len(s) and s[b] in ".°" and re.match(r"[.°]\s*(?:\d|[a-z]{1,2}\.)", s[b:])) or \
-                (a > 0 and s[a - 1].isdigit())
-            if len(w) == 1 and w not in ALLOWED_SINGLE and not elided and not hyphenated \
+                (a > 0 and s[a - 1].isdigit()) or \
+                (a > 1 and re.search(r"\d\s$", s[:a]) and re.match(r"\s*\)", s[b:])) or \
+                (a > 0 and s[a - 1] in "[]") or (b < len(s) and s[b] in "[]")   # « maisni[é]e », « [d]estachier »
+            if len(w) == 1 and w not in ALLOWED_SINGLE and not (OLD_FRENCH[0] and w in "eiouEIOU") \
+                    and not elided and not hyphenated \
                     and not w.isupper() and not abbrev \
                     and w not in "ivxlc":
                 out.append((a, b, "isolees", w))
@@ -451,6 +455,9 @@ class Reviewer:
                 if not s.strip():
                     continue
                 hits = [h for h in self.suspects_in(s) if h[2] not in self.skip]
+                if "variantes" in classes(el):
+                    # apparat critique : « v. », « t. », leçons du manuscrit — pas des lettres perdues
+                    hits = [h for h in hits if h[2] != "isolees"]
                 for (a, b, cat, detail) in hits:
                     self.add(cat, doc, node_page, s, a, b, detail)
                 if hits and mark:
@@ -795,6 +802,8 @@ def write_epub(src, out_path, new_data):
 def main():
     ap = argparse.ArgumentParser(description="Prépare la relecture d'un EPUB issu d'OCR.")
     ap.add_argument("epub")
+    ap.add_argument("--ancien", action="store_true",
+                    help="ancien français : « e », « i », « o », « u » seuls sont des mots, pas des lettres isolées")
     ap.add_argument("--report", help="rapport HTML (défaut : <livre>-relecture.html)")
     ap.add_argument("--mark", metavar="EPUB", help="écrire une copie marquée pour Sigil")
     ap.add_argument("--unmark", action="store_true", help="retirer tous les marqueurs")
@@ -819,6 +828,7 @@ def main():
     ap.add_argument("--max-items", type=int, default=400, help="cas affichés par catégorie")
     ap.add_argument("--css-path", default="Styles/livre.css")
     opts = ap.parse_args()
+    OLD_FRENCH[0] = opts.ancien
 
     src = opts.epub
     with zipfile.ZipFile(src) as zin:

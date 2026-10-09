@@ -163,6 +163,210 @@ Ce que fait chaque étape, et ses précautions :
   sont en marge du HTML (lien vers les variantes) et entre accolades `{12}` dans le texte ; la
   table imprimée est rendue en tableau (points de conduite dans le texte).
 
+#### Moderniser l'orthographe d'un texte en moyen français (Froissart)
+
+`epub_modernise.py --epoque moyen` change de profil de dictionnaires : le XIVᵉ siècle n'a ni le
+lexique ni les règles des XVIIᵉ-XVIIIᵉ (« -és » y est une 2ᵉ personne : « avés » → « avez »,
+quand au XVIIᵉ « bontez » → « bontés » ; `--mode ez` est donc refusé). Chaîne suivie pour les
+tomes 12 à 14 (≈ 72-74 % → 88-91 % de mots à l'orthographe moderne), à partir de l'EPUB relu :
+
+```
+python3 epub_modernise.py relu.epub -o 1.epub --epoque moyen --mode vocab --tsv livre-moderne.tsv --wordlist auto
+python3 epub_modernise.py 1.epub -o 2.epub --epoque moyen --mode vocab \
+        --dict dictionnaires/noms_froissart.py --tsv livre-noms.tsv --wordlist auto
+python3 epub_modernise.py 2.epub -o 3.epub --epoque moyen --mode oi --tsv livre-oi.tsv --wordlist auto
+python3 epub_modernise.py 3.epub -o 4.epub --epoque moyen --mode graphie --tsv livre-graphie.tsv --wordlist auto
+python3 epub_modernise.py 4.epub -o 5.epub --epoque moyen --mode erent --tsv livre-erent.tsv --wordlist auto
+python3 epub_modernise.py 5.epub -o 6.epub --epoque moyen --mode ants --tsv livre-ants.tsv --wordlist auto
+python3 epub_modernise.py 6.epub -o moderne.epub --epoque moyen --mode vocab --tsv livre-moderne2.tsv --wordlist auto
+```
+
+- `dictionnaires/moyen_francais.py` : formes sûres (« prins » → « pris », « misrent » → « mirent »,
+  « voulenté » → « volonté », « roiaulme » → « royaume ») ; `FORCE` pour les formes qui sont aussi
+  un mot moderne mais ont presque toujours ce sens chez l'auteur (« conte » → « comte ») ;
+  `VERSION_MODERNE` pour les mots dont le sens a changé (« cuidier », « nennil », « plenté »),
+  jamais appliqués : ils relèvent d'une version reformulée ;
+- `dictionnaires/graphie_moyen.py` : règles d'orthographe enchaînées (s muet, y, lettres doublées,
+  « aulx », « ung », « -ié », picard « ch », « -aige »…) ; une forme n'est proposée que si le
+  résultat est un mot de la liste française ; d'office quand une seule forme est possible
+  (`PREFERE` tranche « nostre » → « notre ») ; sinon au choix (« eust » : eut ou eût) ;
+  `EXCEPTIONS` : vrais mots anciens qu'une règle changerait en un autre mot (« ens », « lés »,
+  « celier ») ;
+- `dictionnaires/noms_froissart.py` : noms propres de l'auteur (« Jehan » → « Jean »,
+  « Portingal » → « Portugal ») ;
+- choix d'après le contexte : « party » devient « parti » après un auxiliaire ou un déterminant
+  (« est party », « en ce party ») et « partit » sinon ; « logiés » devient « logez » après « vous »,
+  « logés » sinon ; « grant » devient « grande » devant un nom féminin, « grand » devant un nom
+  masculin terminé par une consonne (`CONTEXTE`, appliqué de nouveau en fin de chaîne, une fois les
+  noms modernisés) ; « quant » devient « quand », sauf dans « quant à » ;
+- ce qui reste : vocabulaire et syntaxe de Froissart (« moult », « ains », « si », « grant
+  joie »), à garder dans une orthographe modernisée ; dans Prescel, étapes « Modernisation du
+  vocabulaire » (Époque : moyen français), « Orthographe du moyen français » et « Noms propres ».
+
+#### Rendre plus lisible un texte en ancien français (fin XIIᵉ - XIIIᵉ siècle)
+
+`epub_modernise.py --epoque ancien` vise une lisibilité partielle, pas une traduction : les mots
+outils et les formes les plus fréquentes, qui rapportent le plus (« e » → « et », « lor » →
+« leur », « quer » → « car », « unques » → « jamais », « aveit » → « avait », « li reis » →
+« le roi »). Les dates sont souples : la langue littéraire forgée à la fin du XIIᵉ siècle sert
+encore vers 1226 (Guillaume le Maréchal). Les variantes des scriptae sont réunies côte à côte, sans
+choisir de dialecte (un texte n'emploie que les siennes) : anglo-normand (« ei » pour « oi »,
+« u » pour « o » : « dreit », « sunt »), champenois et francien (« -aus », « -iaus », « -ax »,
+« -iax » : « chevaus », « chevax », « biax », « oisiaus » ; « an » pour « en » : « s'an »),
+picard (« jou », « chou »). Chaîne, de l'EPUB relu :
+
+```
+python3 epub_modernise.py relu.epub -o 1.epub --epoque ancien --mode cas --tsv livre-cas.tsv --wordlist auto
+python3 epub_modernise.py 1.epub -o 2.epub --epoque ancien --mode vocab --tsv livre-af.tsv --wordlist auto
+python3 epub_modernise.py 2.epub -o lisible.epub --epoque ancien --mode graphie --tsv livre-graphie.tsv --wordlist auto
+```
+
+- `--mode cas` (d'abord) : déclinaison à deux cas après « li ». Cas sujet singulier : « li reis »,
+  « li cuens », « li chevax », « li bons cuens » → « le roi », « le comte », « le cheval », « le bon
+  comte » (table `CAS_SUJET`, ou -s / -z retiré quand le reste est un mot : « li conseilz » → « le
+  conseil », « li venz » → « le vent ») ; cas sujet pluriel : « li chevalier » suivi d'un verbe au
+  pluriel → « les chevaliers ». « li » seul (le, les, lui, et « la » en picard) n'est jamais touché ;
+- `dictionnaires/ancien_francais.py` : formes sûres (~280) ; `FORCE` pour celles qui sont aussi un
+  mot moderne (« out » → « eut », « as » → « aux », « onques » → « jamais ») ; `CONTEXTE` : « ja »
+  → « jamais » près d'une négation, « déjà » sinon ; « molt » → « beaucoup » devant un verbe, un
+  déterminant ou en fin de membre, « très » devant un adjectif ; « cil qui » → « celui qui » ;
+  « mes il » → « mais il » (« mes chevaus » reste) ; « la mie del pain » garde « mie » (« pas »
+  ailleurs) ; « biax », « chevaus », « granz », « jorz » : pluriel après « les », « ses », « .xv. »…
+  ou devant un pluriel, singulier sinon (cas sujet ou cas régime pluriel) ; `VERSION_MODERNE`
+  (« cuidier »…) n'est jamais appliqué ;
+- `dictionnaires/graphie_ancien.py` : règles enchaînées, celles du moyen français en plus (« -eit »
+  → « -ait », « sunt » → « sont », « -iaus » → « -eaux », « pére » → « père », « -ier » → « -er »,
+  « dist », « prist » → « dit », « prit » : passé simple) ; « ei » ailleurs, « -z » final, « o » →
+  « ou » restent au choix (« meis » : mais ou mois ; « diz » : dis ou dits) ;
+- l'apparat de l'éditeur n'est pas touché : éléments de classe `variantes`, `glossaire`, `notes`,
+  `note` (`--sauf-classes` pour en changer) ; ni un mot coupé par une restitution (« E[n]mi ») ;
+  une élision devenue fautive est rétablie (« qu'onques » → « que jamais ») ;
+- `LEXIQUE` (ancien et moyen français) : mots disparus ou dont le sens a changé, remplacés par leur
+  sens (« cuidier » → « penser », « meschief » → « malheur », « arroy » → « ordre », « maisnie » →
+  « suite », « chaut » → « importe », « remanant » → « reste »), aux formes conjuguées rencontrées ;
+  au choix quand la forme est aussi un mot moderne (« lais », « faix », « desserte ») ; marqués « sens
+  moderne » dans la liste ; `--sans-lexique` pour s'en tenir à l'orthographe ;
+- Guillaume le Maréchal, tome 2 (vers seuls) : ≈ 50 % → 69 % de mots de la liste française,
+  pour 237 formes appliquées d'office ; restent la syntaxe et le vocabulaire (« cuidier »,
+  « gaaing », « remest »), à lire avec le glossaire.
+
+#### Poème édité vers par vers (Guillaume le Maréchal, éd. Paul Meyer)
+
+Les deux tomes se reconstruisent d'une traite depuis les sources du dépôt :
+`sh livres/guillaume-marechal.sh [dossier]`. Les vers où le compte a dû être recalé sur un numéro
+imprimé sont repérés `a-verifier` dans l'EPUB (« Numérotation : vers 2952 compté 2954 ») : un vers
+coupé, collé ou perdu est à chercher tout près. Ni `epub_guillemets.py` ni `epub_recolle.py` ne
+conviennent à l'ancien français (« u » y veut dire « où », « Partant » est un mot).
+
+`epub_ocr_vers.py` corrige, vers par vers et jamais dans les notes, les fautes d'OCR relevées à la
+relecture du t. I : « a », « < », « <t », « t », « c »… lus pour « en tête de vers, « D », « B »,
+« s », « > »… pour » en fin de vers ou devant « dist », « h », « H », « ti », « 11 » isolés pour
+« li » (« Il » en tête de vers), « ! » pour « l » (« Mo ! t » → Molt, repéré `a-verifier`),
+`[nJ` → `[n]`, `fF` → `ff`, `6i` → `oï`, `s *en` → `s’en`, `Gh` → `Ch`, marques de folio `(/` → `(f`.
+Le journal `--report` liste chaque correction avec son vers.
+
+`epub_vers_reference.py` confronte chaque vers (et, par vote seul, les notes et le vocabulaire) à deux
+autres numérisations de la même édition lues par d'autres moteurs d'OCR : le `_djvu.txt` d'Internet
+Archive (ABBYY) et le PDF Google Livres (OCR Google), ou un texte Tesseract. Quand les deux références
+s'accordent contre l'EPUB, on prend leur lecture ; quand la seconde lit comme l'EPUB, elle met son veto
+(ABBYY lit « l' » en « T », « ü » en « ii », « C » en « G ») ; seule, une référence ne remplace qu'un mot
+inconnu ou une confusion typique de l'OCR Gallica (t, I, J pour l ; M, Ii pour li) et ajoute les signes
+perdus (« : », « ; », guillemets). `--accents-ref2` suit Google pour è / é (Meyer imprime « pére »,
+« maniére », mais « près »). `--vote-seul` pour un document déjà relu. Les mots remplacés sont repérés
+`a-verifier` (« Autre lecture : … ») ; trémas et cédilles perdus par l'OCR ne sont jamais retirés.
+
+Quand Gallica n'a pas d'OCR (pas de couche texte, ALTO refusé), le texte vient d'un autre PDF
+(Internet Archive) et les images Gallica servent de seconde lecture :
+
+```
+python3 pdf_vers.py lhistoiredeguill01meyeuoft.pdf -o 1.epub --pages 1-383   # vers, numéros, manchettes, notes
+python3 livres/guillaume-marechal-t1-finitions.py 1.epub 2.epub                # page de titre, titres
+python3 livres/guillaume-marechal-t1-errata.py 2.epub 2b.epub                  # errata de l'avant-propos (« lis. »)
+python3 pdf_tesseract.py gallica.pdf -o gallica-tesseract.txt                 # seconde lecture
+python3 epub_reference.py 2.epub gallica-tesseract.txt --prudent --apply ocr -o 3.epub
+python3 epub_typo.py 3.epub -o maitre.epub
+python3 epub_review.py maitre.epub --ancien --report relecture.html --mark a-relire.epub
+```
+
+- `pdf_vers.py` garde une ligne imprimée par vers (pdf_to_epub.py les recollerait en paragraphes),
+  recolle les morceaux de vers que l'OCR a posés sur des lignes de base décalées, lit les numéros
+  de la marge même mal lus (« 1 60 », « 2!2!0 ») et recompte les vers : un numéro imprimé ne recale
+  le compte que s'il est proche (un chiffre mal lu ne le dérègle pas) ; le journal liste les
+  pages où le compte a été recalé (vers coupé ou deux vers collés à vérifier). Une ligne en retrait
+  ouvre un paragraphe ; les notes du bas de page suivent le paragraphe sans le couper ;
+- PDF Gallica avec OCR (tome 2) : `pdf_vers.py livre_bpt6k203427s.pdf --premier-vers 10153
+  --debut 8 --pages 1-338` lit la couche texte du PDF ; les numéros de page viennent de la
+  pagination de Gallica (l'ark est pris dans le nom du fichier) ; les seuils s'adaptent à la
+  taille de la page ; la référence Google de ce tome, d'OCR plus faible, ne sert qu'en mode
+  prudent et sans liste de mots modernes (`--prudent --wordlist ""`), pour ne pas « corriger »
+  l'ancien français en français moderne ;
+- vocabulaire du tome 2 (fin du volume, deux colonnes) : `pdf_glossaire.py livre.pdf -o vocab.xhtml
+  --pages 340-395 --premiere-vue 338`, puis la référence Google en deux passes (ponctuation, puis
+  OCR prudente) et `epub_abimes.py` pour les gloses en italique illisibles ; le fichier obtenu est
+  donné en troisième argument à `livres/guillaume-marechal-t2-finitions.py` ;
+- errata de fin du tome 2, qui vise les vers des deux tomes : `epub_errata_vers.py livre.epub -o
+  livre-2.epub --tsv livres/guillaume-marechal-errata.tsv` (liste relue sur le scan ; seules les
+  leçons « lis. » et la ponctuation y sont, pas les corrections proposées « corr. ») ;
+- numéros de vers : deux numéros imprimés sur la même page dont l'écart égale l'écart de lignes se
+  confirment l'un l'autre et recalent le compte même s'il a dérivé de plus de 8 vers ;
+- `epub_review.py --ancien` : « e » (et), « i » (y), « o » (avec), « u » sont des mots ; les
+  lettres restituées par l'éditeur (« maisni[é]e ») et l'apparat ne sont pas des lettres isolées ;
+- `epub_gutenberg.py` aligne le numéro de vers à droite (texte) ou dans la marge (HTML) et met
+  les manchettes entre crochets.
+- folios du manuscrit cassés par l'OCR (moitié dans le vers, moitié en marge) : `epub_folios.py
+  livre.epub google.pdf -o …` lit chaque folio et le vers à sa hauteur dans la couche texte du PDF
+  Google, efface les fragments et repose le folio en manchette ; la ponctuation rejetée en marge
+  revient dans le vers.
+- t. I, du maître relu aux fichiers Gutenberg : `sh livres/guillaume-marechal-t1-gutenberg.sh`
+  (marques retirées, folios, vote des autres lectures, reprises vérifiées sur le PDF Google dans
+  `livres/guillaume-marechal-t1-reprises.py`).
+- t. II, de même : `sh livres/guillaume-marechal-t2-gutenberg.sh` (reprises propres au tome dans
+  `livres/guillaume-marechal-t2-reprises.py` : balisage abîmé à la relecture, vers perdus en haut ou en
+  bas de page, vers mal lus).
+- avant les folios, `epub_vers_controle.py livre.epub google.pdf -o … --premier N --dernier M` contrôle
+  le poème d'après le PDF Google : vers passés en tête d'une note de variantes rendus au poème, titres
+  courants et morceaux de notes ôtés des vers, numéros de vers reposés et compte des vers vérifié de
+  bout en bout (les écarts restants sont listés : vers perdu, ou lacune numérotée par l'éditeur),
+  crochets de restitution abîmés, doubles signes en fin de vers, dates en manchette, « ms. » mal lu.
+
+#### Prose savante depuis Internet Archive (t. III de Guillaume le Maréchal)
+
+Le PDF « texte » d'Internet Archive place chaque mot à part et se lit mal ligne à ligne. Le XML
+ABBYY (`<livre>_abbyy.gz`, même page de téléchargement) garde paragraphes, lignes, taille, style et
+position de chaque caractère : `abbyy_to_epub.py` en tire un EPUB avec notes de bas de page reliées
+(appels reconnus à leur position surélevée, même lus « < », « ^ », « * » ; un chiffre bien lu sert
+de repère), italique, citations en vers numérotées, titres, table en retrait suspendu (`:index`),
+paragraphes recollés d'une page à l'autre. `epub_ocr_prose.py` corrige ensuite la prose moderne
+(« TAngleterre » → « l'Angleterre », « j*ai », « 11 » pour « Il », ligatures « efifet »). Appels
+et notes qu'il n'a pas su apparier sont repérés `a-verifier`.
+
+Un DjVu dont la couche texte est celle de Google (`livre.djvu`, lu avec `djvused`) se donne au même
+script : texte complet et mieux lu, mais ni styles, ni tailles, ni paragraphes. La taille se déduit de
+l'interligne (les notes, en petit corps, sont plus serrées : coupure d'Otsu par page, validée contre
+l'interligne du texte des pages voisines, puis lissée), les appels de note des chiffres collés ou
+surélevés, les colonnes (`:index`, `:tableau` pour une chronologie à deux colonnes) du blanc de
+gouttière. `epub_fusion.py base.epub seconde.epub` reporte ensuite sur la base l'italique et les
+appels manquants de la lecture ABBYY (mêmes ancres de page). Les mots mal lus par Google sont ensuite
+corrigés d'après le texte ABBYY (`abbyy_to_epub.py livre_abbyy.gz --texte t.txt`, qui remplace le
+`_djvu.txt` d'Internet Archive : c'est la même lecture), mais seulement quand une troisième lecture
+indépendante, Tesseract sur les images du DjVu (`pdf_tesseract.py livre.djvu --pages … --jobs 2
+--scale 1`), lit la même chose (`epub_reference.py --confirm`). Chaîne complète du t. III :
+`sh livres/guillaume-marechal-t3.sh` (DjVu et lecture Tesseract dans `pdf/`, XML ABBYY téléchargé s'il
+manque ; page de titre, titres et table des matières repris dans
+`livres/guillaume-marechal-t3-reprises.py`).
+
+Du maître relu aux fichiers Gutenberg : `sh livres/guillaume-marechal-t3-gutenberg.sh` (marques retirées,
+puis `livres/guillaume-marechal-t3-finitions.py` : corrections faites à la relecture reportées sur les
+autres occurrences du même mot, mots coupés par une espace ou un trait d'union de fin de ligne,
+guillemets que l'imprimé répète en tête de chaque ligne d'une citation retirés, parenthèses lues en
+accolades, articles de la table recollés quand l'OCR les a coupés à chaque ligne ; une correction qui
+ne trouve plus rien arrête le script : elle a été faite à la main, retirer la ligne). La chronologie
+(p. cxlv-clvi, tableau à deux colonnes que les deux OCR mêlaient) est transcrite sur les images du DjVu
+dans `livres/guillaume-marechal-t3-chronologie.txt` (une ligne « date | lieu ou fait | référence » par
+entrée, « = année », « #n » pour les notes, « [n] » pour les appels) ;
+`livres/guillaume-marechal-t3-chronologie.py maitre.epub sortie.epub` en refait `partie-03.xhtml` (une
+table par page, notes à la suite) : corriger le texte puis relancer.
+
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
 
 Après le s long, ajouter les listes de modernisation, à trancher dans les onglets de Prescel :
@@ -260,11 +464,21 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | Script | Rôle |
 |---|---|
 | `pdf_to_epub.py` | PDF → EPUB brut : OCR de Gallica (ALTO), couche texte du PDF ou OCR Tesseract ; géométrie des pages |
-| `pdf_tesseract.py` | OCR Tesseract d'un PDF d'images, page par page (reprise possible) : seconde lecture pour `epub_reference.py --confirm` |
+| `pdf_vers.py` | EPUB d'un poème numéroté vers par vers (couche texte d'un PDF) : une ligne imprimée = un vers, numéros de vers en marge recomptés, manchettes (folios, dates), notes de bas de page mises à part |
+| `pdf_glossaire.py` | glossaire ou vocabulaire sur deux colonnes en retrait suspendu → un paragraphe par article, vedette en gras |
+| `epub_abimes.py` | mots illisibles de l'OCR (« d~pen~sHce », souvent l'italique) réparés d'après une autre numérisation, par leur contexte |
+| `epub_errata_vers.py` | errata d'un poème numéroté : chaque correction vise un vers par son numéro (leçons « lis. », virgule ou point-virgule en fin de vers, ponctuation à supprimer) ; une liste sert à tous les tomes |
+| `abbyy_to_epub.py` | XML ABBYY d'Internet Archive ou DjVu à couche texte → EPUB : notes reliées, italique, vers cités, titres, table en colonnes, tableau à deux colonnes (`--parties "vues:Nom[:index|:sans-notes|:tableau],…"`, `--pagination vue=page,…`) |
+| `epub_fusion.py` | deux EPUB du même livre (mêmes ancres de page) : italique et appels de note de la seconde reportés sur la base |
+| `epub_ocr_prose.py` | fautes d'OCR dans la prose française moderne (l' lu T/F/V, apostrophe lue * ou ^, « 11 » pour « Il », ligatures ; Google : « C 'est », « i l », chiffres romains « xxvm », « xn° siècle ») ; jamais dans les vers cités |
+| `epub_vers_reference.py` | poème vers par vers confronté à une ou deux autres lectures (vote, veto, accents) |
+| `epub_folios.py` | folios du manuscrit replacés en manchette d'après un PDF à couche texte (folio mal lu corrigé par ses voisins, folio hors de rang reposé) |
+| `epub_vers_controle.py` | poème numéroté contrôlé d'après le PDF Google : vers passés dans les notes, lignes étrangères, numéros et compte des vers, crochets, dates, doubles signes |
+| `pdf_tesseract.py` | OCR Tesseract d'un PDF d'images ou d'un DjVu, page par page, en parallèle (`--jobs`), reprise possible : seconde lecture pour `epub_reference.py --confirm` |
 | `epub_inline2css.py` | styles en ligne → classes (facultatif) |
 | `epub_simplify.py` | nettoyage du balisage OCR, lettrines, DOCTYPE XHTML 1.1 ; texte vérifié avant/après |
 | `epub_longs.py` | s long lu « f » (« eft » → « est ») |
-| `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), passé simple en « erent » (`--mode erent`), pluriels en « ans » (`--mode ants`), vocabulaire (`--mode vocab`) |
+| `epub_modernise.py` | imparfaits en « oi » (`--mode oi`), pluriels en « ez » (`--mode ez`), passé simple en « erent » (`--mode erent`), pluriels en « ans » (`--mode ants`), vocabulaire (`--mode vocab`), orthographe du moyen ou de l'ancien français par règles (`--mode graphie`), cas sujet de l'ancien français (`--mode cas`) ; `--epoque 17-18|moyen|ancien` choisit les dictionnaires |
 | `epub_reference.py` | corrige l'EPUB d'après une autre édition du texte (PDF, EPUB ou texte), confirmée au besoin par une seconde lecture (`--confirm`) : alignement mot à mot, catégories au choix, rapport d'écarts |
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_errata.py` | applique l'errata imprimé du livre (« P. 24, l. 30, sont — font ») à la page indiquée ; liste à relire dans `<livre>-errata.tsv` |
@@ -321,6 +535,8 @@ De simples fichiers Python `{"ancien": "moderne", …}`, à compléter librement
 | `dictionnaires/pluriels_ez.py` | ez → és | formes qui ne suivent pas la règle (« excez » → « excès », « extremitez » → « extrémités ») |
 | `dictionnaires/pluriels_ants.py` | ans → ants | formes à accent ou abîmées (« presens » → « présents ») |
 | `dictionnaires/vocabulaire_17_18.py` | Modernisation | vocabulaire et expressions (« luy », « mesme », « païs », « aussi tost »), et erreurs d'OCR fréquentes relevées par comparaison avec une édition moderne (« vlande » → « viande », « fubtil » → « subtil ») |
+| `dictionnaires/ancien_francais.py` | `epub_modernise.py --epoque ancien` (vocab, cas) | ancien français fin XIIᵉ-XIIIᵉ, toutes scriptae : mots outils et formes fréquentes (« lor », « quer », « unques », « aveit »), choix d'après le contexte (« ja », « molt », « biax »), cas sujet (« cuens », « reis », « chevax ») |
+| `dictionnaires/graphie_ancien.py` | `epub_modernise.py --epoque ancien --mode graphie` | règles d'orthographe de l'ancien français (« ei », « -iaus », « -érent », « -ist ») en plus de celles du moyen français |
 
 Un dictionnaire passe toujours avant la règle générale de son étape.
 
@@ -456,6 +672,9 @@ python3 epub_gutenberg.py livre-relu.epub -o Mon_livre      # → Mon_livre.txt,
 - tableaux (table des matières imprimée) : rendus en tableau HTML, avec des points de conduite
   dans le texte ; une page de table renvoie aux numéros de page ;
 - errata appliqué par `epub_errata.py` : signalé dans la note de transcription.
+- dans le dépôt, `.gitattributes` garde les `.txt` de `epub/` en CRLF à l'extraction (stockés en LF) :
+  un patch s'applique avec `git am` sans `--keep-cr`. Après la mise à jour, un `.txt` resté en LF dans
+  une copie de travail se refait par `rm epub/*.txt && git checkout -- epub/`.
 
 Avant l'envoi : faire vérifier les droits (scans de la page de titre et de son verso) sur
 https://copy.pglaf.org, puis déposer les fichiers sur https://upload.pglaf.org.
