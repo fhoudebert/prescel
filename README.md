@@ -366,6 +366,11 @@ dans `livres/guillaume-marechal-t3-chronologie.txt` (une ligne « date | lieu ou
 entrée, « = année », « #n » pour les notes, « [n] » pour les appels) ;
 `livres/guillaume-marechal-t3-chronologie.py maitre.epub sortie.epub` en refait `partie-03.xhtml` (une
 table par page, notes à la suite) : corriger le texte puis relancer.
+Notes de bas de page (petit corps, la partie la plus mal lue) : `livres/guillaume-marechal-t3-notes.py`,
+appliqué une fois au maître, aligne chaque note sur les deux autres lectures (ABBYY, Tesseract) et
+reprend celles où elles s'accordent, relues une à une, avec les fautes régulières des notes : guillemets
+lus « c », « t », « f », « > », « î » ; « n* » pour « n° » ; « 2* partie » ; « Henri I" » ; « li » ou
+« 11 » pour « Il » ; signatures de cahier (« III 10 ») retirées.
 
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
 
