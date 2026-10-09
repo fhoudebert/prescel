@@ -252,6 +252,7 @@ def read_epub(path):
                 walk(ch, up + (e,))
         walk(body, ())
     chapter = 0
+    carry = []
     for p, body in docs:
         if not any(("".join(e.itertext())).strip() for e in body.iter()):
             continue                                   # page d'image seule (couverture)
@@ -301,7 +302,10 @@ def read_epub(path):
                 continue
             if n == "p" and "variantes" in classes(el):
                 page = re.sub(r"^p\.\s*", "", el.get("title") or "")
-                runs = [r for r in clean_runs(runs_of(el, notemap)) if not (isinstance(r[1], tuple) and r[1][0] == "page")]
+                allruns = clean_runs(runs_of(el, notemap))
+                # une ancre de page tombée dans les variantes passe au bloc suivant du texte
+                carry.extend(r for r in allruns if isinstance(r[1], tuple) and r[1][0] == "page")
+                runs = [r for r in allruns if not (isinstance(r[1], tuple) and r[1][0] == "page")]
                 runs = typo_runs(clean_runs(runs))
                 if runs:
                     if book.variants and book.variants[-1][0] == page:
@@ -312,6 +316,9 @@ def read_epub(path):
             runs = typo_runs(clean_runs(runs_of(el, notemap)))
             if not runs:
                 continue
+            if carry:
+                runs = carry + runs
+                carry.clear()
             kind = n if n in ("h1", "h2", "h3", "h4") else "p"
             book.blocks.append((chapter, {"kind": kind, "cls": classes(el), "runs": runs, "src": p}))
     return book
@@ -668,7 +675,10 @@ def to_html(book, title_lines, note_txt):
             out.append("<p>%s</p>" % e(para, quote=False))
         out.append("</div>")
     out += ["</body>", "</html>", ""]
-    return "\n".join(out)
+    page = "\n".join(out)
+    ids = set(re.findall(r'\sid="([^"]+)"', page))
+    # lien vers une page dont l'ancre n'est pas dans le texte (page de titre, page sans texte) : texte seul
+    return re.sub(r'<a href="#(page_[^"]+)">(.*?)</a>', lambda m: m.group(0) if m.group(1) in ids else m.group(2), page)
 
 
 # --------------------------------------------------------------------------

@@ -739,7 +739,7 @@
     « Qu'os en issiez la fors demain
     « Toz armés, comme de combatre
 
-    « & de l'orgoil des lor abatre,                                10836
+    {26} « & de l'orgoil des lor abatre,                           10836
     « E vos eschieles ordenées
     « & vos batailles ordinées,
     « Que prèz seiom a els atendre
@@ -1318,7 +1318,7 @@
     Toz diz de sa bosoingne faire,
     E bien en saveit a chief traire.
 
-    Meistre Pierres li cardonals,
+    {46} Meistre Pierres li cardonals,
     Qui a son dit n'iert mie leials,                               11400
     Li dist k'alcune pais feïst
     Ou une tel trive preïst
@@ -1348,7 +1348,7 @@
 
     Li reis Phelipes artillos,
 
-    Qui trop sout faire l'orgeillos,
+    {47} Qui trop sout faire l'orgeillos,
     De[l] parlement se desdeingna,
     Si qu'onques venir n'i deingna,                                11428
     Ainz remist, por faire le riche,
@@ -1407,7 +1407,7 @@
     « Qu'en ma terre venuz sereie :
     « Cest li quiterai tote veie,
 
-    « Si que ja n'en parlerei mès,
+    {49} « Si que ja n'en parlerei mès,
     « S'il a talent de faire pès ;                                 11484
     « Ou autrement, certes, beal mestre,
     « La pais ne puet entre nos estre. »
@@ -3845,7 +3845,7 @@
     « E cil qui molt esmaié furent
     « Del mandement, si com il durent,
     « Distrent que près de nuit esteit,
-    « A maisnie ( ?) aler n'i faiseit.                             13832
+    « A maisnie (?) aler n'i faiseit.                              13832
     « A Odo s'alérent gesir.
     « N'i dormirent pas a leisir ;
     « Al jor par matinet s'armérent
@@ -4562,7 +4562,7 @@
     « Ices geu n'est pas geu de veille,
     « Mès qui a prodome conseille                                  14520
 
-    « Ce dist l'om que il se repose,
+    {159} « Ce dist l'om que il se repose,
     « E ce fu dit bien a grant pose.
     « Sire, se nos en creus[s]iez,
     « Bien fust qu'os i enveïssiez.                                14524
@@ -4964,7 +4964,7 @@
     Avenanz ert en tot afaire,
     E Dex li dont a bon chief traire !                             14904
 
-    Les cinc filz vos ai ci nommez,
+    {173} Les cinc filz vos ai ci nommez,
     Mais ge n'avreie ui asommez,
     Isi comme g'entent & vei,
     Les grans biens ou chascun par sei                             14908
@@ -5134,7 +5134,7 @@
     E por ço l'enveiérent querre,  [(f. 100)]
     Qu'il le quid[i]érent d'Engleterre                             15068
 
-    Faire seingnor, ce li pramistrent.
+    {179} Faire seingnor, ce li pramistrent.
     De granz folie s'entremistrent,
     Mais anceis que ce peüst estre
     Eut li reis assis Rouvecestre.                                 15072
@@ -6079,7 +6079,7 @@ Il doit manquer ici deux vers, estoveir ne pouvant rimer
     -En fu pleine & la vile entor.
     Lors virent bien cil de la tor                                 15972
 
-    Quil n'i porent gueres durer
+    {212} Quil n'i porent gueres durer
     Car fort lor ert a endurer.
     Puis que li péres fu venuz,
     Tantost fu li conseilz tenuz,                                  15976
@@ -9569,7 +9569,7 @@ Godefroy(1,109 c) avec adoub.
 
 adosser 4833, acculer.
 
-adrecier, réfl. 3503, 8636, 18873 ( ?) neutre, 13214, diriger vers.
+adrecier, réfl. 3503, 8636, 18873 (?) neutre, 13214, diriger vers.
 
 {335} ad[r]esséement, voir adesséement.
 
@@ -11325,7 +11325,7 @@ attaquer ; part. p. entrepris 418, 6758, surpris, pris à l'improviste.
 
 entreset 16267, dans le même temps (ici c'est une simple cheville).
 
-entresi entrespargner( ; que a 9678, jusqu'à. entresparingnerent), réjl.
+entresi entrespargner(; que a 9678, jusqu'à. entresparingnerent), réjl.
 323, s'épargner mutuellement.
 
 entretant 464, 5961, 6194, 8071, 9245, 9683, entre temps (qui n'est que
@@ -11441,7 +11441,7 @@ escorcier 1840, écorcher, rouvrir [une blessure].
 escordement 13177, de tout coeur avec énergie
 
 escorre 2989, part. p. escos 5038, saisir, faire prisonnier ; 8874,
-secourir, délivrer ; barre escosse 3794 ( ?).
+secourir, délivrer ; barre escosse 3794 (?).
 
 escot (en rime avec tost) 6504, corr. acost, au sens de fréquentation,
 société.
@@ -11477,7 +11477,7 @@ esgarer, tMd. pr. esguerentll098, s'égarer, s'éloigner de la bonne voie,
 part. p. sing. suj. esgarez 3957, embarrassé, en peine [de faire une
 chose].
 
-esgars 7128, erreur, subst. formé sur esgarer ( ?).
+esgars 7128, erreur, subst. formé sur esgarer (?).
 
 {356} esgart,, a 1'– 14313, selon le jugement [d'une cour]. esgener(MM.
 aasgene), ré fl. 4532, se donner de la peine. eshaitier, 7'e/ 20, se
@@ -12177,7 +12177,7 @@ herneskier (ms. henekeiérent) 17336, carguer [les voiles] c/.
 desherneschier, dans le Brut de Wace, II, 141, note, et l'explication de
 ce mot dans Jal, Archéol. navale, p. 175.
 
-{364} hernuer 8675, se cabrer( ?). Godefroy ERNBER.
+{364} hernuer 8675, se cabrer(?). Godefroy ERNBER.
 
 het p. 18544, bonne disposition, appétit.
 
@@ -12910,7 +12910,7 @@ serment du roi Henri par mes oilz 14552, serment du roi Jean.
 
 oilliére, oiliére 16739, 16766, a : tMre du heaume.
 
-oindre,, tnd. imp. oingneit 2267, oindre [ ! e paume des mains], fig.,
+oindre,, tnd. imp. oingneit 2267, oindre [! e paume des mains], fig.,
 graisser la patte.
 
 oïr 120, ind. pr. ot 2466, oez 1547 ; imp. ooient 707 ; prét. 1re p. ci
@@ -13124,7 +13124,7 @@ peires 12397, poires.
 peis,, sor son 8709, malgré lui ; sor lor 11726, malgré eux ;, à
 contre-ca : Mr.
 
-peitral 1066, 1235, sangle qui entourait le poitrail ( ! M cheval. Du
+peitral 1066, 1235, sangle qui entourait le poitrail (! M cheval. Du
 Cange, PECTORALE.
 
 pe) z, pt. t'y.. 4006 (en rime avec quetz), 11137, pie) z442, pt'sM.
@@ -13328,8 +13328,8 @@ porveeir 2 ;!'Kd. p porvit 1421, porvirent 10744 ; subj. pl. q. p.
 porveïst 5313 part. p. porveü 9532 ; Il 2, 1421, 5301, pourvoir,
 disposer avec prévoyance ; que 18992, observer que ; fe/de 18136,
 pourvoir aux besoins d'une personne, prendre des dispositions en sa
-faosur] ; 2770, se pourvoir, faire MM( ?6 de ;.5313, 9532-3,10744,
-10805, se pourvoir, prendre ses mesures, ses précautions.
+faosur] ; 2770, se pourvoir, faire MM(?6 de ;.5313, 9532-3,10744, 10805,
+se pourvoir, prendre ses mesures, ses précautions.
 
 porvers 3730, 4925, 16080, dur, cruel. Manque à Godefroy.
 
@@ -13789,7 +13789,7 @@ rover 10996, demander.
 
 rubeste (ms. honeste, la correction est risquée) 8673, rude.
 
-ruir ( ?), tttd. pr. rut 8585, rugir, crier.
+ruir (?), tttd. pr. rut 8585, rugir, crier.
 
 ruistes,, épithète de coups, 1076, 1133, 2532, durs, violents.
 
@@ -13841,7 +13841,7 @@ segrei (en. rime avec rei), en 9036, 9070, en secret.
 
 seignorage 1625, 4651, seigneurie, la domination d'un seigneur.
 
-seiner ( ?), seina (pour cena ?), 16991, faire Mj/ne.
+seiner (?), seina (pour cena ?), 16991, faire Mj/ne.
 
 seingnories,, mener ses 9776, agir en seigneur.
 
@@ -14907,7 +14907,7 @@ P. 94 : 12724 vos, ms. nos. 12727 font, corr. fait ? 12730 fuerrai.
     d'abréviation sur le c. Ibid. si, ms. h* 12747 cuir. 0
 
 P. 95 : 12756 maingnes. 12766 siuerent ou suierent. 12768 a kermer.
-    –12771 peüst om, ms. puest oir. 12773 Lisvies. ms( !. s'adraça est
+    –12771 peüst om, ms. puest oir. 12773 Lisvies. ms(!. s'adraça est
     sans doute pour s'adreça, mais en ce cas il y a une faute soit ici
     soit à la rime suivante. 12775 Chambreies. 12776 reveier.
 
@@ -14960,8 +14960,8 @@ P. 105 : 13025-6 desseier-aseier. 13031 ouvrer. 13032 son, ms.]or, c/.
 P. 106 : 13053 semblant, ms. senil lant. 13055 qui. 13061 dotance, l'a
     écrit en surcharge. 13064 pur, en toutes lettres, mais le p écrit en
     surcharge. 13068 Hui, ms. Sui. 13069 sachiez, ms. cachiez. 13070 ne
-    fis, ms. nen su (prem. leçon sis ( ?), le haut de rs finale rM) ;
-    cf. v. 13117. 13071 Pour le premier fis, ms. sis. lbid. le, ms. ne.
+    fis, ms. nen su (prem. leçon sis (?), le haut de rs finale rM) ; cf.
+    v. 13117. 13071 Pour le premier fis, ms. sis. lbid. le, ms. ne.
     13073 feïstis. 13077 Dui. 13078 iceste.
 
 P. 107 : 13079 E sui. Ibid. voil, la prem. leçon paraît avoir été uul,
@@ -15539,7 +15539,7 @@ P. 224 : 16298 nos est écrit sur grattage. ms. a trestoz. 16301 Que il,
     ms. Qui. 16304 Que que en fer. –16307 vos prenc écrit sur grattage.
     /Ma. mains. 16308 mains. 16312 proz, ou prox, MM/tar 16316 ses,
     corr. cels ou les ? 16319 qui. CM n'a pas de sens ; corr. A. lor d.
-    que lor traeis ( ?), et au v. suiv. F. a la teste de F. 16322 Corr.
+    que lor traeis (?), et au v. suiv. F. a la teste de F. 16322 Corr.
     se tenissent ? 16324 occissent.
 
 P. 225 : 16328 Corr. Des coutealz ? 16329 licis lor'ueisscnt. 16333
@@ -15969,7 +15969,7 @@ P. 303 : 18435 pooens. 18437 lez, ms. est. 18438 B. peir. 18439 lez, ms.
     leis. 18444 Tant, le t final ajouté, prem. leçon Tam ? 18445 poet.
     18446 beivre, ms. le uire. –18447 cuirs defailli. 18449 en nului ou
     nuliu (pas d'accent). On pourrait aussi proposer Qu'el ne p. ; en
-    nu[ !] liu.
+    nu[!] liu.
 
 P. 304 : 0453 penseit, ms. pesseit, la première s exponctuée. –18461 le.
     18465 qui. 18470 qui. Ibid. nos. 18473 gentilesce, ms. gentilesse,
@@ -16078,7 +16078,7 @@ P. 328 : 19124 Cil mangiérent qui servi orent. 19125 de maniers. 19126
 P. 329 : 19162 Teil. 19163 En, ms. E e. Ibid. deveint. 19164 porrunt,
     ms. porrent. 19165 Ci, ms. En. 19167 ou ele, ms. oui. 19169
     porrurent. 19170 Q. en c. 19173 orrunt, ms. orent. 19179 seivent,
-    ms. serrunt( ?).
+    ms. serrunt(?).
 
 P. 330 : 19180 fruit, ms. fruc. 19181 fui. 19184 parra, ms. partira.
     19192 nus, ms. nos. 19193 Buen' amors, ms. Bien a. rs ; les lettres

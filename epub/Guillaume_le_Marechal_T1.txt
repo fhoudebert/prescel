@@ -114,9 +114,9 @@ du ms., doit être corrigé en Bruslou, qu'on trouve plus loin (vv. 8451,
 — V. 4687, mettre une virgule après furent. — P. 176, titre courant,
 suppr. le point final.
 
-[1] 1. XII, 22-74.
+[1] XII, 22-74.
 
-[2] 2. Année 1882, pp. 244-264.
+[2] Année 1882, pp. 244-264.
 
 
 
@@ -1908,7 +1908,7 @@ suppr. le point final.
     E[i]nz amoent plus sa mesaise.                                  1720
     Por quei ? C'est legier a entendre :
 
-    C'estoit por lui faire reendre ;
+    {64} C'estoit por lui faire reendre ;
     Issi sunt mené li prison
     Quant il sunt en male prison.                                   1724
     Il n'out de quei bender ses plaies ;
