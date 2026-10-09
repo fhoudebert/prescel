@@ -371,6 +371,10 @@ appliqué une fois au maître, aligne chaque note sur les deux autres lectures (
 reprend celles où elles s'accordent, relues une à une, avec les fautes régulières des notes : guillemets
 lus « c », « t », « f », « > », « î » ; « n* » pour « n° » ; « 2* partie » ; « Henri I" » ; « li » ou
 « 11 » pour « Il » ; signatures de cahier (« III 10 ») retirées.
+`livres/guillaume-marechal-t3-retouches.py` (appliqué une fois au maître, vérifié sur les images) : le
+chiffre « 1 » et le « § » du corps gras lus « \ » (numéros de vers « \ \ 085 » → 11085, renvois
+« [\ 01 30] » → [10130], « Rigord, \ 69 » → § 69, appels de note), vers 4312-4318 et note de la p. lxxxviii
+remis à leur place.
 
 ### 5. Parcours C — édition modernisée (usage personnel, autre plateforme)
 
