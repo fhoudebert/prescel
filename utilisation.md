@@ -386,6 +386,17 @@ chiffre « 1 » et le « § » du corps gras lus « \ » (numéros de vers « \ 
 « [\ 01 30] » → [10130], « Rigord, \ 69 » → § 69, appels de note), vers 4312-4318 et note de la p. lxxxviii
 remis à leur place.
 
+#### Les trois tomes en un volume (Guillaume le Maréchal)
+
+`livres/guillaume-marechal-integrale.py T1.epub T2.epub T3.epub epub/Guillaume_le_Marechal.epub` réunit
+les EPUB produits par les chaînes Gutenberg des trois tomes (marques retirées, une feuille de style par
+tome) : page de titre commune, sommaire (parties de chaque tome, poème par tranches de 500 vers,
+vocabulaire et table par lettre), même plan dans la table des matières de la liseuse, pages des tomes
+dans la liste des pages (« I-12 »). Les renvois au poème deviennent des liens vers le vers (numéro
+imprimé le plus proche, de quatre en quatre) : table du t. III, vocabulaire du t. II, « [139] » de la
+traduction abrégée, « v. 14860 », « V. 895 » des notes et errata ; dans le poème, « [trad.] » tous les
+cent vers mène à la traduction du passage. À relancer quand un tome change.
+
 #### PDF issu d'un traitement de texte (Histoire de Foulques-Nerra)
 
 Une transcription saisie dans un traitement de texte et exportée en PDF a une vraie couche texte,
