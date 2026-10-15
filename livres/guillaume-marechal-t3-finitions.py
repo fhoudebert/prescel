@@ -29,7 +29,7 @@ REPORTS = [
     (r"\b(?:Hisl|Bist)\.", "Hist."), (r"\bl'Bisi\.", "l'Hist."), (r"\btète\b", "tête"),
     (r"\bl'Ile\b", "l'île"), (r"\bféte\b", "fête"), (r"\b(?:cetle|celte)\b", "cette"),
     (r"\bMarechal\b", "Maréchal"), (r"\bForét\b", "Forêt"), (r"\bDicl\b(?=[.,])", "Dict"),
-    (r"\bélé\b", "été"), (r"\btlie\b", "the"), (r"\bfront Oie\b", "from the"), (r"\bcorn, 1099", "com, 1099"),
+    (r"\bélé\b", "été"), (r"\bfront Oie\b", "from the"), (r"\bcorn, 1099", "com, 1099"),
     (r"\bHais\b", "Mais"), (r"\blarda\b", "tarda"), (r"\bde libérale\b", "de liberate"), (r"\bflls\b", "fils"),
     (r"\bQuetieville\b", "Quetteville"), (r"\bMarescalius\b", "Marescallus"), (r"\bJebans\b", "Jehans"),
     (r"\bGraon\b", "Craon"), (r"\bGesla\b", "Gesta"), (r"\bFerilatem\b", "Feritatem"),
