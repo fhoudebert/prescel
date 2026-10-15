@@ -168,8 +168,27 @@ def skeleton(s):
 SAUF_CLASSES = set()   # classes d'éléments laissés tels quels (variantes, glossaire de l'éditeur…)
 
 
+STOP = {}     # --jusqua : corps de document → élément où s'arrêter (None : document laissé entier tel quel)
+
+
 def holders(body):
-    """text_holders, sans les éléments d'une classe de SAUF_CLASSES (leur « tail » reste)."""
+    """text_holders, sans les éléments d'une classe de SAUF_CLASSES (leur « tail » reste), et rien
+    à partir de l'élément de --jusqua (ni dans les documents qui suivent)."""
+    if id(body) in STOP:
+        stop = STOP[id(body)]
+        if stop is None:
+            return []
+        out = []
+        for el in body.iter():
+            if el is stop:
+                break
+            out.append(el)
+        keep = set(map(id, out))
+        return [(h, a) for h, a in _holders(body) if id(h) in keep and not (a == "tail" and h is stop)]
+    return _holders(body)
+
+
+def _holders(body):
     if not SAUF_CLASSES:
         return text_holders(body)
     out = []
@@ -553,20 +572,65 @@ de d son sa ses le la les l li un une a à au as en me te se nos vos lor lur leu
 bien cel cele cels cest cist ce ço lui mei tei sei soi eus els par por pour""".split())
 
 
+NEGATION = set("""ne n nen nel nes nul nuls nulle nulles rien riens jamais oncques onques point pas mie
+nullement nennil""".split())
+
+
+def conditional_choice(m, choices, before, nw):
+    """« forme?condition|forme?condition… » : la première forme dont la condition est remplie, sinon None
+    (le mot reste tel quel). Conditions :
+      prev=a,b,c   le mot précédent (dans la phrase) est l'un d'eux ;
+      next=a,b,*ment,#   le mot suivant est l'un d'eux, finit par « ment » (« *x » : par x) ;
+                   « # » : rien ne suit dans la phrase (ponctuation) ;
+      neg          une négation (ne, n', nul, rien, point, pas…) précède dans la phrase ;
+      aux          un auxiliaire précède (« est », « avait », en sautant « bien », « tout »…)."""
+    s = m.string
+    after = s[m.end():]
+    # ponctuation qui suit : réelle seulement (fin d'un nœud de texte = suite inconnue, avant une ancre de page
+    # ou un appel de variante : ni ponctuation, ni mot)
+    punct_next = re.match(r"[\s'’]*[^\s'’%s]" % LETTERS, after) is not None
+    prev = before[-1].lower() if before else ""
+    for alt in choices.split("|"):
+        word, _, cond = alt.partition("?")
+        ok = True
+        for c in filter(None, cond.split(";")):
+            kind, _, vals = c.partition("=")
+            vals = [v for v in vals.split(",") if v]
+            if kind == "prev":
+                ok = prev in vals
+            elif kind == "next":
+                ok = (punct_next and "#" in vals) or (bool(nw) and not punct_next and (
+                    nw in vals or any(v.startswith("*") and nw.endswith(v[1:]) for v in vals)))
+            elif kind == "neg":                 # toute la phrase, pas seulement les derniers mots
+                seg = re.split(r"[.;:!?«»()]", s[max(0, m.start() - 250):m.start()])[-1]
+                ok = any(w.lower() in NEGATION for w in re.findall(r"[%s]+" % LETTERS, seg))
+            elif kind == "aux":
+                look = [w.lower() for w in before if w.lower() not in SKIP][-3:]
+                ok = any(w in AUX for w in look)
+            if not ok:
+                break
+        if ok:
+            return word
+    return None
+
+
 def choose_in_context(m, choices):
     """« A|B » : choix d'après les mots voisins.
+    - « A?cond|B?cond » : formes sous condition (voir conditional_choice) ;
     - « parti|partit » : participe après un auxiliaire (« est », « avoit », en sautant « bien »,
       « toujours »…) ou un déterminant (« en ce party » : le nom) ; sinon passé simple ;
     - « logés|logez » : 2ᵉ personne après « vous », sinon participe ;
     - « quand|quant » : « quant à » reste, sinon la conjonction « quand » ;
     - « grand|grande » : féminin si le nom qui suit est féminin (terminaison ou liste : « grant joie »,
       « grant foison ») ; masculin s'il finit par une consonne ; sinon rien (laissé tel quel)."""
-    a, b = choices.split("|", 1)
+    a, _, b = choices.partition("|")
     s = m.string
     seg = re.split(r"[.;:!?«»()]", s[max(0, m.start() - 60):m.start()])[-1]     # pas au-delà de la phrase
     before = re.findall(r"[%s]+" % LETTERS, seg)
     nxt = re.match(r"[\s'’]*([%s]+)" % LETTERS, s[m.end():])
     nw = nxt.group(1).lower() if nxt else ""
+    if "?" in choices:
+        return conditional_choice(m, choices, before, nw)
     if a == "déjà":                                    # ja : jamais près d'une négation
         neg = {"ne", "n", "nen", "nel", "nes", "nu", "nus", "nul", "nule"}
         after = re.findall(r"[%s]+" % LETTERS, re.split(r"[.;:!?«»()]", s[m.end():m.end() + 40])[0])[:4]
@@ -634,7 +698,7 @@ def build_replacer(mapping, counts_out, ez_guard=None, kept=None):
         st = m.string
         if st[m.end():m.end() + 1] == "[" or st[max(0, m.start() - 1):m.start()] == "]":
             return w                                   # « E[n]mi », « e[i]nznez » : mot coupé par l'éditeur
-        if "|" in new:                                 # deux formes : le contexte décide
+        if "|" in new or "?" in new:                   # deux formes, ou forme sous condition : le contexte décide
             new = choose_in_context(m, new)
             if new is None:
                 return w
@@ -700,6 +764,10 @@ def main():
     ap.add_argument("--sans-lexique", action="store_true",
                     help="--mode vocab : ne pas remplacer les mots disparus par leur sens (LEXIQUE du "
                          "dictionnaire : « cuidier » → « penser », « meschief » → « malheur »)")
+    ap.add_argument("--jusqua", metavar="ID",
+                    help="ne rien changer à partir de l'élément qui porte cet identifiant, ni dans les "
+                         "documents qui suivent (par exemple titre-4 : les NOTES de l'éditeur, en français "
+                         "moderne)")
     ap.add_argument("--sauf-classes", default=None,
                     help="classes d'éléments à laisser tels quels, séparées par des virgules (défaut avec "
                          "--epoque ancien : variantes,glossaire,notes,note — l'apparat de l'éditeur)")
@@ -766,6 +834,18 @@ def main():
                 if d.body is not None:
                     docs.append(d)
 
+        if opts.jusqua:
+            stopped = False
+            for d in docs:
+                if stopped:
+                    STOP[id(d.body)] = None
+                    continue
+                el = next((e for e in d.body.iter() if e.get("id") == opts.jusqua), None)
+                if el is not None:
+                    STOP[id(d.body)] = el
+                    stopped = True
+            if not stopped:
+                sys.exit("--jusqua : aucun élément d'identifiant « %s »" % opts.jusqua)
         counts, caps, text = book_counts(docs)
         wordlist = load_wordlist(opts.wordlist)
         WORDLIST[0] = {w.lower() for w in wordlist} if wordlist is not None else None
@@ -827,7 +907,7 @@ def main():
         if kept:
             print("Gardés tels quels (verbe : « vous … », impératif) : %d occurrences" % sum(kept.values()))
         for w, n in counts_out.most_common(12):
-            print("  %-18s → %-18s %5d" % (w, chosen.get(w, "?"), n))
+            print("  %-18s → %-18s %5d" % (w, re.sub(r"\?[^|]*", "", chosen.get(w, "?")), n))
         if pending:
             print("Laissés tels quels (à décider dans la liste) :")
             for r in pending[:12]:

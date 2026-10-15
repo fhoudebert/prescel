@@ -213,6 +213,36 @@ python3 epub_modernise.py 6.epub -o moderne.epub --epoque moyen --mode vocab --t
   joie »), à garder dans une orthographe modernisée ; dans Prescel, étapes « Modernisation du
   vocabulaire » (Époque : moyen français), « Orthographe du moyen français » et « Noms propres ».
 
+#### Lecture facilitée de Froissart (synonymes modernes)
+
+Un cran plus loin que l'orthographe : les mots disparus ou dont le sens a changé sont remplacés par un
+synonyme moderne, la syntaxe et les tournures restent celles de Froissart. Pas une traduction : on
+garde les archaïsmes compris de tous (« ost », « besogne », « chevaucher », « moult » quand le
+contexte ne tranche pas). Sur le t. XIII, la part de mots familiers passe de 91 % (orthographe
+modernisée) à 94 %, environ 2 600 remplacements.
+
+```
+sh livres/froissart-lisible.sh 13      # epub/…Tome_13-moderne.epub → epub/…Tome_13-lisible.epub
+```
+
+- `dictionnaires/lisible_froissart.py` : `LISIBLE`, formes de sens constant chez Froissart, appliquées
+  d'office (« adont » → « alors », « sicomme » → « comme », « oncques » → « jamais », « tantôt »,
+  « incontinent » → « aussitôt », « devers » → « vers », « siet » → « se trouve », « querre » →
+  « chercher », « hoirs » → « héritiers », « défiances » → « défis ») et locutions, qui passent avant
+  les mots seuls (« par devers le » → « auprès du », « à tous lés » → « de tous côtés », « les grans
+  gallos » → « au grand galop ») ;
+- `CONTEXTE` : mots à double sens, remplacés seulement quand le contexte tranche, sinon gardés —
+  « moult » → « très » devant un adjectif, un participe ou un adverbe, « beaucoup » devant « de » ou
+  une ponctuation ; « fors » → « forts » après un déterminant (les forteresses), « sinon » après une
+  négation ; « ains », « ainchois » → « mais » après une négation ; « conté » → « comté » après un
+  article ; « oui » → « entendu » après un auxiliaire, « entendit » après un pronom. Syntaxe :
+  `forme?condition|forme?condition` (`prev=`, `next=` avec `*ment` et `#` pour la ponctuation, `neg`,
+  `aux`), décrite en tête du fichier ;
+- `epub_modernise.py --jusqua titre-4` : rien n'est changé à partir des NOTES de l'éditeur (français du
+  XIXᵉ siècle) ; le titre et la note de la page de titre disent « lecture facilitée » ;
+- les listes `lisible.tsv` et `vocabulaire.tsv` du dossier de travail donnent chaque remplacement et
+  son nombre ; une forme à écarter se retire du dictionnaire (ou se met à 0 avec `--use-tsv`).
+
 #### Rendre plus lisible un texte en ancien français (fin XIIᵉ - XIIIᵉ siècle)
 
 `epub_modernise.py --epoque ancien` vise une lisibilité partielle, pas une traduction : les mots
