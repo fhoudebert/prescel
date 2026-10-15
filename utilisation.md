@@ -289,6 +289,47 @@ python3 epub_modernise.py 2.epub -o lisible.epub --epoque ancien --mode graphie 
 - Guillaume le Maréchal, tome 2 (vers seuls) : ≈ 50 % → 69 % de mots de la liste française,
   pour 237 formes appliquées d'office ; restent la syntaxe et le vocabulaire (« cuidier »,
   « gaaing », « remest »), à lire avec le glossaire.
+- champenois (Chrétien de Troyes, copie de Guiot) : environ 370 formes ajoutées d'après le *Chevalier de la
+  charrette* (« ot » → « eut », « fu » → « fut », « ele », « sui », « nel » → « ne le », « vialt » →
+  « veut », « respont », « dient », « plest », « sanz », « jamés », « ancor », « ansanble », « dedanz »,
+  « dameisele », « eve » → « eau », « -mant » → « -ment ») ; sous condition : « aus » → « eux » après une
+  préposition, « ainz », « einz » → « mais » après une négation (« ainz que » → « avant que »), « tret »
+  → « tiré » après un auxiliaire, « tire » sinon, « alez » → « allé » / « allez », « preu » → « profit »
+  après un possessif, « preux » sinon. Mesure sur le *Chevalier de la charrette* (texte de Kibler) :
+  60 % → 71 % avec l'ancienne chaîne, 81 % avec celle-ci ; Guillaume le Maréchal t. I et II :
+  + 2 à 3 points, sans régression relevée sur les remplacements comparés un à un ;
+- faux amis (`dictionnaires/faux_amis.py`, chargé par `ancien_francais.py` et `lisible_froissart.py`) :
+  formes restées modernes dont le sens a changé, remplacées par le mot du sens ancien — « pucele » →
+  « jeune fille », « tost » → « vite », « querre » → « chercher », « chief » → « tête » (« mon chief » →
+  « ma tête », « a chief » → « à bout »), « vaslet » → « jeune homme », « disner », « dîner » →
+  « déjeuner », « gentil » → « noble » (« gentil homme » → « gentilhomme »), « vilain » → « paysan »,
+  « enui » → « chagrin » ; sous condition : « mestier » → « besoin » (« avoir mestier » ; « son
+  mestier » reste), « vilain », « vaslez ».
+
+##### Contrôler et enrichir la modernisation avec une édition bilingue
+
+`bilingue_lexique.py` lit un PDF où le texte ancien et sa traduction moderne sont en regard (éditions
+« bilingues » : GF-Flammarion, Lettres gothiques, Champion Classiques…), passe le texte ancien par la
+chaîne de l'époque, puis se sert de la traduction comme témoin :
+
+```
+python3 bilingue_lexique.py lancelot.pdf --pages 54-439 --ancien pair --epoque ancien -o lancelot
+```
+
+- `lancelot-residus.tsv` : formes restées anciennes, par fréquence — la liste de travail pour
+  `ancien_francais.py` ;
+- `lancelot-candidats.tsv` : pour chaque résidu, la forme moderne que donnent les règles de graphie
+  quand la traduction de la même double page l'emploie (« validé », presque toujours juste), les autres
+  formes possibles, et les mots de la traduction les plus liés au résidu (« eve » → eau, « chief » →
+  tête, « enmi » → milieu ; sans valeur pour les mots-outils) ;
+- `lancelot-recoupement.tsv` : chaque remplacement déjà fait par la chaîne, cherché dans la traduction
+  en regard ; un taux très bas, quand le traducteur n'emploie pas non plus un mot de même radical,
+  donne un « faux ami probable » (« pucele » → pucelle : 1 fois sur 44, le traducteur écrit
+  « demoiselle » ; « tost » → tôt : 6 sur 64 ; « querre » → quérir : 0 sur 22). À examiner : une
+  traduction libre (« molt », « ot » → « avait ») donne aussi des taux bas.
+
+La traduction moderne est protégée : le script n'écrit aucun passage, seulement des mots isolés et
+des nombres, et le PDF reste hors du dépôt.
 
 #### Poème édité vers par vers (Guillaume le Maréchal, éd. Paul Meyer)
 
@@ -570,6 +611,7 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_typo.py` | typographie française de la ponctuation (insécables, espaces, « — », « … ») ; seules les espaces changent |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
+| `bilingue_lexique.py` | édition bilingue (texte ancien en regard d'une traduction) → formes restées anciennes, candidats validés par la traduction, faux amis probables ; aucun passage écrit |
 | `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide |
 | `epub_pages.py` | liste des pages du livre papier rétablie ou réparée ; `--purge` |
 
