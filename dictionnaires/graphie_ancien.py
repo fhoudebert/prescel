@@ -38,6 +38,9 @@ RULES = [
     (r"iez$", "ez", True),                                                        # saciez, oiez
     (r"z$", "s", False), (r"z$", "ts", False),                                    # genz, venuz ; diz, faiz, denz
     (r"^an(?=[cs])", "en", False),                                                # ansaigne, anseigne
+    (r"mant$", "ment", True),                                                     # champenois : duremant, seulemant
+    (r"(?<=[a-z]{2})oill", "eill", True),                                          # mervoille, consoille
+    (r"(?<=[a-z]{2})oil$", "eil", False),                                          # consoil, soloil
 ] + [r for r in _MOYEN["RULES"] if r[0] not in (r"és$", r"oi(?=(?:s|t|ent)$)")] + [
     (r"oi(?=(?:t|ent)$)", "ai", True),   # imparfaits « avoit », « avoient » ; mais « -ois » : mois, rois, bois
 ]

@@ -431,6 +431,18 @@ LISIBLE = {
 
 # Tout ce qui précède est voulu, même quand la forme ancienne existe aussi en français moderne
 # (« tantôt », « incontinent », « devers », « foison », « fors que ») : appliqué d'office.
+# Faux amis communs et propres au moyen français (dictionnaires/faux_amis.py) : « gentil » → noble,
+# « dîner » → déjeuner, « vilain » → paysan, « pucelle » → jeune fille
+def _faux_amis():
+    import os
+    import runpy
+    return runpy.run_path(os.path.join(os.path.dirname(os.path.abspath(__file__)), "faux_amis.py"))
+
+
+_fa = _faux_amis()
+LISIBLE.update(_fa["COMMUNS"])
+LISIBLE.update(_fa["MOYEN"])
+
 FORCE = dict(LISIBLE)
 
 CONTEXTE = {
@@ -477,3 +489,5 @@ CONTEXTE = {
     "trestost": "vite?prev=si,aussi|très vite",
     "rescous": "secouru?prev=être,fut,été,soit|secourus?prev=furent,étaient,sont",
 }
+
+CONTEXTE.update(_fa["CONTEXTE_MOYEN"])
