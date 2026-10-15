@@ -55,27 +55,26 @@ version « à relire », retirer les marqueurs. En ligne de commande, chaque scr
 (`python3 script.py --help`), par exemple pour un EPUB de Google Livres :
 
 ```
-python3 epub_simplify.py  google.epub -o 1.epub --join-hyphens --flatten-br --lettrines
-python3 epub_longs.py     1.epub -o 2.epub --tsv livre-s-long.tsv --wordlist auto
-python3 epub_structure.py 2.epub -o 3.epub --merge-pages --drop-furniture --caps-titles --link-notes
-python3 epub_review.py    3.epub --report relecture.html --mark a-relire.epub
+python3 scripts/epub_simplify.py  google.epub -o 1.epub --join-hyphens --flatten-br --lettrines
+python3 scripts/epub_longs.py     1.epub -o 2.epub --tsv livre-s-long.tsv --wordlist auto
+python3 scripts/epub_structure.py 2.epub -o 3.epub --merge-pages --drop-furniture --caps-titles --link-notes
+python3 scripts/epub_review.py    3.epub --report relecture.html --mark a-relire.epub
 # relecture dans Sigil (rechercher « a-verifier »), puis
-python3 epub_review.py a-relire.epub --unmark -o relu.epub
-python3 epub_gutenberg.py relu.epub -o Mon_livre
+python3 scripts/epub_review.py a-relire.epub --unmark -o relu.epub
+python3 scripts/epub_gutenberg.py relu.epub -o Mon_livre
 ```
 
 ## Contenu du dépôt
 
 | Dossier ou fichier | Contenu |
 |---|---|
-| `prescel.py` | interface web locale |
-| `pdf_*.py`, `abbyy_to_epub.py` | import (PDF Gallica, couche texte, OCR Tesseract, XML ABBYY, DjVu, poèmes, glossaires) |
-| `epub_*.py` | une étape chacun : nettoyage, corrections, structure, relecture, publication ([liste](utilisation.md#les-scripts)) |
-| `typo_fr.py` | typographie française (espaces, tirets, points de suspension) |
+| `prescel.py` | interface web locale (`python3 prescel.py`) |
+| `scripts/` | les scripts, une étape chacun ([liste](utilisation.md#les-scripts)) : import (`pdf_*.py`, `abbyy_to_epub.py` : PDF Gallica, couche texte, OCR Tesseract, XML ABBYY, DjVu, poèmes, glossaires), `epub_*.py` (nettoyage, corrections, structure, relecture, publication), `typo_fr.py` (typographie française), `bilingue_lexique.py` (contrôle de la modernisation sur une édition bilingue) ; à lancer depuis la racine : `python3 scripts/epub_review.py --help` |
 | `dictionnaires/` | listes de corrections et de modernisation, à compléter ([détails](utilisation.md#dictionnaires)) |
 | `livres/` | scripts et listes propres à un livre (Froissart, Guillaume le Maréchal, Foulques-Nerra), modèles pour un livre du même genre |
 | `epub/` | livres produits (EPUB, fichiers Gutenberg) |
 | `pdf/` | sources des livres (PDF, OCR de comparaison) ; d'où elles viennent : [`pdf/sources.md`](pdf/sources.md) |
+| `divers/` | exemples de textes pour essayer les scripts |
 | `utilisation.md` | guide d'utilisation détaillé |
 
 ## Licence

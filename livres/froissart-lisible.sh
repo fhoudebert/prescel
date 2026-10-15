@@ -10,9 +10,9 @@ set -e
 T=${1:?numéro du tome}; P=$(pwd); W=${2:-travail-lisible-$T}; mkdir -p "$W"
 SRC="$P/epub/Oeuvres_de_Froissart_Chroniques_Tome_$T-moderne.epub"
 OUT="$P/epub/Oeuvres_de_Froissart_Chroniques_Tome_$T-lisible.epub"
-python3 "$P/epub_modernise.py" "$SRC" -o "$W/1.epub" --epoque moyen --mode vocab \
+python3 "$P/scripts/epub_modernise.py" "$SRC" -o "$W/1.epub" --epoque moyen --mode vocab \
         --dict "$P/dictionnaires/lisible_froissart.py" --jusqua titre-4 --tsv "$W/lisible.tsv" --wordlist auto
-python3 "$P/epub_modernise.py" "$W/1.epub" -o "$W/2.epub" --epoque moyen --mode vocab \
+python3 "$P/scripts/epub_modernise.py" "$W/1.epub" -o "$W/2.epub" --epoque moyen --mode vocab \
         --jusqua titre-4 --tsv "$W/vocabulaire.tsv" --wordlist auto
 # titre et note de la page de titre : « orthographe modernisée » → « lecture facilitée »
 python3 - "$W/2.epub" "$OUT" <<'PY'

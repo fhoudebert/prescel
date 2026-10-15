@@ -40,6 +40,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import unquote, urlparse, parse_qs
 
 HERE = os.path.dirname(os.path.abspath(__file__))
+SCRIPTS = os.path.join(HERE, "scripts")   # les scripts lancés par l'interface
 VERSION = "0.1"
 
 # --------------------------------------------------------------------------
@@ -537,8 +538,8 @@ def find_tesseract(tessdata):
 
 def pdf_module():
     """Le module pdf_to_epub (None si PyMuPDF manque)."""
-    if HERE not in sys.path:
-        sys.path.insert(0, HERE)
+    if SCRIPTS not in sys.path:
+        sys.path.insert(0, SCRIPTS)
     try:
         import pdf_to_epub
     except Exception:
@@ -1053,7 +1054,7 @@ def pipeline(job, plan, check_mode, start=None):
             job.log("import", "Ce projet n'a pas de PDF : étape ignorée.", "info")
             st["status"] = "done"
         else:
-            cmd = [sys.executable, "-u", os.path.join(HERE, "pdf_to_epub.py"), pdf, "-o", original,
+            cmd = [sys.executable, "-u", os.path.join(SCRIPTS, "pdf_to_epub.py"), pdf, "-o", original,
                    "--cache", os.path.join(d, "cache")] + build_args(STEP_BY_ID["import"], imp.get("options", {}))
             if CONFIG["tessdata"]:
                 cmd += ["--tessdata", CONFIG["tessdata"]]
@@ -1093,7 +1094,7 @@ def pipeline(job, plan, check_mode, start=None):
                 job.steps.append(st)
             t0 = time.time()
             clean = os.path.join(d, slug + "-0-sans-marqueurs.epub")
-            rc = run_command(job, "unmark", [py, "-u", os.path.join(HERE, "epub_review.py"),
+            rc = run_command(job, "unmark", [py, "-u", os.path.join(SCRIPTS, "epub_review.py"),
                                              current, "--unmark", "-o", clean])
             st["seconds"] = round(time.time() - t0, 1)
             if rc != 0:
@@ -1111,7 +1112,7 @@ def pipeline(job, plan, check_mode, start=None):
             job.steps.append(st)
         t0 = time.time()
         opts = entry.get("options", {})
-        script = os.path.join(HERE, step["script"])
+        script = os.path.join(SCRIPTS, step["script"])
         if not os.path.exists(script):
             job.log(step["id"], "Script introuvable : %s (à placer à côté de prescel.py)" % step["script"], "err")
             st["status"], ok = "error", False
@@ -1242,7 +1243,7 @@ def unmark_job(job, name):
           "output": None, "epubcheck": None}
     job.steps.append(st)
     t0 = time.time()
-    rc = run_command(job, "unmark", [sys.executable, "-u", os.path.join(HERE, "epub_review.py"),
+    rc = run_command(job, "unmark", [sys.executable, "-u", os.path.join(SCRIPTS, "epub_review.py"),
                                      src, "--unmark", "-o", out])
     st["seconds"] = round(time.time() - t0, 1)
     st["status"] = "done" if rc == 0 else "error"
@@ -1333,7 +1334,7 @@ class Handler(BaseHTTPRequestHandler):
                             "tesseract": [l for l in CONFIG["tesseract"] if l not in ("osd", "eng")],
                             "pdf": pdf_module() is not None,
                             "missing": [s["script"] for s in STEPS
-                                        if not os.path.exists(os.path.join(HERE, s["script"]))]})
+                                        if not os.path.exists(os.path.join(SCRIPTS, s["script"]))]})
         elif path in ("/api/longs", "/api/list"):
             q = parse_qs(url.query)
             slug = q.get("slug", [""])[0]

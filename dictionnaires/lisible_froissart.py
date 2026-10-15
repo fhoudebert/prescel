@@ -12,7 +12,7 @@ condition qui tranche ; quand elle n'est pas remplie, le mot reste. Les locution
 mots seuls (« par devers le » → « auprès du », « à tous lés » → « de tous côtés »).
 
 S'emploie sur un EPUB à l'orthographe déjà modernisée (chaîne de utilisation.md), NOTES exclues :
-  python3 epub_modernise.py moderne.epub -o lisible.epub --epoque moyen --mode vocab \\
+  python3 scripts/epub_modernise.py moderne.epub -o lisible.epub --epoque moyen --mode vocab \\
           --dict dictionnaires/lisible_froissart.py --jusqua titre-4 --tsv livre-lisible.tsv --wordlist auto
 puis la passe --mode vocab ordinaire (dictionnaires/moyen_francais.py : LEXIQUE « cuida » → « pensa »,
 et CONTEXTE « grant » → grand / grande) avec le même --jusqua.

@@ -15,7 +15,7 @@ import os
 import re
 import sys
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "scripts"))
 from epub_vers_controle import controle, ecrire_epub, lire_epub, souple   # noqa: E402
 
 PREMIER_VERS = 10153
