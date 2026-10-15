@@ -75,6 +75,7 @@ python3 epub_gutenberg.py relu.epub -o Mon_livre
 | `dictionnaires/` | listes de corrections et de modernisation, à compléter ([détails](utilisation.md#dictionnaires)) |
 | `livres/` | scripts et listes propres à un livre (Froissart, Guillaume le Maréchal, Foulques-Nerra), modèles pour un livre du même genre |
 | `epub/` | livres produits (EPUB, fichiers Gutenberg) |
+| `pdf/` | sources des livres (PDF, OCR de comparaison) ; d'où elles viennent : [`pdf/sources.md`](pdf/sources.md) |
 | `utilisation.md` | guide d'utilisation détaillé |
 
 ## Licence
