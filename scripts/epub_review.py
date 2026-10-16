@@ -317,7 +317,9 @@ class Reviewer:
             # coupure de fin de ligne (« e- stant »).
             hyphenated = w in "tT" and a > 0 and s[a - 1] in "-‑" and b < len(s) and s[b] in "-‑"
             # casse mélangée : « AVtres », « DaEtylus » (sauf mots tout en capitales)
+            # ni les nombres romains à exposant : « IIIIxx » (80), « Vc » (500), « IIIIm », « XIXe »
             if len(w) > 2 and not w.isupper() and not re.fullmatch(r"[ivxlcIVXLC]+", w) and \
+                    not re.fullmatch(r"[IVXLC]+(?:xx|c|m|e|es|me|re|ie)", w) and \
                     re.search(r"[a-zà-ÿ][A-ZÀ-Þ]|^[A-ZÀ-Þ]{2,}[a-zà-ÿ]", w):
                 out.append((a, b, "casse", w))
                 continue

@@ -55,6 +55,8 @@ from epub_longs import load_wordlist                  # noqa: E402
 WORD = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.U)
 ROMAN = re.compile(r"^[IVXLCDM]+[A-Za-zé]{0,3}$")      # « XIIIe », « IIIIm », « IIP », « XXVIIo »
 ROMAN_STRICT = re.compile(r"^[IVXLC]+(?:e|es|m|c|xx|me|re)?$")
+# exposant multiplicateur : IIII^xx = 4 × 20, V^c = 500, IIII^m = 4000 ; un OCR qui le perd change le nombre
+EXPOSANT = re.compile(r"^([IVXLC]+)(?:xx|c|m)$")
 SKIP_CLASSES = ("variantes", "marge")
 PARASITES = {"il", "ci", "cc", "lû", "li", "ll"}
 
@@ -351,6 +353,9 @@ def decide(M, readings, other, known):
                                 ("autre édition : %s" % b) if b else "autre édition : —")
         if all(norm(f) == norm(forms[0]) for f in forms):
             r = forms[0]
+            em = EXPOSANT.match(m)
+            if em and em.group(1) == r:
+                continue            # « IIIIxx » lu « IIII » : les lectures ont perdu l'exposant (80, pas 4)
             if (ROMAN.match(m) and not known(m)) or (ROMAN.match(r) and not known(r)):
                 if not ROMAN_STRICT.match(m):
                     marks.append((i, "nombre romain mal lu ? " + lectures))
