@@ -237,6 +237,10 @@ python3 scripts/epub_modernise.py 5.epub -o 6.epub --epoque moyen --mode ants --
 python3 scripts/epub_modernise.py 6.epub -o moderne.epub --epoque moyen --mode vocab --tsv livre-moderne2.tsv --wordlist auto
 ```
 
+Pour les Chroniques, la même chaîne avec le titre et la note de la page de titre (« Orthographe
+modernisée : … ») : `sh livres/froissart-moderne.sh 13` (epub/…Tome_13-relu.epub →
+epub/…Tome_13-moderne.epub), puis `sh livres/froissart-lisible.sh 13`.
+
 - `dictionnaires/moyen_francais.py` : formes sûres (« prins » → « pris », « misrent » → « mirent »,
   « voulenté » → « volonté », « roiaulme » → « royaume ») ; `FORCE` pour les formes qui sont aussi
   un mot moderne mais ont presque toujours ce sens chez l'auteur (« conte » → « comte ») ;
@@ -657,7 +661,7 @@ exemples sont relatifs à la racine.
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_errata.py` | applique l'errata imprimé du livre (« P. 24, l. 30, sont — font ») à la page indiquée ; liste à relire dans `<livre>-errata.tsv` |
 | `epub_recolle.py` | recolle les mots coupés d'une espace (« Portin gal », « autre ment ») quand le mot entier est ailleurs dans le livre ; liste dans `<livre>-recolle.tsv` |
-| `epub_guillemets.py` | guillemets que l'OCR a lus « u » (« ) et « n » (») ; guillemets répétés en tête de ligne supprimés |
+| `epub_guillemets.py` | guillemets que l'OCR a lus « u » (« ) et « n » (») ; guillemets répétés en tête de ligne supprimés, y compris les vrais « restés au milieu d'une phrase citée ou d'un mot coupé (« Et « outre », « Cas« tille ») |
 | `epub_apparat.py` | numéros d'appel de l'apparat de variantes lus « U », déduits des numéros voisins |
 | `epub_appels.py` | appels de variantes contrôlés page par page (texte et apparat) ; appels et numéros mal lus restitués quand le compte tombe juste ; rapport des pages incohérentes |
 | `epub_typo.py` | typographie française de la ponctuation (insécables, espaces, « — », « … ») ; seules les espaces changent |

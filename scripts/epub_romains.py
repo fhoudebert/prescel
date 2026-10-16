@@ -34,7 +34,7 @@ R = r"[IVXLCDM]+"
 P = r"(?:\x00\d+\x00)*"           # balise mise à l'abri (appel de variante, ancre de page, marque)
 # liaison entre deux groupes d'un même nombre : « CCC. IIII », « IIII^xx et VIII », « mil CCC »
 JOIN = r"(?:%s\.?%s\s+%s(?:et\s+%s)?)" % (P, P, P, P)
-COMPOUND = re.compile(r"(?<![\w&;])(?:(mil|M\.)\s+%s)?(%s(?:<sup>(?:xx|c|m)</sup>)?(?:%s%s(?:<sup>(?:xx|c|m)</sup>)?)*)"
+COMPOUND = re.compile(r"(?<![\w&;])(?:(mil|M\.)\s+%s(et\s+)?)?(%s(?:<sup>(?:xx|c|m)</sup>)?(?:%s%s(?:<sup>(?:xx|c|m)</sup>)?)*)"
                       r"(?:<sup>(e|me|es|er|re|ème)</sup>)?(?![\w'’<])" % (P, R, JOIN, R))
 # devant le nombre : titre ou nom propre (Charles VI) ; dans le corps d'une phrase seulement
 TITRES = {"roi", "roy", "pape", "duc", "conte", "comte", "tome", "chapitre", "livre", "chap", "t", "p",
@@ -103,7 +103,7 @@ def convert_text(t, keep, log, where):
     for m in COMPOUND.finditer(t):
         if m.start() < pos:
             continue
-        mil, core, ordinal = m.group(1), m.group(2), m.group(3)
+        mil, mil_et, core, ordinal = m.group(1), m.group(2), m.group(3), m.group(4)
         marks = "".join(re.findall(r"\x00\d+\x00", m.group(0)))
         core = re.sub(r"\x00\d+\x00", "", core)
         plain_before = plain(t[max(0, m.start() - 60):m.start()])
@@ -140,7 +140,7 @@ def convert_text(t, keep, log, where):
             e = "er" if n == 1 and ordinal in ("er", "re") else ("re" if n == 1 else "e")
             new = "%d<sup>%s</sup>" % (n, e)
         else:
-            new = fmt(n, bool(mil))
+            new = fmt(n, bool(mil) and not mil_et)          # « mil et V^c frans » : 1 500, pas une date
         log.append((where, plain(t[m.start():end]).replace("\n", " "), re.sub(r"<[^>]+>", "", new),
                     (plain_before[-30:] + " [] " + after[:20]).replace("\n", " ")))
         out.append(t[pos:m.start()] + new + marks)

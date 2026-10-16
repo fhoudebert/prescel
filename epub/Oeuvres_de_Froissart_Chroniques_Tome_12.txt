@@ -12224,11 +12224,7 @@ Les corrections indiquées dans l'errata du volume ont été faites dans le
 texte.
 
 Les variantes, imprimées au bas des pages, sont regroupées à la fin du
-volume, page par page ; elles renvoient aux numéros des vers, donnés de
-quatre en quatre dans la marge. Les numéros de page du livre imprimé
-sont indiqués entre accolades {12} dans le texte brut, en marge dans le
-HTML (un clic mène aux variantes de la page).
-
-Les folios du manuscrit sont donnés entre crochets [(f. 12 b)] en fin de
-vers. Les crochets [ ] dans les vers marquent les restitutions de
-l'éditeur.
+volume, page par page ; leurs appels sont en exposant dans le texte. Les
+numéros de page du livre imprimé sont indiqués entre accolades {12} dans
+le texte brut, en marge dans le HTML (un clic mène aux variantes de la
+page).

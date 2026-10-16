@@ -10,6 +10,8 @@ Dans les éditions du XIXe siècle (Kervyn de Lettenhove…), l'OCR de Gallica l
   « que nous le tendrons en prison … belle. n »  → « … belle. » »
   « et nous adont voulen-|u tiers entendrons »  → « voulentiers entendrons »
                                                    (guillemet répété en début de ligne)
+  « Et « outre je dys », « Cas« tille »           → « Et outre je dys », « Castille »
+                                                   (vrai guillemet répété, resté dans le texte)
 
 Chaque « u » ou « n » isolé (variantes comprises ; ni « n. s. », ni lettre collée à un
 signe) est décidé d'après la lettre et l'équilibre des guillemets du paragraphe :
@@ -19,7 +21,9 @@ signe) est décidé d'après la lettre et l'équilibre des guillemets du paragra
   - « u » dans une citation ouverte : suivi d'une minuscule, guillemet répété → supprimé ;
     sinon fermant → « » » ;
   - « u » hors citation, suivi d'un mot : ouvrant → « « ».
-Le reste (« u » hors citation, rien après) est laissé tel quel et listé.
+Le reste (« u » hors citation, rien après) est laissé tel quel et listé. Un vrai « au milieu
+d'une phrase citée (après une lettre ou une virgule, devant une minuscule) ou au milieu d'un mot
+est le guillemet répété en tête de ligne : retiré.
 
 Seuls les guillemets changent ; tout est listé. La typographie (espaces insécables) est
 ensuite l'affaire d'epub_typo.py.
@@ -87,14 +91,32 @@ def main():
                     continue
                 holders = [(h, a) for h, a in text_holders(p)
                            if not (a == "text" and lname(h) == "sup")]   # appels de variante / de note
-                depth = 0
+                depth, acc = 0, ""
                 for h, a in holders:
                     s = getattr(h, a) or ""
                     out, pos = [], 0
                     for m in re.finditer(r"[«»]|(?<![\w'’-])[un](?![\w'’-])", s):
                         tok = m.group(0)
                         if tok == "«":
-                            depth += 1
+                            before, after = acc + s[:m.start()], s[m.end():]
+                            repete = None
+                            if re.search(r"\w$", before) and re.match(r"[\s\xa0]?[a-zà-ÿ]", after):
+                                repete = "guillemet répété dans un mot coupé"       # « Cas« tille »
+                            elif depth > 0 and re.search(r"[\w,;][\s\xa0]*$", before) \
+                                    and re.match(r"[\s\xa0]*[a-zà-ÿ]", after):
+                                repete = "guillemet répété en tête de ligne"        # « Et « outre je dys »
+                            if not repete:
+                                depth += 1
+                                continue
+                            stats[repete] += 1
+                            if len(examples[repete]) < 6:
+                                examples[repete].append("…%s[«→∅]%s…" % (before[-35:], after[:25]))
+                            out.append(s[pos:m.start()])
+                            skip = len(re.match(r"[\s\xa0]*", after).group(0))
+                            if repete.endswith("coupé") or not re.search(r"[\s\xa0]$", before):
+                                if not repete.endswith("coupé"):
+                                    out.append(" ")
+                            pos = m.end() + skip
                             continue
                         if tok == "»":
                             depth = max(0, depth - 1)
@@ -147,6 +169,8 @@ def main():
                         if new_s != s:
                             setattr(h, a, new_s)
                             changed.add(d.path)
+                        s = new_s
+                    acc += s
 
         print("Guillemets rétablis : %d" % sum(stats.values()))
         for why, n in stats.most_common():

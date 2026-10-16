@@ -740,7 +740,8 @@ def main():
         notes.append("Les corrections indiquées dans l'errata du volume ont été faites dans le texte"
                      + ("." if done_ == total_ else " (%d sur %d)." % (done_, total_)))
     if book.variants:
-        poeme = any("vers" in b["cls"] for _, b in book.blocks)
+        # poème édité vers par vers (pas quelques vers cités dans les notes d'une chronique)
+        poeme = sum(1 for _, b in book.blocks if "vers" in b["cls"]) > 0.3 * max(1, len(book.blocks))
         notes.append("Les variantes, imprimées au bas des pages, sont regroupées à la fin du volume, "
                      "page par page ; "
                      + ("elles renvoient aux numéros des vers, donnés de quatre en quatre dans la marge"

@@ -457,8 +457,9 @@ class Reviewer:
                 if not s.strip():
                     continue
                 hits = [h for h in self.suspects_in(s) if h[2] not in self.skip]
-                if "variantes" in classes(el):
-                    # apparat critique : « v. », « t. », leçons du manuscrit — pas des lettres perdues
+                if "variantes" in classes(el) or (attr == "text" and lname(holder) == "sup"):
+                    # apparat critique : « v. », « t. », leçons du manuscrit — pas des lettres perdues ;
+                    # exposant : XIV<sup>e</sup>, XV<sup>m</sup>, C<sup>ie</sup>
                     hits = [h for h in hits if h[2] != "isolees"]
                 for (a, b, cat, detail) in hits:
                     self.add(cat, doc, node_page, s, a, b, detail)
