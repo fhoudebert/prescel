@@ -64,6 +64,9 @@ python3 scripts/epub_review.py a-relire.epub --unmark -o relu.epub
 python3 scripts/epub_gutenberg.py relu.epub -o Mon_livre
 ```
 
+Pour refaire les fichiers Gutenberg ou les versions modernisées des livres du dépôt après une
+retouche : [commandes de maintenance](utilisation.md#maintenance--commandes-courantes).
+
 ## Contenu du dépôt
 
 | Dossier ou fichier | Contenu |

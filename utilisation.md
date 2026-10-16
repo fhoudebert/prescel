@@ -10,6 +10,7 @@ Compléments du [README](README.md) : chaînes complètes, réglages, scripts un
 - [Parcours C — édition modernisée](#5-parcours-c--édition-modernisée-usage-personnel-autre-plateforme)
 - [Ce qu'il faut adapter d'un livre à l'autre](#6-ce-quil-faut-adapter-dun-livre-à-lautre)
 - [Avant de publier](#7-avant-de-publier)
+- [Maintenance : commandes courantes](#maintenance--commandes-courantes)
 - [Installation](#installation-et-lancement)
 - [Déroulement dans Prescel](#déroulement-dans-prescel)
 - [Les scripts](#les-scripts)
@@ -601,6 +602,112 @@ python3 scripts/epub_reference.py relu.epub reference.pdf --from-page 118 \
       https://upload.pglaf.org.
 
 
+## Maintenance : commandes courantes
+
+Commandes à lancer depuis la racine du dépôt, après une retouche d'un maître relu dans Sigil ou une
+mise à jour des scripts. Les fichiers de `epub/` sont écrasés : `git diff --stat` montre ensuite ce
+qui a changé, `git checkout -- epub/FICHIER` revient en arrière.
+
+### Refaire les fichiers Gutenberg
+
+```
+# Froissart, t. XII et XIII (variantes en fin de volume, numéros de page {12})
+for T in 12 13; do
+  python3 scripts/epub_gutenberg.py epub/Oeuvres_de_Froissart_Chroniques_Tome_$T-relu.epub \
+          -o epub/Oeuvres_de_Froissart_Chroniques_Tome_$T \
+          --note "Texte établi d'après le fac-similé publié sur Gallica."
+done
+
+# Chardin (page de titre dans PREMIERE-PARTIE, « & » → « et »)
+python3 scripts/epub_gutenberg.py epub/Jean-Chardin-Voyages_en_Perse-relu.epub \
+        -o epub/Chardin_Voyages_en_Perse --title-file PREMIERE --esperluette \
+        --note "Texte des Voyages de Chardin en Perse (Amsterdam, Jean-Louis de Lorme), d’après l’exemplaire numérisé par Google Livres. Orthographe modernisée (s long, imparfaits en -ait, pluriels, accents) et erreurs d’OCR corrigées."
+
+# Guillaume le Maréchal : chaîne complète par tome (contrôles d'après le PDF Google, folios,
+# finitions ; 1 à 3 minutes par tome), dans un dossier de travail ; comparer avant de copier (bash)
+T=1
+sh livres/guillaume-marechal-t$T-gutenberg.sh travail-guillaume-t$T
+diff <(tr -d '\r' < travail-guillaume-t$T/Guillaume_le_Marechal_T$T.txt) \
+     <(tr -d '\r' < epub/Guillaume_le_Marechal_T$T.txt)
+cp travail-guillaume-t$T/Guillaume_le_Marechal_T$T.{txt,html,epub} epub/
+```
+
+- Guillaume : la chaîne refait exactement les fichiers du dépôt pour les t. I et III ; pour le t. II,
+  le vocabulaire de fin de volume du dépôt porte une quinzaine de retouches à la main (« voy. ore »,
+  « lau ») que la chaîne ne refait pas : ne copier que si le `diff` ne montre que la correction
+  voulue, ou reporter celle-ci à la main ;
+- le script affiche la plus longue ligne du texte (72 au plus) et du HTML (100 par défaut,
+  `--html-width 120` au plus pour PG) ;
+- la même commande sur un autre livre : `--title-file` si la page de titre n'est pas `titre*.xhtml`,
+  `--note` (répétable) pour la note de transcription, `--esperluette`, `--apostrophes` ;
+- contrôle du HTML : https://validator.w3.org/ (ou `java -jar vnu.jar epub/Mon_livre.html`) ;
+- les `.txt` sont en CRLF ; après un `git pull`, un `.txt` resté en LF se refait par
+  `rm epub/*.txt && git checkout -- epub/`.
+
+### Refaire les versions modernisées de Froissart
+
+```
+sh livres/froissart-moderne.sh 13     # …Tome_13-relu.epub → …Tome_13-moderne.epub (listes dans travail-moderne-13/)
+sh livres/froissart-lisible.sh 13     # …Tome_13-moderne.epub → …Tome_13-lisible.epub (synonymes, chiffres arabes)
+sh livres/froissart-moderne.sh 12
+```
+
+À refaire après une correction du maître relu ou un ajout aux dictionnaires
+(`dictionnaires/moyen_francais.py`, `graphie_moyen.py`, `noms_froissart.py`,
+`lisible_froissart.py`). Les listes `travail-moderne-13/livre-*.tsv` donnent chaque remplacement :
+un mot mal modernisé se corrige dans le dictionnaire (ou ses `EXCEPTIONS`), pas dans l'EPUB.
+
+### Moderniser un autre texte
+
+Une passe à la fois, chaque liste relue avant la suivante (colonnes : `appliquer` 1/0, forme lue,
+correction, occurrences, remarque ; la liste corrigée à la main est reprise si l'on relance la même
+commande) :
+
+```
+# XVIIᵉ-XVIIIᵉ siècle (Chardin, Belon) : oi → ai, -ez → -és, -erent, -ans, vocabulaire
+python3 scripts/epub_modernise.py relu.epub -o 1.epub --mode oi    --tsv livre-oi.tsv    --wordlist auto
+python3 scripts/epub_modernise.py 1.epub   -o 2.epub --mode ez    --tsv livre-ez.tsv    --wordlist auto
+python3 scripts/epub_modernise.py 2.epub   -o 3.epub --mode erent --tsv livre-erent.tsv --wordlist auto
+python3 scripts/epub_modernise.py 3.epub   -o 4.epub --mode ants  --tsv livre-ants.tsv  --wordlist auto
+python3 scripts/epub_modernise.py 4.epub   -o moderne.epub --mode vocab --tsv livre-moderne.tsv --wordlist auto
+
+# moyen français (XIVᵉ-XVᵉ) : --epoque moyen, voir « Moderniser l'orthographe d'un texte en moyen
+# français » (pas de --mode ez) ; noms propres de l'auteur avec --dict
+python3 scripts/epub_modernise.py relu.epub -o 1.epub --epoque moyen --mode graphie --tsv livre-graphie.tsv --wordlist auto
+```
+
+Ne toucher qu'au récit, pas aux notes de l'éditeur : `--jusqua titre-4` (id du premier titre à
+laisser). Le titre et la page de titre doivent annoncer la modernisation (voir
+`livres/froissart-moderne.sh`).
+
+### Refaire l'EPUB à relire d'un tome à apparat (Froissart t. XIV)
+
+Après une retouche de `livres/froissart-t14-appels.py` (appels `DROP`/`ADD`, `REMPLACEMENTS`) ou de
+`livres/froissart-t14-apparat-lu.txt`, sur l'EPUB des témoins gardé en dossier de travail :
+
+```
+python3 scripts/epub_apparat_scan.py travail-t14/temoins.epub travail-t14/apparat.epub \
+        --scan travail-t14/scan.json --apparat livres/froissart-t14-apparat-lu.txt \
+        --corrections livres/froissart-t14-appels.py --google pdf/froissart-95OiiHRqQ9wC-14.pdf \
+        --rapport livres/froissart-t14-apparat.tsv
+python3 scripts/epub_guillemets.py travail-t14/apparat.epub \
+        -o epub/Oeuvres_de_Froissart_Chroniques_Tome_14-temoins-a-relire.epub
+python3 scripts/epub_appels.py epub/Oeuvres_de_Froissart_Chroniques_Tome_14-temoins-a-relire.epub --rapport appels.html
+```
+
+`scan.json` vient de `scan_apparat.py` (numérisation IA, `--decalage 14`) ; une page à vérifier se
+voit avec `scan_apparat.py … --planche-appels VUE -o vue.png` (appels repérés, numérotés en rouge),
+l'apparat avec `--planches-apparat DE A --echelle 0.65`.
+
+### Contrôles rapides
+
+```
+java -jar epubcheck.jar epub/Mon_livre-relu.epub                          # 0 erreur attendue
+python3 scripts/epub_review.py epub/Mon_livre-relu.epub --report relecture.html   # ce qui reste à voir
+python3 scripts/epub_appels.py epub/Mon_livre-relu.epub --rapport appels.html     # appels / variantes par page
+python3 scripts/epub_guillemets.py epub/Mon_livre-relu.epub --dry-run             # guillemets lus « u » / « n »
+```
+
 ## Installation et lancement
 
 Python 3.8+ suffit ; les autres outils sont facultatifs.
@@ -851,12 +958,18 @@ validateur du W3C (https://validator.w3.org/). Il ajoute lui-même son en-tête 
 
 ```
 python3 scripts/epub_gutenberg.py livre-relu.epub -o Mon_livre      # → Mon_livre.txt, Mon_livre.html
+python3 scripts/epub_gutenberg.py livre-relu.epub -o Mon_livre --html-width 120   # lignes HTML plus longues
 ```
+
+Exemples réels (Froissart, Chardin, Guillaume le Maréchal) : [Maintenance](#maintenance--commandes-courantes).
 
 - texte : lignes de 72 caractères au plus, fins de ligne CRLF, paragraphes séparés par une ligne
   vide, quatre lignes vides avant chaque chapitre et deux après, italique en `_soulignés_`,
   notes `[1]` en fin de chapitre ;
-- HTML : une seule page, CSS intégrée, notes reliées dans les deux sens, aucun script ;
+- HTML : une seule page, CSS intégrée, notes reliées dans les deux sens, aucun script ; lignes de
+  100 caractères au plus (`--html-width N` ; PG en demande 120 au plus pour pouvoir reprendre le
+  fichier), coupées sur une espace ordinaire, jamais dans un attribut ni sur une espace insécable :
+  le rendu est le même ;
 - `--title-file NOM` désigne la page de titre de l'EPUB (défaut « titre ») ; `--apostrophes auto`
   garde une seule forme d'apostrophe (la plus fréquente) ; `--esperluette` remplace les « & » restants
   par « et » quand le reste du livre l'écrit ainsi ;
