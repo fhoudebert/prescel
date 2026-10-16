@@ -126,6 +126,12 @@ python3 scripts/epub_temoins.py a-relire.epub -o a-relire-temoins.epub --lecture
         --lecture livre-tesseract.txt --nom Google --nom Tesseract --recit-jusqua titre-4 \
         [--wikisource "Les_Chroniques_de_Sire_Jean_Froissart/Livre_III" --de XC --a CXXXVIII] \
         --scan "https://archive.org/details/IDENTIFIANT/page/n{vue}" --decalage-scan 7
+# facultatif : appels et apparat repris de la numérisation (appels repérés sur l'image, apparat relu à vue)
+python3 scripts/scan_apparat.py images.pdf --decalage 7 --de 1 --a 319 --cache travail-scan -o scan.json
+python3 scripts/scan_apparat.py images.pdf --decalage 7 --cache travail-scan --planches-apparat 1 30 -o apparat.png
+python3 scripts/epub_apparat_scan.py a-relire-temoins.epub a-relire-apparat.epub --scan scan.json \
+        --apparat livres/froissart-t13-apparat-lu.txt --corrections livres/froissart-t13-appels.py \
+        --google google.epub --rapport livres/froissart-t13-apparat.tsv
 # relecture dans Sigil, puis
 python3 scripts/epub_review.py relu.epub --unmark -o maitre.epub
 python3 scripts/epub_gutenberg.py maitre.epub -o Mon_livre
@@ -189,6 +195,25 @@ Ce que fait chaque étape, et ses précautions :
   marque n'a aucun mot contesté (ponctuation et apparat non contrôlés). L'autre édition (Wikisource,
   téléchargée et mise en cache) ne décide rien : ses formes sont citées dans les notes. T. XIII :
   486 corrections, 119 marques nouvelles, 238 pages sur 383 sans marque ;
+- **appels et apparat d'après la numérisation** (`scan_apparat.py`, `epub_apparat_scan.py`) : quand
+  l'OCR a perdu trop d'appels pour qu'`epub_appels.py` retombe sur ses pieds (t. XIII : 269 pages
+  incohérentes), on repart de l'image. `scan_apparat.py` lit chaque page avec Tesseract et repère les
+  appels sur l'image (signe en l'air, sans lettre dessous, hors d'un mot, qui ne suit pas un nombre
+  romain : XII^c, IIII^xx, VI^e sont des exposants) ; les numéros ne sont pas lus, les appels vont de
+  1 à N dans l'ordre. L'apparat est relu à vue sur les planches (`--planches-apparat`, une ligne par
+  page : `27: 1-2 Remonstrèrent | 3-4 Estrangers | 5-6 Bien | 7-8 Tant que`) : il donne N et les
+  étiquettes. `epub_apparat_scan.py` aligne alors le texte sur la numérisation, place les appels
+  (`<sup class="var">k</sup>` après le mot), retire les restes d'appels mal lus (« ' », « ° »,
+  chiffre ou lettre isolée collés au mot), refait chaque bloc d'apparat avec sa numérotation
+  (« Remonstrèrent. — 3-4 Estrangers. "-° Bien. » → « 1-2 Remonstrèrent. — 3-4 Estrangers. — 5-6
+  Bien. ») en corrigeant ses mots d'après Tesseract et Google, rend au récit ce que l'OCR avait mis
+  dans l'apparat (et inversement), met les exposants des nombres romains en `<sup>` minuscule
+  (IIII<sup>xx</sup> = 80, V<sup>c</sup> = 500, VII<sup>m</sup> = 7 000, XIX<sup>e</sup> ; « mil
+  CCC. IIII… et VIII » : années 1380-1399) et lève les marques devenues sans objet. Les pages où la
+  détection se trompe se règlent à vue (`--planche-appels PAGE`) dans le fichier de corrections du
+  volume : appels à écarter ou à ajouter, vues hors d'ordre de la numérisation, exposants lus sur
+  l'image, retouches. T. XIII : 619 appels placés ou renumérotés, 284 blocs refaits, 8 pages à revoir
+  au lieu de 269 (deux pages manquent à la numérisation) ;
 - **relecture** : le rapport signale aussi les guillemets non refermés ;
 - **Gutenberg** : les variantes sont regroupées en fin de volume page par page, les numéros de page
   sont en marge du HTML (lien vers les variantes) et entre accolades `{12}` dans le texte ; la
@@ -246,6 +271,10 @@ modernisée) à 94 %, environ 2 600 remplacements.
 sh livres/froissart-lisible.sh 13      # epub/…Tome_13-moderne.epub → epub/…Tome_13-lisible.epub
 ```
 
+- `epub_romains.py` : nombres en chiffres romains du récit en chiffres arabes, exposants compris
+  (« mil CCC. IIII<sup>xx</sup> et VIII » → 1388, « IIII<sup>xx</sup> et XII ans » → 92 ans,
+  « VII<sup>m</sup> lances » → 7 000 lances, « le XIX<sup>e</sup> jour » → « le 19<sup>e</sup>
+  jour ») ; gardés : Charles VI, Richard II, tome XIII, une lettre seule, l'apparat ;
 - `dictionnaires/lisible_froissart.py` : `LISIBLE`, formes de sens constant chez Froissart, appliquées
   d'office (« adont » → « alors », « sicomme » → « comme », « oncques » → « jamais », « tantôt »,
   « incontinent » → « aussitôt », « devers » → « vers », « siet » → « se trouve », « querre » →
@@ -634,6 +663,9 @@ exemples sont relatifs à la racine.
 | `epub_typo.py` | typographie française de la ponctuation (insécables, espaces, « — », « … ») ; seules les espaces changent |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
+| `scan_apparat.py` | lecture d'une numérisation (PDF d'images) d'une édition à apparat : mots du corps, appels en exposant repérés sur l'image, entrées de l'apparat ; planches pour relire l'apparat et contrôler les appels |
+| `epub_apparat_scan.py` | appels de variantes placés et blocs d'apparat refaits d'après `scan_apparat.py` et l'apparat relu à vue ; exposants des nombres romains ; modules dans `scripts/apparat/` |
+| `epub_romains.py` | nombres en chiffres romains (exposants compris : IIII<sup>xx</sup>, V<sup>c</sup>) en chiffres arabes, pour une édition de lecture |
 | `epub_temoins.py` | relecture ciblée : l'EPUB face à deux autres lectures de la même édition (et une autre édition, Wikisource, en indice) ; corrige ce que les lectures donnent d'accord, marque le reste, classe les pages à relire |
 | `bilingue_lexique.py` | édition bilingue (texte ancien en regard d'une traduction) → formes restées anciennes, candidats validés par la traduction, faux amis probables ; aucun passage écrit |
 | `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide |
