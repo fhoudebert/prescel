@@ -194,7 +194,8 @@ Ce que fait chaque étape, et ses précautions :
   texte), chiffres dans le récit. Le rapport classe les pages par nombre de marques : une page sans
   marque n'a aucun mot contesté (ponctuation et apparat non contrôlés). L'autre édition (Wikisource,
   téléchargée et mise en cache) ne décide rien : ses formes sont citées dans les notes. T. XIII :
-  486 corrections, 119 marques nouvelles, 238 pages sur 383 sans marque ;
+  486 corrections, 119 marques nouvelles, 238 pages sur 383 sans marque ; t. XIV : 463 corrections,
+  130 marques (troncatures et accents ajoutés par l'OCR, confusions u/n, e/c, l/i laissés au maître) ;
 - **appels et apparat d'après la numérisation** (`scan_apparat.py`, `epub_apparat_scan.py`) : quand
   l'OCR a perdu trop d'appels pour qu'`epub_appels.py` retombe sur ses pieds (t. XIII : 269 pages
   incohérentes), on repart de l'image. `scan_apparat.py` lit chaque page avec Tesseract et repère les
@@ -213,11 +214,21 @@ Ce que fait chaque étape, et ses précautions :
   détection se trompe se règlent à vue (`--planche-appels PAGE`) dans le fichier de corrections du
   volume : appels à écarter ou à ajouter, vues hors d'ordre de la numérisation, exposants lus sur
   l'image, retouches. T. XIII : 619 appels placés ou renumérotés, 284 blocs refaits, 8 pages à revoir
-  au lieu de 269 (deux pages manquent à la numérisation) ;
+  au lieu de 269 (deux pages manquent à la numérisation). T. XIV : la numérisation (Internet Archive)
+  répète des blocs de dix pages et en saute d'autres ; la correspondance vue → page imprimée (`VUES`)
+  se calcule en alignant les mots de chaque vue sur le texte et se vérifie au titre courant. Les pages
+  absentes de la numérisation se relisent sur le PDF Google (`--google` accepte un PDF : numéro de
+  page en tête, apparat en pied). Un `ADD` peut viser la n-ième occurrence d'une paire de mots
+  (`("escuier", "anglois", 2)`) ; deux appels au même blanc (fin de ligne / début de la suivante)
+  sont gardés tous les deux. 1 005 appels placés ou renumérotés, 379 blocs refaits, 3 pages signalées
+  par `epub_appels.py` au lieu de 371 (appel « à cheval » sur deux pages, appel invisible) ;
 - **relecture** : le rapport signale aussi les guillemets non refermés ;
 - **Gutenberg** : les variantes sont regroupées en fin de volume page par page, les numéros de page
   sont en marge du HTML (lien vers les variantes) et entre accolades `{12}` dans le texte ; la
-  table imprimée est rendue en tableau (points de conduite dans le texte).
+  table imprimée est rendue en tableau (points de conduite dans le texte). Les lignes du HTML sont
+  coupées à 100 caractères (`--html-width`) : PG demande 120 au plus pour pouvoir reprendre le
+  fichier ; la coupure se fait sur une espace ordinaire, hors des valeurs d'attribut, le rendu ne
+  change pas.
 
 #### Moderniser l'orthographe d'un texte en moyen français (Froissart)
 
@@ -585,7 +596,8 @@ python3 scripts/epub_reference.py relu.epub reference.pdf --from-page 118 \
 - [ ] page de titre et date conformes au scan ;
 - [ ] note de transcription : corrections faites, notes renumérotées, modernisation éventuelle ;
 - [ ] pour Gutenberg : droits validés sur https://copy.pglaf.org, `.html` sans erreur sur
-      https://validator.w3.org/, `.txt` à 72 caractères par ligne, puis dépôt sur
+      https://validator.w3.org/ aux lignes de 120 caractères au plus, `.txt` à 72 caractères par
+      ligne, puis dépôt sur
       https://upload.pglaf.org.
 
 
@@ -672,7 +684,7 @@ exemples sont relatifs à la racine.
 | `epub_romains.py` | nombres en chiffres romains (exposants compris : IIII<sup>xx</sup>, V<sup>c</sup>) en chiffres arabes, pour une édition de lecture |
 | `epub_temoins.py` | relecture ciblée : l'EPUB face à deux autres lectures de la même édition (et une autre édition, Wikisource, en indice) ; corrige ce que les lectures donnent d'accord, marque le reste, classe les pages à relire |
 | `bilingue_lexique.py` | édition bilingue (texte ancien en regard d'une traduction) → formes restées anciennes, candidats validés par la traduction, faux amis probables ; aucun passage écrit |
-| `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide |
+| `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide (lignes de 100 caractères) |
 | `epub_pages.py` | liste des pages du livre papier rétablie ou réparée ; `--purge` |
 
 Ordre des étapes : import PDF → nettoyage → s long → oi → ez → erent → ans → vocabulaire → référence → structure →

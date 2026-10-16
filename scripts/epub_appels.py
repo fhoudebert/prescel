@@ -129,10 +129,11 @@ class Livre:
         zout.close()
 
 
-def segments(s):
-    """Découpe en (index, texte, page imprimée brute, dans_apparat, modifiable) les nœuds texte."""
+def segments(s, page=None):
+    """Découpe en (index, texte, page imprimée brute, dans_apparat, modifiable) les nœuds texte ;
+    « page » : page en cours à la fin du fichier précédent (page à cheval sur deux fichiers)."""
     parts = TAG.split(s)
-    state = {"var": False, "sup": 0, "mark": 0, "page": None}
+    state = {"var": False, "sup": 0, "mark": 0, "page": page}
     info = []
     for i, p in enumerate(parts):
         if i % 2:
@@ -245,11 +246,13 @@ def collecte(livre):
     """Événements par page imprimée : appels connus et signes suspects, dans l'ordre."""
     ev = collections.defaultdict(list)
     var = collections.defaultdict(str)
+    last = None
     for n in livre.textes:
         s = livre.files[n].decode("utf-8")
         for m in re.finditer(r'<p class="variantes" title="p\. (\d+)">(.*?)</p>', s, re.S):
             var[int(m.group(1))] += " " + strip(m.group(2))
-        parts, info = segments(s)
+        parts, info = segments(s, last)
+        last = next((x[0] for x in reversed(info) if x and x[0] is not None), last)
         for i, inf in enumerate(info):
             if inf is None:
                 if parts[i] == '<sup class="var">':

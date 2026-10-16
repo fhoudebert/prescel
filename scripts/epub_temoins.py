@@ -56,7 +56,7 @@ WORD = re.compile(r"[^\W\d_]+(?:['’][^\W\d_]+)*", re.U)
 ROMAN = re.compile(r"^[IVXLCDM]+[A-Za-zé]{0,3}$")      # « XIIIe », « IIIIm », « IIP », « XXVIIo »
 ROMAN_STRICT = re.compile(r"^[IVXLC]+(?:e|es|m|c|xx|me|re)?$")
 # exposant multiplicateur : IIII^xx = 4 × 20, V^c = 500, IIII^m = 4000 ; un OCR qui le perd change le nombre
-EXPOSANT = re.compile(r"^([IVXLC]+)(?:xx|c|m)$")
+EXPOSANT = re.compile(r"^([IVXLC]+)(?:xx|XX|c|C|m|e|es|me|er|re)$")   # aussi l'ordinal : « IIIIe » lu « IIII »
 SKIP_CLASSES = ("variantes", "marge")
 PARASITES = {"il", "ci", "cc", "lû", "li", "ll"}
 
@@ -67,6 +67,35 @@ PARASITES = {"il", "ci", "cc", "lû", "li", "ll"}
 
 def norm(w):
     return w.lower().replace("’", "'").replace("ſ", "s")
+
+
+CONFUSIONS = [("u", "n"), ("v", "y"), ("e", "c"), ("l", "i"), ("m", "rn"), ("h", "b")]
+
+
+def ocr_artefact(m, r):
+    """Forme des lectures qui n'est qu'un accident d'OCR sur un mot connu de l'EPUB : mot coupé en fin
+    de ligne (« voul » pour « vouldroit »), mot suivant recollé (« espécialles »), accent ajouté
+    (« Méssire », « dévant »), lettre confondue (« ayoit », « Bouciquant »)."""
+    a, b = norm(m), norm(r)
+    plain = lambda s: "".join(c for c in unicodedata.normalize("NFD", s) if unicodedata.category(c) != "Mn")
+    if len(b) < len(a) and a.startswith(b) or len(b) > len(a) and b.startswith(a):
+        return True
+    if plain(a) == plain(b):
+        # accent ajouté par l'OCR (« Méssire ») ; l'inverse (« relâcha » → « relacha ») est l'imprimé
+        marks = lambda s: len(unicodedata.normalize("NFD", s)) - len(plain(s))
+        return marks(b) > marks(a)
+    if len(a) == len(b) or abs(len(a) - len(b)) == 1:
+        for x, y in CONFUSIONS:
+            for p, q in ((x, y), (y, x)):
+                k = 0
+                while True:
+                    k = a.find(p, k)
+                    if k < 0:
+                        break
+                    if a[:k] + q + a[k + len(p):] == b:
+                        return True
+                    k += 1
+    return False
 
 
 def skel(w):
@@ -145,7 +174,8 @@ def read_master(path, stop_id):
                 for wm in WORD.finditer(seg):
                     s = base_off + wm.start()
                     toks.append({"f": f, "s": s, "e": s + len(wm.group(0)), "w": html.unescape(wm.group(0)),
-                                 "page": page, "recit": recit, "mark": spans_mark.get((s, s + len(wm.group(0))))})
+                                 "page": page, "recit": recit, "mark": spans_mark.get((s, s + len(wm.group(0)))),
+                                 "para": m.start()})
                 if recit:
                     for dm in re.finditer(r"(?<![\w.,])(\d{1,2})(?![\w,.]\d)", seg):
                         s = base_off + dm.start(1)
@@ -314,7 +344,7 @@ class Witness:
 # Décisions
 # --------------------------------------------------------------------------
 
-def decide(M, readings, other, known):
+def decide(M, readings, other, known, freq=None):
     n = len(M)
     fixes, marks = [], []            # (i, action, valeur, raison, lectures)
     # mots collés et substitutions
@@ -355,7 +385,7 @@ def decide(M, readings, other, known):
             r = forms[0]
             em = EXPOSANT.match(m)
             if em and em.group(1) == r:
-                continue            # « IIIIxx » lu « IIII » : les lectures ont perdu l'exposant (80, pas 4)
+                continue            # « IIIIxx » lu « IIII » : les lectures ont perdu l'exposant (80, pas 4 ; 4e, pas 4)
             if (ROMAN.match(m) and not known(m)) or (ROMAN.match(r) and not known(r)):
                 if not ROMAN_STRICT.match(m):
                     marks.append((i, "nombre romain mal lu ? " + lectures))
@@ -363,8 +393,15 @@ def decide(M, readings, other, known):
             if r[:1].isupper() != m[:1].isupper():
                 marks.append((i, "majuscule différente : alignement douteux ? " + lectures))
             elif not known(r) and known(m):
+                if ocr_artefact(m, r):
+                    continue        # « voul » (césure), « Méssire », « ayoit » : les deux OCR se trompent de même
                 fixes.append((i, "remplacer-marqué", r, "forme rare ou coquille de l'imprimé", lectures))
             else:
+                a_, b_ = norm(m), norm(r)
+                if a_.startswith(b_) and (len(a_) - len(b_) >= 3 or known(m) and len(a_) - len(b_) >= 2):
+                    continue        # « saufconduit » lu « sauf » : mot coupé en fin de ligne dans les lectures
+                if freq is not None and known(m) and ocr_artefact(m, r) and freq[a_] >= 10 * max(1, freq[b_]):
+                    continue        # « duc » lu « due » par les deux OCR : la forme courante du livre l'emporte
                 fixes.append((i, "remplacer", r, "toutes les lectures", lectures))
         elif not known(m):
             marks.append((i, "lectures en désaccord, forme inconnue ; " + lectures))
@@ -372,7 +409,7 @@ def decide(M, readings, other, known):
     gone = sorted(set.intersection(*(r.dele for r in readings)))
     runs, cur = [], []
     for i in gone:
-        if cur and i == cur[-1] + 1 and M[i]["f"] == M[cur[-1]]["f"]:
+        if cur and i == cur[-1] + 1 and M[i]["f"] == M[cur[-1]]["f"] and M[i].get("para") == M[cur[-1]].get("para"):
             cur.append(i)
         else:
             if cur:
@@ -638,7 +675,7 @@ def main():
     words = {w.lower() for w in wl} if wl is not None else set()
     book = collections.Counter(norm(w) for w in mwords)
     known = lambda w: norm(w) in words or book[norm(w)] >= 2
-    fixes, marks = decide(M, readings, other, known)
+    fixes, marks = decide(M, readings, other, known, book)
     edits = build_edits(M, digits, fixes, marks, raws)
     stats = write_epub(z, raws, edits, opts.output)
 

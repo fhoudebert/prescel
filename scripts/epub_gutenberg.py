@@ -8,7 +8,8 @@ demandés par Project Gutenberg :
                 par une ligne vide, quatre lignes vides avant chaque chapitre et deux
                 après, italique en _soulignés_, notes en [1] reportées en fin de chapitre ;
   * <nom>.html  HTML5 valide (validator.w3.org) : une seule page, CSS intégrée,
-                notes reliées dans les deux sens, aucun script.
+                notes reliées dans les deux sens, aucun script ; lignes de 100 caractères au
+                plus (PG : 120 au plus, pour pouvoir reprendre le fichier ; --html-width).
 
 Ce qui sert à la relecture disparaît : numéros de page (ancres GBS.…/page-…),
 marqueurs a-verifier, classes de Prescel. Les notes sont renumérotées de 1 à N sur
@@ -681,6 +682,43 @@ def to_html(book, title_lines, note_txt):
     return re.sub(r'<a href="#(page_[^"]+)">(.*?)</a>', lambda m: m.group(0) if m.group(1) in ids else m.group(2), page)
 
 
+def wrap_html(page, width=100):
+    """Lignes du HTML coupées à « width » caractères au plus (PG : « no more than 120 », plus facile
+    à reprendre) : coupure sur une espace ordinaire du texte ou entre deux attributs, jamais dans
+    une valeur d'attribut ni sur une espace insécable ; le rendu ne change pas (espace = saut de
+    ligne en HTML). Un mot plus long que « width » reste entier."""
+    out = []
+    for line in page.split("\n"):
+        if len(line) <= width or line.lstrip().startswith("<pre"):
+            out.append(line)
+            continue
+        start, cut, tag, quote = 0, None, False, None
+        i = 0
+        while i < len(line):
+            c = line[i]
+            if quote:
+                if c == quote:
+                    quote = None
+            elif tag:
+                if c in "\"'":
+                    quote = c
+                elif c == ">":
+                    tag = False
+                elif c == " ":
+                    cut = i
+            elif c == "<":
+                tag = True
+            elif c == " ":
+                cut = i
+            if i - start >= width and cut is not None and cut > start:
+                out.append(line[start:cut].rstrip())
+                start = cut + 1
+                cut = None
+            i += 1
+        out.append(line[start:])
+    return "\n".join(out)
+
+
 # --------------------------------------------------------------------------
 # Programme principal
 # --------------------------------------------------------------------------
@@ -690,6 +728,8 @@ def main():
     ap.add_argument("epub")
     ap.add_argument("-o", "--output", required=True, help="nom de base des fichiers produits")
     ap.add_argument("--width", type=int, default=72, help="longueur maximale des lignes du texte (défaut 72)")
+    ap.add_argument("--html-width", type=int, default=100,
+                    help="longueur maximale des lignes du HTML (défaut 100 ; PG demande 120 au plus)")
     ap.add_argument("--title-file", default="titre",
                     help="fichier de la page de titre dans l'EPUB (début du nom ; défaut « titre »)")
     ap.add_argument("--apostrophes", choices=["garder", "courbes", "droites", "auto"], default="auto",
@@ -754,15 +794,16 @@ def main():
     txt = to_text(book, opts.width, notes, title_lines)
     with open(opts.output + ".txt", "w", encoding="utf-8", newline="") as f:
         f.write(txt)
-    page = to_html(book, title_lines, notes)
+    page = wrap_html(to_html(book, title_lines, notes), opts.html_width)
     with open(opts.output + ".html", "w", encoding="utf-8") as f:
         f.write(page)
 
     lines = txt.split("\r\n")
     longest = max(len(l) for l in lines)
     print("Texte : %s.txt — %d lignes, la plus longue : %d caractères" % (opts.output, len(lines), longest))
-    print("HTML  : %s.html — %d blocs, %d notes, variantes de %d pages"
-          % (opts.output, len(book.blocks), len(book.notes), len(book.variants)))
+    print("HTML  : %s.html — %d blocs, %d notes, variantes de %d pages, la plus longue ligne : %d caractères"
+          % (opts.output, len(book.blocks), len(book.notes), len(book.variants),
+             max(len(l) for l in page.split("\n"))))
 
 
 if __name__ == "__main__":

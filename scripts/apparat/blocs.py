@@ -382,6 +382,9 @@ def fix_blocks(raws):
                         ("F" if m2w[i] is not None else "-") for i in idx)
         whole = False
         if p["title"] not in T:
+            if truth.scan_of(p["title"]) is None or (re.search(r"(?<!\w)\d{1,2}\s?[-.]\s?\d{1,2}(?!\w)", txt)
+                                                      and " — " in txt):
+                continue                               # page absente de la numérisation, ou apparat numéroté
             whole = len(txt) > 120                     # page sans apparat sur la numérisation
         else:
             ents = T[p["title"]]
@@ -439,7 +442,8 @@ def fix_blocks(raws):
             # ancre de page juste avant le premier mot du corps : elle part avec lui
             cut = M[i0]["s"]
             am = list(re.finditer(r'<a id="page-\d+"\s*/>', t[p["i0"]:cut]))
-            if am and p["i0"] + am[-1].start() > M[idx[k - 1]]["e"]:
+            jf = max(j for j in range(k) if kinds[j] == "F")      # dernier mot de l'apparat
+            if am and p["i0"] + am[-1].start() >= M[idx[jf]]["e"]:
                 cut = p["i0"] + am[-1].start()
             body = t[cut:p["i1"]].strip()
             edits.append((f, cut, p["i1"], "", "bloc p. %d : suite du corps retirée" % p["title"]))

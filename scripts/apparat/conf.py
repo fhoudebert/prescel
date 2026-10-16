@@ -9,8 +9,27 @@ WORDS = set()       # liste de mots français
 CORR = None         # module de corrections du volume
 
 
+def google_pdf_pages(path):
+    """même chose pour un PDF Google Livres (couche texte) : page imprimée lue dans le titre courant,
+    notes = dernières lignes qui commencent par un numéro d'apparat (« 1-2 », « * », « 3 »)."""
+    import pymupdf
+    pages = {}
+    for pg in pymupdf.open(path):
+        lines = [l.strip() for l in pg.get_text().splitlines() if l.strip()]
+        num = next((int(l) for l in lines[:3] if re.fullmatch(r"\d{1,3}", l)), None)
+        if num is None:
+            continue
+        fn = []
+        while lines and re.match(r"[\d*'°\"«»\-·.,]{1,6}\s*\S", lines[-1]) and len(fn) < 12:
+            fn.insert(0, lines.pop())
+        pages[str(num)] = {"body": lines, "fn": [" ".join(fn)] if fn else []}
+    return pages
+
+
 def google_pages(path):
     """notes de bas de page et paragraphes d'un EPUB Google Livres, par page imprimée."""
+    if path.lower().endswith(".pdf"):
+        return google_pdf_pages(path)
     z = zipfile.ZipFile(path)
     opf_name = next(n for n in z.namelist() if n.endswith(".opf"))
     root = opf_name.rsplit("/", 1)[0] + "/" if "/" in opf_name else ""

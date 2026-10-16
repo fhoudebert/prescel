@@ -278,7 +278,7 @@ class Scan:
                     entries=[dict(label=e["label"], words=e["words"], dash=e["dash"]) for e in self.foot_entries(m)])
 
     # -- planches --------------------------------------------------------------------------
-    def sheet_apparat(self, pages, out):
+    def sheet_apparat(self, pages, out, scale=0.4):
         import cv2
         import numpy as np
         rows = []
@@ -302,7 +302,7 @@ class Scan:
                 t = max(max(w["b"] for w in r["words"]) for r in bl[-2:]) - 60
                 crop = im[t:min(im.shape[0], t + 420), 500:2700]
                 mark = "%d*" % p
-            crop = cv2.resize(crop, (crop.shape[1] * 2 // 5, crop.shape[0] * 2 // 5), interpolation=cv2.INTER_AREA)
+            crop = cv2.resize(crop, (int(crop.shape[1] * scale), int(crop.shape[0] * scale)), interpolation=cv2.INTER_AREA)
             lab = np.full((crop.shape[0], 70), 255, np.uint8)
             cv2.putText(lab, mark, (4, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.7, 0, 2)
             rows.append(np.hstack([lab, crop]))
@@ -332,23 +332,28 @@ def main():
     ap.add_argument("--tessdata", help="dossier des modèles Tesseract (fra.traineddata)")
     ap.add_argument("--planches-apparat", nargs=2, type=int, metavar=("DE", "A"))
     ap.add_argument("--planche-appels", type=int, metavar="PAGE")
+    ap.add_argument("--echelle", type=float, default=0.4, help="réduction des planches de l'apparat (0.4 ; 0.65 pour lire les numéros)")
     ap.add_argument("-o", "--output", required=True)
     o = ap.parse_args()
     s = Scan(o.pdf, o.decalage, o.cache, o.tessdata)
     if o.planches_apparat:
-        s.sheet_apparat(range(o.planches_apparat[0], o.planches_apparat[1] + 1), o.output)
+        s.sheet_apparat(range(o.planches_apparat[0], o.planches_apparat[1] + 1), o.output, o.echelle)
         return
     if o.planche_appels is not None:
         s.sheet_calls(o.planche_appels, o.output)
         return
     import pymupdf
-    last = o.a if o.a is not None else pymupdf.open(o.pdf).page_count - 1 - o.decalage
+    n = pymupdf.open(o.pdf).page_count
+    last = min(o.a if o.a is not None else n, n - 1 - o.decalage)      # pas au-delà de la dernière vue
+    first = max(o.de, -o.decalage)
     data = json.load(open(o.output)) if os.path.exists(o.output) else {}
-    for p in range(o.de, last + 1):
+    for k, p in enumerate(range(first, last + 1)):
         d = s.page_data(p)
         if d:
             data[str(p)] = d
         print("\rpage %d" % p, end="", file=sys.stderr, flush=True)
+        if k % 25 == 24:                    # sauvegarde en cours de route : une longue lecture reprend où elle était
+            json.dump(data, open(o.output, "w"), ensure_ascii=False)
     print(file=sys.stderr)
     json.dump(data, open(o.output, "w"), ensure_ascii=False)
     print("%s : %d pages, %d appels repérés" % (o.output, len(data), sum(len(d["calls"]) for d in data.values())))

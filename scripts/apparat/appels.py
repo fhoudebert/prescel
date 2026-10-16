@@ -145,13 +145,20 @@ def junk_in(raws, f, s, e, glued_only=False):
     return None
 
 
-def find_pair(M, lo, hi, prev, nxt):
-    """mot du maître « prev » suivi de « nxt » dans [lo, hi] (comparaison sur le squelette)."""
+def find_pair(M, lo, hi, prev, nxt, nth=1):
+    """nième mot du maître « prev » suivi de « nxt » dans [lo, hi] (comparaison sur le squelette)."""
     sp_, sn = skel(prev), skel(nxt) if nxt else None
     for i in range(max(0, lo), min(len(M) - 1, hi) + 1):
         if skel(M[i]["t"]) == sp_ and (sn is None or skel(M[i + 1]["t"]) == sn):
-            return i
+            nth -= 1
+            if not nth:
+                return i
     return None
+
+
+def order(t):
+    """rang d'un appel : mot, avant le mot (tête de paragraphe), second appel au même blanc."""
+    return t["i"] - (0.5 if t.get("before") else 0) + (0.25 if t.get("twin") else 0)
 
 
 def page_targets(p, N, sp, base, M, W, w2m, MC):
@@ -183,10 +190,11 @@ def page_targets(p, N, sp, base, M, W, w2m, MC):
                 i, sure = j, True
         if i is not None:
             scan.append(dict(i=i, sure=sure, src="scan"))
-    for prev, nxt in manual.ADD.get(pp, []):
-        j = find_pair(M, lo, hi, prev, nxt)
+    for prev, nxt, *nth in manual.ADD.get(pp, []):
+        # (mot avant, mot après[, rang de l'occurrence sur la page])
+        j = find_pair(M, lo, hi, prev, nxt, *nth)
         if j is None:
-            j = find_pair(M, lo - 40, hi + 40, prev, nxt)
+            j = find_pair(M, lo - 40, hi + 40, prev, nxt, *nth)
         if j is not None and all(t["i"] != j or t.get("before") for t in scan):
             scan.append(dict(i=j, sure=True, src="relu"))
     for t in scan:
@@ -194,7 +202,9 @@ def page_targets(p, N, sp, base, M, W, w2m, MC):
         if t.get("before") and t["i"] > 0 and M[t["i"] - 1]["para"] == M[t["i"]]["para"]:
             t["i"] -= 1
             t["before"] = False
-    scan.sort(key=lambda x: x["i"] - (0.5 if x.get("before") else 0))
+            # deux appels au même blanc : « aaisier⁴ | ⁵ euls » (fin de ligne, début de la suivante)
+            t["twin"] = any(u is not t and u["i"] == t["i"] and not u.get("twin") for u in scan)
+    scan.sort(key=order)
     if len(scan) == N:
         targets, status = scan, "numérisation"
     else:
@@ -202,15 +212,14 @@ def page_targets(p, N, sp, base, M, W, w2m, MC):
         for c in core:
             if all(abs(c["k"] - t["i"]) > 1 for t in scan):
                 un.append(dict(i=c["k"], sure=True, src="maître"))
-        un.sort(key=lambda x: x["i"] - (0.5 if x.get("before") else 0))
+        un.sort(key=order)
         if len(un) == N:
             targets, status = un, "numérisation + maître"
         elif len(core) == N:
             targets, status = [dict(i=c["k"], sure=True, src="maître") for c in core], "maître"
         else:
             return None, "appels : apparat %d, numérisation %d, maître %d — page laissée" % (N, len(scan), len(mine)), mine
-    key = lambda x: x["i"] - (0.5 if x.get("before") else 0)
-    if any(key(a) >= key(b) for a, b in zip(targets, targets[1:])):
+    if any(order(a) >= order(b) for a, b in zip(targets, targets[1:])):
         return None, "appels dans le désordre — page laissée", mine
     return targets, status, mine
 
@@ -265,18 +274,23 @@ def solve(only=None, manual=None, raws=None):
                     edits.append((f, pos, pos, sup + " ", "p. %d : appel %d ajouté en tête de paragraphe" % (p, k)))
                 continue
             f, s, e = gap(raws, M, i, P)
+            if t.get("twin"):
+                s = last          # après l'appel précédent, au même blanc
             ex = CALL_RE.search(raws[f], s, e)
             if ex and not re.search(r"[^\W\d_]", re.sub(r"<[^>]+>", "", raws[f][s:ex.start()])):
                 claimed.add((f, ex.start()))
                 if int(ex.group(1)) != k:
                     edits.append((f, ex.start(), ex.end(), SUP % k, "p. %d : appel %s renuméroté %d" % (p, ex.group(1), k)))
+                last = ex.end()
                 continue
+            last = s
             if t.get("note"):
                 t["sure"] = False
             sup = SUP % k if t["sure"] else '<sup class="var"><span class="a-verifier" title="%s">%d</span></sup>' % (t.get("note") or "appel placé d\'après la numérisation (position approchée)", k)
             jk = junk_in(raws, f, s, e)
             if jk and jk[0] == s:
                 edits.append((f, jk[0], jk[1], sup, "p. %d : signe « %s » → appel %d" % (p, raws[f][jk[0]:jk[1]][:60], k)))
+                last = jk[1]
             elif jk:
                 edits.append((f, s, s, sup, "p. %d : appel %d ajouté" % (p, k)))
                 edits.append((f, jk[0], jk[1], "", "p. %d : signe « %s » (appel %d mal lu) retiré" % (p, raws[f][jk[0]:jk[1]][:60], k)))
