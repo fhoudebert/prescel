@@ -121,6 +121,11 @@ python3 scripts/epub_reference.py 8.epub google.epub --confirm livre-tesseract.t
 python3 scripts/epub_typo.py 9.epub -o maitre.epub
 python3 scripts/epub_appels.py maitre.epub -o 10.epub --texte --rapport appels.html   # appels de variantes, page par page
 python3 scripts/epub_review.py 10.epub --report relecture.html --mark a-relire.epub
+# facultatif : relecture ciblée, l'EPUB face aux deux autres lectures (et à une autre édition en indice)
+python3 scripts/epub_temoins.py a-relire.epub -o a-relire-temoins.epub --lecture google.epub \
+        --lecture livre-tesseract.txt --nom Google --nom Tesseract --recit-jusqua titre-4 \
+        [--wikisource "Les_Chroniques_de_Sire_Jean_Froissart/Livre_III" --de XC --a CXXXVIII] \
+        --scan "https://archive.org/details/IDENTIFIANT/page/n{vue}" --decalage-scan 7
 # relecture dans Sigil, puis
 python3 scripts/epub_review.py relu.epub --unmark -o maitre.epub
 python3 scripts/epub_gutenberg.py maitre.epub -o Mon_livre
@@ -168,6 +173,22 @@ Ce que fait chaque étape, et ses précautions :
   la page de la numérisation ; le script peut être relancé sur un fichier déjà traité. Pas besoin
   de relier à la main appels et variantes : `epub_gutenberg.py` regroupe les variantes par page et
   relie chaque numéro de page à son apparat ;
+- **relecture ciblée** (`epub_temoins.py`) : chaque mot de l'EPUB est aligné sur les deux autres lectures
+  de la même édition (OCR de Google, Tesseract sur le scan d'Internet Archive). Quand elles s'accordent
+  contre l'EPUB, c'est l'imprimé qu'elles lisent : sur plus de 60 cas vérifiés sur le scan du t. XIII, toujours,
+  y compris pour des coquilles de l'édition (« franduleusement », « Baygonne », « l'aissièrent ») et pour
+  des formes que l'autre édition (Buchon) contredisait (« le soir de Laine-Plaine », « courtoise »).
+  Corrigé d'office : ces mots (sauf nombres romains, dont les OCR perdent l'exposant, et changements de
+  majuscule), les mots collés (« Adontvintl'évesque »), les mots perdus (« tout à point à messire »), les
+  lettres parasites qu'aucune lecture n'a (guillemets de début de ligne lus « a », « Il », « c ») ;
+  les anciennes marques que les deux lectures confirment sont levées. Marqué : désaccords sur un mot
+  inconnu, formes rares ou coquilles appliquées (à garder ou corriger avec une note), lettre isolée
+  près d'un chiffre (appel de variante perdu : « pont S avaler » pour « pont ¹⁵ avaler »), exposant
+  d'un nombre romain détaché (« IIII x »), passages absents des autres lectures (apparat mêlé au
+  texte), chiffres dans le récit. Le rapport classe les pages par nombre de marques : une page sans
+  marque n'a aucun mot contesté (ponctuation et apparat non contrôlés). L'autre édition (Wikisource,
+  téléchargée et mise en cache) ne décide rien : ses formes sont citées dans les notes. T. XIII :
+  486 corrections, 119 marques nouvelles, 238 pages sur 383 sans marque ;
 - **relecture** : le rapport signale aussi les guillemets non refermés ;
 - **Gutenberg** : les variantes sont regroupées en fin de volume page par page, les numéros de page
   sont en marge du HTML (lien vers les variantes) et entre accolades `{12}` dans le texte ; la
@@ -613,6 +634,7 @@ exemples sont relatifs à la racine.
 | `epub_typo.py` | typographie française de la ponctuation (insécables, espaces, « — », « … ») ; seules les espaces changent |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
+| `epub_temoins.py` | relecture ciblée : l'EPUB face à deux autres lectures de la même édition (et une autre édition, Wikisource, en indice) ; corrige ce que les lectures donnent d'accord, marque le reste, classe les pages à relire |
 | `bilingue_lexique.py` | édition bilingue (texte ancien en regard d'une traduction) → formes restées anciennes, candidats validés par la traduction, faux amis probables ; aucun passage écrit |
 | `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide |
 | `epub_pages.py` | liste des pages du livre papier rétablie ou réparée ; `--purge` |
