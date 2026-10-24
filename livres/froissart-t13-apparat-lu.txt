@@ -1,0 +1,273 @@
+# Apparat relu sur la numérisation (IA, oeuvresdefroiss02belggoog) : vue de la numérisation (= page
+# imprimée, sauf les vues hors d'ordre décrites dans froissart-t13-appels.py), puis
+# étiquette et premiers mots de chaque entrée, séparées par « | ».
+1: 1-2 Le procès | 3-4 Reprent | 5 Noble
+2: 1-2 Du | 3 Et les Brabançons
+3: 1 Sur ses ennemis | 2 Et création | 3-4 Proismes
+5: 1 Tant | 2-3 De telles | 4 Votre pétition
+6: 1-2 Marchié | 3 Et seigneurie | 4 Grant et
+7: 1 Et entendre | 2 Et elle aussy | 3 Et au dessus
+8: 1-2 Homme | 3-4 D'en plus parler | 5-6 Avoir alliance | 7 Et ordonnance | 8-9 Prinses
+9: 1 Ne venir
+10: 1 Et conseillé | 2-3 Que dire | 4 Escripts et
+11: 1-2 Finance | 3 Juliers et dame | 4 Convent | 5-6 Estant mort
+12: 1-2 N'acosta
+13: 1-2 Amoit | 3 Le | 4-5 Moult
+14: 1 Touaillement | 2 Hoirie de
+15: 1 Les chevaux
+16: 1-2 Bucq
+17: 1-2 De Mours | 3-4 Huffars | 5-6 Grandement
+18: 1 Sire Jehan Froissart | 2 Et chronisé | 3-4 Recommanda | 5-6 Guerroyer | 7-8 Souverain regard
+19: 1 A Convalence | 2 Moult | 3-4 Urtonne | 5-6 Seclar
+20: 1 Villenies | 2-3 Deffyer | 4-5 Grandement
+21: 1 De pillage | 2-3 Furent à | 4 Vinrent et | 5-6 Oyt
+22: 1 Et grant vaillance | 2 Pleines | 3 Blanches | 4-5 Ensongnoient
+23: 1-2 Estoquer | 3-4 Blecier | 5-6 D'entendre | 7-8 Desconfis
+24: 1 Et de confort | 2-3 Se
+25: 1-2 Se | 3-4 VIIIe | 5 A tout chascun | 6-7 Estoit | 8-9 Seroit | 10 De Bavière
+26: 1 Diray | 2 A Juliers | 3-4 Ordonnèrent
+27: 1-2 La pointe | 3 Et couche | 4 Tant et | 5-6 Prince
+28: 1-2 Sire | 3-4 Ensonnié | 5-6 Celle
+29: 1-2 Touche | 3-4 Guerles | 5-6 Grousselt | 7-8 Souveraine
+30: 1 Et receu | 2 Plus de | 3-4 Tenoit | 5-6 Honneur
+31: 1-2 Avant | 3 Proismes et | 4-5 Chevalereus | 6 Tenure
+32: 1-2 Trop | 3-4 Grousselt | 5 Du pays
+33: 1 Plains | 2-3 Ne recevroit | 4-5 Toutes ces
+34: 1-2 Contelet | 3-4 Ma foy | 5-6 Demeureront | 7-8 Armes | 9-10 Rendu arrière | 11 L'empereur
+35: 1-2 Encombremens
+36: 1-2 S'oxposoit
+38: 1-2 Pour ces jours
+39: 1-2 Sans response
+40: 1 Et chaste | 2-3 Sépulcre | 4-5 Et en ces jours
+41: 1-2 Si | 3-4 Eust sur
+42: 1-2 Moult fort | 3 En son pays | 4-5 Soixante | 6-7 Palais | 8 Qu'il | 9-10 Entente | 11-12 Mélencolia
+43: 1 De hauts murs | 2 Issir | 3 Au nud ciel | 4-5 Deux journées | 6-7 Dame | 8-9 Amie | 10 De froid
+44: 1-2 Luy faire mal | 3 Comme on | 4 Le roy | 5-6 Chronisay | 7-8 Aux capitaines
+45: 1-2 Luy
+46: 1 Ch'est-assavoir | 2-3 Cueillette
+47: 1 Et de repasser
+49: 1 Aussi | 2-3 Chevaucher | 4 D'Allemagne | 5 De la Trimouille | 6 Grosse | 7-8 La | 9-10 Place
+50: 1-2 Fit-Raoul | 3-4 Malles gens
+51: 1-2 Nettement | 3-4 Salle | 5-6 Sceut | 7-8 Les uns
+52: 1-2 De Grave | 3 De Guerles | 4-5 Ladurant
+53: 1 Un chevallier | 2-3 D'Apchon | 4-5 Durement | 6-7 Abaissièrent
+54: 1-2 Glaives | 3 Compaignons | 4 Ils rompirent
+55: 1-2 Dieu
+56: 1-2 Liement
+57: 1-2 Du commun | 3-4 Perrot | 5-6 N'est-ce
+58: 1 Argent
+59: 1 La ville | 2-3 XXIIII | 4-5 Que la finance
+60: 1 Et pour ramener | 2-3 Sçait
+61: 1-2 Povre | 3 Secrètement | 4 Très-oultrageant
+62: 1-2 Donna | 3-4 Au marchiet | 5-6 Grandement | 7-8 Candouaille
+63: 1-2 Tanison | 3-4 Lane-Plane | 5 Et feus-je | 6-7 Trop désespéré | 8-9 La crémeur | 10 Luy | 11-12 Le varleton
+64: 1-2 Jouvencel | 3-4 Huy | 5-6 De cela | 7-8 Quanqu'ils | 9-10 Tel
+65: 1-2 Mercoeur | 3 Et au conte | 4 A nuit | 5-6 Romprés | 7 Entrer
+66: 1-2 Coi | 3-4 Parfournir
+67: 1-2 Au plus | 3-4 Soy | 5-6 La chose
+68: 1-2 Estrif | 3-4 Choses | 5-6 D'aventure | 7-8 Compaignons
+69: 1 Car nous | 2 Entrer | 3-4 Grans fardeaux | 5-6 D'occire
+70: 1-2 L'hostel | 3 De la porte | 4-5 Oncques | 6-7 Et vous | 8-9 Haches | 10-11 Pertuisé
+71: 1-2 Levèrent | 3 Et demeurèrent | 4-5 Hucher | 6-7 Bien | 8 Se levèrent | 9-10 S'estourmirent | 11-12 Plusieurs | 13-14 S'ensonnièrent | 15-16 Abaisser | 17 Bien gardé
+72: 1-2 Tout bellement | 3-4 Cerchèrent
+73: 1 Et si voisine | 2-3 Durement | 4 Amassés | 5-6 Thiers | 7-8 Yssoire | 9-10 Quersy | 11-12 Frémissoient
+74: 1-2 Partir | 3-4 Touailles | 5-6 Tendroient | 7 Et s'y | 8-9 La plus | 10 Temps de
+75: 1 Et seroient
+77: 1 Illecques
+78: 1-2 Ensommelé | 3 Et sommiers | 4 Tous | 5 Avoir | 6 De nappes | 7-8 Lièrent | 9-10 Et n'eurent | 11-12 Ousac | 13 Tout | 14 Bien
+79: 1-2 Marquois | 3-4 D'Aubière | 5 A Saint-Pierre | 6-7 Bourbonnois | 8 Belle fille
+80: 1-2 Sauf-garant | 3-4 Apchon
+82: 1 Conté et | 2 Puis après
+83: 1-2 Requiert | 3-4 Recorder | 5 Ne de crédence | 6 De raison | 7-8 Rien
+84: 1-2 Apaisié
+85: 1 Bonnes | 2-3 Fait
+86: 1-2 Doux | 3-4 De bonne façon | 5-6 Ordonnera | 7 Trop
+87: 1-2 Delés elle
+88: 1-2 Se dissimula | 3-4 Son procés | 5-6 Nulle desplaisance
+89: 1-2 Pour quoy | 3-4 Volonté | 5-6 N'y | 7-8 Un plus haut
+90: 1-2 Foy | 3-4 Séjournoit
+91: 1-2 Le corps | 3 De Naples | 4 Pour retourner | 5 En ce voyage
+92: 1-2 Assés | 3-4 Morille | 5-6 Leur
+93: 1-2 Perdu
+94: 1 Assés
+95: 1 Et d'Auls | 2 Et loyaux | 3 Et frétées
+96: 1 Et bien | 2-3 Aucune | 4 D'Angleterre
+97: 1 Moult | 2 Moult
+98: 1 Bien | 2-3 En
+99: 1 Moult
+81: 1-2 Ploura | 3 Qui pris | 4-6? Tury
+100: 1 Et pensoient | 2-3 Durement
+101: 1-2 Brisier | 3 Moult | 4-5 Sept
+102: 1-2 Gens | 3 En buies
+103: 1-2 Traire
+104: 1 Et emprinse | 2 De France | 3 Mesme | 4 Lautriguier
+105: 1-2 Grossement | 3-4 Ententes | 5 Ci-après | 6-7 XVe
+107: 1-2 L'ave | 3-4 Ravoir | 5 Si pensa | 6 A luy | 7 Les barons | 8-9 Bois-le-Duc | 10-11 Lighe
+108: 1 Et que sans cause | 2-3 Estoit tout | 4-5 Toutes | 6 Trebus | 7 Et estoient
+110: 1-2 Bretons | 3 En | 4-5 Quatre mois
+111: 1 Et ennuyés | 2 Avoit | 3 Estoit patient
+112: 1-2 Et disoit | 3-4 Tout seurement
+113: 1-2 Lie et | 3 Trop jeune | 4-5 De ce que
+115: 1 Chevalliers | 2 Estrangiers
+116: 1-2 Cesserons | 3 Veut
+117: 1-2 Derient
+118: 1-2 Trop grossement | 3 Commune
+119: 1-2 Grosse
+121: 1-2 Ostés-en
+122: 1-2 Certain
+123: 1 Et de l'argent
+124: 1-2 Vostre parole | 3-4 Hommes
+126: 1 Aussi | 2 Bon
+128: 1 Et joyeux
+129: 1-2 Que jamais | 3 Conseillé
+130: 1 Jehan | 2 Et celle | 3 Se vous
+131: 1-2 Célent | 3 Estre | 4-5 Idoine | 6-7 Seghense | 8-9 Gardeloupes
+132: 1 Tout | 2 La bonne ville
+133: 1-2 Mettroient
+135: 1 Et asseoir | 2-3 Que
+136: 1 Et plus bel | 2-3 Très-bien | 4-5 Tant de | 6-7 Plus avant
+137: 1-2 Gendre
+138: 1 Plus | 2 Luy | 3 A leur | 4-5 Doucement | 6-7 Plus
+139: 1 Amiablement
+140: 1 Et par serment
+141: 1-2 En son chastel | 3 Lequel
+142: 1-2 A grant foison | 3-4 Sancerre | 5-6 Regnault | 7-8 Messire | 9-10 Jà
+144: 1-2 Esclandre
+145: 1-2 En ces jours | 3-4 Ahatie | 5-6 Ahatie | 7-8 Tinst | 9-10 L'empoingny
+146: 1-2 Marche
+147: 1 Frayans | 2-3 Costé
+148: 1-2 Perrot | 3-4 Mes | 5-6 On nous
+149: 1 Tous | 2-3 Garnisons | 4-5 Jamais | 6-7 Vent | 8-9 Temps
+150: 1-2 Joly | 3-4 Voloient | 5-6 Tout | 7-8 Agrevé | 9-10 Cheminer | 11-12 Marault | 13-14 A rames | 15-16 Mer
+151: 1-2 Dedens les
+152: 1-2 Se povoient | 3-4 Son hostel
+153: 1-2 Yon
+154: 1 Loyaument | 2-3 Leur
+155: 1-2 Belle | 3 Et leurs gens
+156: 1-2 Commença | 3-4 A eulx | 5-6 Mettre | 7 Resveilloient | 8 Hériant | 9-10 Rochellois | 11-12 Ou | 13 Moult | 14-15 Grant peine | 16-17 A ses piés
+157: 1-2 Bombardes | 3 Se reculoient | 4 Et des Anglois | 5-6 En chevaulx
+159: 1 Et riches | 2-3 En pensée | 4 Lieu
+160: 1-2 De dire | 3 Qui ne sont | 4-5 Bolleduc
+161: 1 Ainsi que
+163: 1 Et estoit leur ost | 2-3 Luy plaisoit | 4-5 Tenir son estat
+164: 1-2 Très-grant
+165: 1-2 Parçons | 3 Et lasser | 4-5 Destruiroient
+167: 1-2 Le jour | 3 Bons | 4-5 Communes
+168: 1-2 Grante | 3 Celuy jour | 4-5 Plusieurs | 6-7 Le cuer
+169: 1-2 Trop mieulx | 3-4 M'aymera | 5 Tout
+174: 1-2 Visières
+177: 1-2 Esmayoient | 3-4 Eshidés | 5-6 Adieu | 7-8 Fait leur
+178: 1-2 XVIIe | 3-4 Tout chronisier | 5 Trouvée
+179: 1-2 Pourpoint
+181: 1-2 Garonne
+182: 1 Et qualité | 2-3 V ou VIm
+184: 1-2 Derient
+185: 1-2 Remonstrèrent | 3-4 Estrangers | 5-6 Bien | 7-8 Tant que
+186: 1 Et prist | 2-3 Semblablement
+188: 1-2 Gavre
+189: 1-2 Retournoient
+190: 1-2 Au corps
+191: 1-2 Estroit
+193: 1-2 Vienne | 3 Sicomme | 4-5 Grandement
+194: 1-2 Divinité | 3-4 Gadelope | 5-6 Pourprenoient
+195: 1 Et son conseil
+196: 1-2 Songneus
+197: 1-2 Voloient | 3 Son fils | 4 Nul | 5-6 Autrement | 7-8 Estre
+198: 1 Son père | 2-3 En son arroy | 4-5 D'Aunot | 6 L'avoient
+199: 1-2 D'Aubière | 3-4 Vous savés | 5-6 A venir | 7-8 Mettoient | 9 Choses et | 10-11 Font bien
+201: 1-2 Jehan | 3-4 Marche | 5 Conte | 6-7 Fife | 8-9 Ave Ercequi | 10-11 Adremens | 12-13 Sothon | 14-15 Sordelans | 16-17 Hopborne | 18 Son | 19-20 Le | 21-22 Glandivin | 23-24 Suart
+202: 1-2 Norbervic | 3-4 Warlau | 5-6 Amorston | 7-8 Flemin | 9-10 Colleume | 11-12 Trop beaux | 13-14 Moult lies | 15-16 Trairoient | 17-18 Laquelle | 19-20 Zoden
+203: 1-2 Le fond | 3 Firent
+200: 1-2 Esmoy | 3-4 Contenu | 5-6 Le nouvel | 7-8 L'éveschié | 9-10 Tous d'une | 11-12 A certes
+204: 1 Par les resnes | 2 En voie | 3-4 Se mit | 5 Et esperonné | 6 Espoir | 7 Là | 8-9 Là l'envoyoit
+205: 1-2 Mille marcs | 3-4 Brisier
+206: 1-2 Et nouvel | 3-4 Compagnons
+207: 1-2 Trau | 3-4 Puisque | 5-6 Détriés
+208: 1 Ainsi s'en
+210: 1-2 Raoul | 3-4 Avegle | 5-6 Walsinchon | 7-8 Halton
+211: 1-2 Chastel | 3-4 Pontlan | 5-6 Alphel
+212: 1 De tout
+214: 1 Car, se vous
+215: 1-2 Giront | 3-4 Encore anuit
+216: 1-2 Assamblés | 3-4 Remontée | 5 Plus
+217: 1-2 Cruelle
+218: 1-2 Estrange | 3-4 Recommandation | 5 Voire | 6-7 Sont
+219: 1-2 Montebourg
+220: 1 Droit | 2-3 Proèces
+221: 1-2 Envieux | 3-4 Hache | 5-6 Hector | 7 Un poy | 8-9 Lance
+222: 1-2 Cocherel | 3-4 Débouté
+223: 1-2 Maksuel | 3 Je le veul | 4 Trop | 5 Et mes chausses | 6-7 Et toudis
+224: 1 Atout | 2-3 Lançoit | 4-5 Membres | 6-7 Cinq | 8-9 On a
+225: 1-2 Colleime | 3 Des bons | 4-5 Desconfisoient | 6-7 Sievoient
+226: 1-2 Neuf | 3 Et nouveaulx | 4-5 Rencontre
+227: 1-2 Marc | 3-4 Aversequin | 5-6 Sandelans | 7-8 Maksuel | 9-10 Gladinin | 11-12 Warlau | 13-14 Flimin | 15-16 Graa | 17-18 Helton | 19-20 Aubrinton
+228: 1 Grant nombre | 2 Bien | 3 Quant il vey | 4-5 Plusieurs
+229: 1-2 Taille | 3-4 Homme
+230: 1 Et par quelle | 2-3 A la remontée | 4 Et sommiers | 5-6 Sept | 7-8 Cinq | 9-10 Malement | 11-12 Qui nous
+231: 1-2 Une grant route | 3-4 Se les esbahis | 5-6 Tinrent
+232: 1-2 Nuit | 3-4 Dieu y ait | 5 Et tout bellement | 6-7 Deffaulte | 8-9 Recorder | 10-11 A ces cops | 12 Par la vaillance
+233: 1-2 Tira | 3-4 Appareilla | 5-6 Se destourna | 7-8 Attaint | 9-10 Pièches | 11-12 Mania | 13-14 Moult vaillamment
+235: 1-2 Compains | 3-4 Convient | 5-6 XV jours | 7-8 Cantiron
+236: 1 Et che firent | 2 Dist | 3-4 Entrèrent-ils | 5 A tout grant
+237: 1-2 Le trouveroit | 3-4 Brisa | 5-6 Je le vueil | 7 Or dirons
+238: 1 Des leurs | 2 Travailler
+242: 1-2 Voult | 3-4 De veu | 5-6 Gladinnin
+243: 1-2 Nonne
+250: 1-2 Cantrain
+253: 1-2 Caution | 3-4 Par l'information | 5-6 Sy recueillièrent
+254: 1-2 Ce corneis
+255: 1-2 Voix | 3-4 Grant
+234: 1 J'ay espoir | 2-3? Dist messire | 4? Selon son entente | 5? Brun | 6-7 Anglois
+256: 1-2 Luy pardoint | 3-4 Demoura | 5-6 Une fois que | 7 En Escoce
+257: 1-2 Ce corneis
+260: 1-2 Grachem | 3 Linfars
+261: 1-2 Ainsi | 3 Sur vos
+263: 1-2 Soustenances | 3-4 Ouverts | 5-6 Perdue
+264: 1 De bataille | 2-3 Gourdinot | 4-5 D'Alaigre
+265: 1 Tout bellement | 2-3 Bucher | 4-5 Au moins | 6-7 Trop
+266: 1-2 Tire | 3-4 Trop | 5-6 Nideke
+267: 1-2 Perd | 3-4 Gaingne
+269: 1 Ouvrans | 2-3 D'ire | 4-5 Bouche
+270: 1-2 Jurant | 3 Ne de blasme | 4 A mon samblant
+271: 1-2 Nidesk | 3-4 Donné | 5 L'amiral
+272: 1-2 Je vouloie
+273: 1-2 Remédier
+274: 1 De grant vent | 2-3 Bien jour | 4 Qui en
+275: 1-2 Information | 3 Tout droit
+277: 1-2 Dessoubs | 3-4 Arneberch
+278: 1-2 Wuidèrent | 3-4 Jà n'avoit | 5 Jangla | 6-7 Dépasse
+279: 1-2 Scrutinoient | 3-4 Fist
+280: 1-2 Sang | 3-4 Mal fait | 5-6 Le dernier
+281: 1 Ou face
+282: 1-2 Du chalenge
+284: 1-2 Ne soucier | 3 Ne ne perdissent
+285: 1-2 Doulcement
+286: 1 Douces et | 2-3 Recevoir
+287: 1 L'un à l'autre | 2-3 Tousjours | 4 Mais que | 5? Nequedent | 6-7 Tenir | 8-9 Désirent
+288: 1 Douces et | 2-3 Recevoir
+289: 1 Dix | 2-3 Tous | 4-5 Touaille | 6 Et commandée
+290: 1-2 Son temps
+291: 1-2 Stuelpe
+292: 1 Et s'y retira
+293: 1-2 Vaillance | 3 Ne arrester | 4 En Espaigne
+295: 1 D'eulx
+296: 1-2 Corrompre
+297: 1 En tel parti | 2-3 En
+298: 1-2 Signifié
+299: 1 Et de toutes | 2-3 Gasté | 4 Et appareillés
+300: 1-2 Vous estes | 3-4 L'espée
+301: 1-2 Conjouirent | 3-4 Cabestain | 5-6 Renouvelant | 7-8 Une appertise | 9-10 D'Allegrue | 11-12 Tanneguy | 13-14 Villiers | 15-16 Caumont
+302: 1 D'Aragon | 2-3 Ces jours
+303: 1-2 Le pas | 3-4 Cheviroient | 5-6 Qui les
+304: 1 Convoyer
+305: 1-2 Sycomme
+306: 1-2 Chascun | 3 Ensemble | 4 Germain | 5 Et honnourablement
+307: 1-2 Loingtain
+308: 1-2 Keo | 3-4 Grant
+309: 1 Grant | 2-3 Le | 4 S'en
+310: 1-2 Ayse | 3-4 Embesogner | 5 Pour la cause
+312: 1-2 Sagement
+315: 1 Des François | 2-3 Esté | 4-5 S'embesongnoient
+316: 1 Tout | 2-3 Avenir | 4-5 Nullement | 6 A Haindebourch | 7-8 S'alliassent | 9-10 Adoncques | 11-12 Sert fors | 13-14 Heure | 15-16 En celuy an
+317: 1-2 Brisier | 3-4 Monstrer | 5-6 De tous les | 7 La | 8-9 Et eulrent | 10-11 S'embesongnoient
+318: 1-2 Clanvou | 3-4 Gaberth | 5 Richard | 6-7 En un lieu | 8-9 Cà en avant | 10-11 Grossoyée | 12-13 Convient

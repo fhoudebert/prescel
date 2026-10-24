@@ -10,6 +10,7 @@ Compléments du [README](README.md) : chaînes complètes, réglages, scripts un
 - [Parcours C — édition modernisée](#5-parcours-c--édition-modernisée-usage-personnel-autre-plateforme)
 - [Ce qu'il faut adapter d'un livre à l'autre](#6-ce-quil-faut-adapter-dun-livre-à-lautre)
 - [Avant de publier](#7-avant-de-publier)
+- [Maintenance : commandes courantes](#maintenance--commandes-courantes)
 - [Installation](#installation-et-lancement)
 - [Déroulement dans Prescel](#déroulement-dans-prescel)
 - [Les scripts](#les-scripts)
@@ -63,22 +64,22 @@ son verso.
 
 ```
 # 1. préparation (ou bouton « Préparer le livre » dans Prescel, réglages préconisés)
-python3 epub_simplify.py  google.epub -o 1.epub --join-hyphens --flatten-br --lettrines
-python3 epub_longs.py     1.epub -o 2.epub --tsv livre-s-long.tsv --wordlist auto
-python3 epub_structure.py 2.epub -o 3.epub --merge-pages --drop-furniture --drop-google-notice \
+python3 scripts/epub_simplify.py  google.epub -o 1.epub --join-hyphens --flatten-br --lettrines
+python3 scripts/epub_longs.py     1.epub -o 2.epub --tsv livre-s-long.tsv --wordlist auto
+python3 scripts/epub_structure.py 2.epub -o 3.epub --merge-pages --drop-furniture --drop-google-notice \
         --caps-titles --link-notes            # + --title-before, --date-titles selon le livre
-python3 epub_split_h1.py  3.epub -o 4.epub --tag h1,h2
-python3 epub_review.py    4.epub --report relecture.html --mark a-relire.epub \
+python3 scripts/epub_split_h1.py  3.epub -o 4.epub --tag h1,h2
+python3 scripts/epub_review.py    4.epub --report relecture.html --mark a-relire.epub \
         --longs-tsv livre-s-long.tsv --dict-out dictionnaire.txt
 
 # 2. relecture dans Sigil (rechercher « a-verifier »), puis relance ciblée dans Prescel
 
 # 3. finalisation
-python3 epub_review.py a-relire.epub --unmark -o relu.epub
-python3 epub_pages.py  relu.epub -o relu.epub            # liens, id en double, liste des pages
-python3 epub_pages.py  relu.epub --from google.epub -o relu.epub   # si les numéros de page ont disparu
-python3 epub_typo.py   relu.epub -o relu.epub            # typographie française
-python3 epub_gutenberg.py relu.epub -o Mon_livre --title-file titre
+python3 scripts/epub_review.py a-relire.epub --unmark -o relu.epub
+python3 scripts/epub_pages.py  relu.epub -o relu.epub            # liens, id en double, liste des pages
+python3 scripts/epub_pages.py  relu.epub --from google.epub -o relu.epub   # si les numéros de page ont disparu
+python3 scripts/epub_typo.py   relu.epub -o relu.epub            # typographie française
+python3 scripts/epub_gutenberg.py relu.epub -o Mon_livre --title-file titre
 ```
 
 Pour Gutenberg, **ne pas lancer** `epub_modernise.py` et limiter `epub_reference.py` à
@@ -87,11 +88,11 @@ Pour Gutenberg, **ne pas lancer** `epub_modernise.py` et limiter `epub_reference
 ### 4. Parcours B — Gallica (PDF) → EPUB relu → Gutenberg
 
 ```
-python3 pdf_to_epub.py "Titre_[...]Auteur_bpt6k9627352r.pdf" -o brut.epub
+python3 scripts/pdf_to_epub.py "Titre_[...]Auteur_bpt6k9627352r.pdf" -o brut.epub
 #   OCR de la BnF disponible : utilisé automatiquement (ALTO) ;
 #   sinon : --source ocr --lang fra (ou frm, fra+frm), et --pages 20-40 pour un essai
-python3 epub_longs.py brut.epub -o 2.epub --tsv livre-s-long.tsv --wordlist auto
-python3 epub_structure.py 2.epub -o 3.epub --drop-furniture --caps-titles --link-notes
+python3 scripts/epub_longs.py brut.epub -o 2.epub --tsv livre-s-long.tsv --wordlist auto
+python3 scripts/epub_structure.py 2.epub -o 3.epub --drop-furniture --caps-titles --link-notes
 # puis comme le parcours A (découpage, rapport, Sigil, finalisation)
 ```
 
@@ -105,25 +106,36 @@ Google Livres) ; elle vaut pour toute édition critique du XIXe siècle du même
 variantes en bas de page, errata en fin de volume, table des sommaires) :
 
 ```
-python3 pdf_to_epub.py "Titre_[...]_bpt6k38933z.pdf" -o 1.epub            # ALTO Gallica ; --variantes auto, --notes auto
-python3 epub_reference.py 1.epub google.epub --apply ocr,ponctuation -o 2.epub --report ecarts.html
-python3 epub_structure.py 2.epub -o 3.epub --merge-pages --drop-furniture --caps-titles --link-notes
-python3 epub_errata.py 3.epub -o 4.epub --tsv livre-errata.tsv --retirer   # liste relue sur le scan, relancer
+python3 scripts/pdf_to_epub.py "Titre_[...]_bpt6k38933z.pdf" -o 1.epub            # ALTO Gallica ; --variantes auto, --notes auto
+python3 scripts/epub_reference.py 1.epub google.epub --apply ocr,ponctuation -o 2.epub --report ecarts.html
+python3 scripts/epub_structure.py 2.epub -o 3.epub --merge-pages --drop-furniture --caps-titles --link-notes
+python3 scripts/epub_errata.py 3.epub -o 4.epub --tsv livre-errata.tsv --retirer   # liste relue sur le scan, relancer
 python3 livres/froissart-kervyn-finitions.py 4.epub 5.epub --tome XIII --ordinal TREIZIÈME \
         --annees 1386-1389 --sous-titre "(…)" --date 1871 [--table-fix livres/tome.json]
-python3 epub_recolle.py 5.epub -o 6.epub --tsv livre-recolle.tsv
-python3 epub_guillemets.py 6.epub -o 7.epub
-python3 epub_apparat.py 7.epub -o 8.epub
+python3 scripts/epub_recolle.py 5.epub -o 6.epub --tsv livre-recolle.tsv
+python3 scripts/epub_guillemets.py 6.epub -o 7.epub
+python3 scripts/epub_apparat.py 7.epub -o 8.epub
 # facultatif : seconde lecture d'un PDF d'images du même livre (Google, Internet Archive)
-python3 pdf_tesseract.py images.pdf -o livre-tesseract.txt
-python3 epub_reference.py 8.epub google.epub --confirm livre-tesseract.txt \
+python3 scripts/pdf_tesseract.py images.pdf -o livre-tesseract.txt
+python3 scripts/epub_reference.py 8.epub google.epub --confirm livre-tesseract.txt \
         --apply ocr,graphie,casse,variante,guillemets --keep @livre-errata.tsv -o 9.epub
-python3 epub_typo.py 9.epub -o maitre.epub
-python3 epub_appels.py maitre.epub -o 10.epub --texte --rapport appels.html   # appels de variantes, page par page
-python3 epub_review.py 10.epub --report relecture.html --mark a-relire.epub
+python3 scripts/epub_typo.py 9.epub -o maitre.epub
+python3 scripts/epub_appels.py maitre.epub -o 10.epub --texte --rapport appels.html   # appels de variantes, page par page
+python3 scripts/epub_review.py 10.epub --report relecture.html --mark a-relire.epub
+# facultatif : relecture ciblée, l'EPUB face aux deux autres lectures (et à une autre édition en indice)
+python3 scripts/epub_temoins.py a-relire.epub -o a-relire-temoins.epub --lecture google.epub \
+        --lecture livre-tesseract.txt --nom Google --nom Tesseract --recit-jusqua titre-4 \
+        [--wikisource "Les_Chroniques_de_Sire_Jean_Froissart/Livre_III" --de XC --a CXXXVIII] \
+        --scan "https://archive.org/details/IDENTIFIANT/page/n{vue}" --decalage-scan 7
+# facultatif : appels et apparat repris de la numérisation (appels repérés sur l'image, apparat relu à vue)
+python3 scripts/scan_apparat.py images.pdf --decalage 7 --de 1 --a 319 --cache travail-scan -o scan.json
+python3 scripts/scan_apparat.py images.pdf --decalage 7 --cache travail-scan --planches-apparat 1 30 -o apparat.png
+python3 scripts/epub_apparat_scan.py a-relire-temoins.epub a-relire-apparat.epub --scan scan.json \
+        --apparat livres/froissart-t13-apparat-lu.txt --corrections livres/froissart-t13-appels.py \
+        --google google.epub --rapport livres/froissart-t13-apparat.tsv
 # relecture dans Sigil, puis
-python3 epub_review.py relu.epub --unmark -o maitre.epub
-python3 epub_gutenberg.py maitre.epub -o Mon_livre
+python3 scripts/epub_review.py relu.epub --unmark -o maitre.epub
+python3 scripts/epub_gutenberg.py maitre.epub -o Mon_livre
 ```
 
 Ce que fait chaque étape, et ses précautions :
@@ -168,10 +180,56 @@ Ce que fait chaque étape, et ses précautions :
   la page de la numérisation ; le script peut être relancé sur un fichier déjà traité. Pas besoin
   de relier à la main appels et variantes : `epub_gutenberg.py` regroupe les variantes par page et
   relie chaque numéro de page à son apparat ;
+- **relecture ciblée** (`epub_temoins.py`) : chaque mot de l'EPUB est aligné sur les deux autres lectures
+  de la même édition (OCR de Google, Tesseract sur le scan d'Internet Archive). Quand elles s'accordent
+  contre l'EPUB, c'est l'imprimé qu'elles lisent : sur plus de 60 cas vérifiés sur le scan du t. XIII, toujours,
+  y compris pour des coquilles de l'édition (« franduleusement », « Baygonne », « l'aissièrent ») et pour
+  des formes que l'autre édition (Buchon) contredisait (« le soir de Laine-Plaine », « courtoise »).
+  Corrigé d'office : ces mots (sauf nombres romains, dont les OCR perdent l'exposant, et changements de
+  majuscule), les mots collés (« Adontvintl'évesque »), les mots perdus (« tout à point à messire »), les
+  lettres parasites qu'aucune lecture n'a (guillemets de début de ligne lus « a », « Il », « c ») ;
+  les anciennes marques que les deux lectures confirment sont levées. Marqué : désaccords sur un mot
+  inconnu, formes rares ou coquilles appliquées (à garder ou corriger avec une note), lettre isolée
+  près d'un chiffre (appel de variante perdu : « pont S avaler » pour « pont ¹⁵ avaler »), exposant
+  d'un nombre romain détaché (« IIII x »), passages absents des autres lectures (apparat mêlé au
+  texte), chiffres dans le récit. Le rapport classe les pages par nombre de marques : une page sans
+  marque n'a aucun mot contesté (ponctuation et apparat non contrôlés). L'autre édition (Wikisource,
+  téléchargée et mise en cache) ne décide rien : ses formes sont citées dans les notes. T. XIII :
+  486 corrections, 119 marques nouvelles, 238 pages sur 383 sans marque ; t. XIV : 463 corrections,
+  130 marques (troncatures et accents ajoutés par l'OCR, confusions u/n, e/c, l/i laissés au maître) ;
+- **appels et apparat d'après la numérisation** (`scan_apparat.py`, `epub_apparat_scan.py`) : quand
+  l'OCR a perdu trop d'appels pour qu'`epub_appels.py` retombe sur ses pieds (t. XIII : 269 pages
+  incohérentes), on repart de l'image. `scan_apparat.py` lit chaque page avec Tesseract et repère les
+  appels sur l'image (signe en l'air, sans lettre dessous, hors d'un mot, qui ne suit pas un nombre
+  romain : XII^c, IIII^xx, VI^e sont des exposants) ; les numéros ne sont pas lus, les appels vont de
+  1 à N dans l'ordre. L'apparat est relu à vue sur les planches (`--planches-apparat`, une ligne par
+  page : `27: 1-2 Remonstrèrent | 3-4 Estrangers | 5-6 Bien | 7-8 Tant que`) : il donne N et les
+  étiquettes. `epub_apparat_scan.py` aligne alors le texte sur la numérisation, place les appels
+  (`<sup class="var">k</sup>` après le mot), retire les restes d'appels mal lus (« ' », « ° »,
+  chiffre ou lettre isolée collés au mot), refait chaque bloc d'apparat avec sa numérotation
+  (« Remonstrèrent. — 3-4 Estrangers. "-° Bien. » → « 1-2 Remonstrèrent. — 3-4 Estrangers. — 5-6
+  Bien. ») en corrigeant ses mots d'après Tesseract et Google, rend au récit ce que l'OCR avait mis
+  dans l'apparat (et inversement), met les exposants des nombres romains en `<sup>` minuscule
+  (IIII<sup>xx</sup> = 80, V<sup>c</sup> = 500, VII<sup>m</sup> = 7 000, XIX<sup>e</sup> ; « mil
+  CCC. IIII… et VIII » : années 1380-1399) et lève les marques devenues sans objet. Les pages où la
+  détection se trompe se règlent à vue (`--planche-appels PAGE`) dans le fichier de corrections du
+  volume : appels à écarter ou à ajouter, vues hors d'ordre de la numérisation, exposants lus sur
+  l'image, retouches. T. XIII : 619 appels placés ou renumérotés, 284 blocs refaits, 8 pages à revoir
+  au lieu de 269 (deux pages manquent à la numérisation). T. XIV : la numérisation (Internet Archive)
+  répète des blocs de dix pages et en saute d'autres ; la correspondance vue → page imprimée (`VUES`)
+  se calcule en alignant les mots de chaque vue sur le texte et se vérifie au titre courant. Les pages
+  absentes de la numérisation se relisent sur le PDF Google (`--google` accepte un PDF : numéro de
+  page en tête, apparat en pied). Un `ADD` peut viser la n-ième occurrence d'une paire de mots
+  (`("escuier", "anglois", 2)`) ; deux appels au même blanc (fin de ligne / début de la suivante)
+  sont gardés tous les deux. 1 005 appels placés ou renumérotés, 379 blocs refaits, 3 pages signalées
+  par `epub_appels.py` au lieu de 371 (appel « à cheval » sur deux pages, appel invisible) ;
 - **relecture** : le rapport signale aussi les guillemets non refermés ;
 - **Gutenberg** : les variantes sont regroupées en fin de volume page par page, les numéros de page
   sont en marge du HTML (lien vers les variantes) et entre accolades `{12}` dans le texte ; la
-  table imprimée est rendue en tableau (points de conduite dans le texte).
+  table imprimée est rendue en tableau (points de conduite dans le texte). Les lignes du HTML sont
+  coupées à 100 caractères (`--html-width`) : PG demande 120 au plus pour pouvoir reprendre le
+  fichier ; la coupure se fait sur une espace ordinaire, hors des valeurs d'attribut, le rendu ne
+  change pas.
 
 #### Moderniser l'orthographe d'un texte en moyen français (Froissart)
 
@@ -181,15 +239,19 @@ quand au XVIIᵉ « bontez » → « bontés » ; `--mode ez` est donc refusé).
 tomes 12 à 14 (≈ 72-74 % → 88-91 % de mots à l'orthographe moderne), à partir de l'EPUB relu :
 
 ```
-python3 epub_modernise.py relu.epub -o 1.epub --epoque moyen --mode vocab --tsv livre-moderne.tsv --wordlist auto
-python3 epub_modernise.py 1.epub -o 2.epub --epoque moyen --mode vocab \
+python3 scripts/epub_modernise.py relu.epub -o 1.epub --epoque moyen --mode vocab --tsv livre-moderne.tsv --wordlist auto
+python3 scripts/epub_modernise.py 1.epub -o 2.epub --epoque moyen --mode vocab \
         --dict dictionnaires/noms_froissart.py --tsv livre-noms.tsv --wordlist auto
-python3 epub_modernise.py 2.epub -o 3.epub --epoque moyen --mode oi --tsv livre-oi.tsv --wordlist auto
-python3 epub_modernise.py 3.epub -o 4.epub --epoque moyen --mode graphie --tsv livre-graphie.tsv --wordlist auto
-python3 epub_modernise.py 4.epub -o 5.epub --epoque moyen --mode erent --tsv livre-erent.tsv --wordlist auto
-python3 epub_modernise.py 5.epub -o 6.epub --epoque moyen --mode ants --tsv livre-ants.tsv --wordlist auto
-python3 epub_modernise.py 6.epub -o moderne.epub --epoque moyen --mode vocab --tsv livre-moderne2.tsv --wordlist auto
+python3 scripts/epub_modernise.py 2.epub -o 3.epub --epoque moyen --mode oi --tsv livre-oi.tsv --wordlist auto
+python3 scripts/epub_modernise.py 3.epub -o 4.epub --epoque moyen --mode graphie --tsv livre-graphie.tsv --wordlist auto
+python3 scripts/epub_modernise.py 4.epub -o 5.epub --epoque moyen --mode erent --tsv livre-erent.tsv --wordlist auto
+python3 scripts/epub_modernise.py 5.epub -o 6.epub --epoque moyen --mode ants --tsv livre-ants.tsv --wordlist auto
+python3 scripts/epub_modernise.py 6.epub -o moderne.epub --epoque moyen --mode vocab --tsv livre-moderne2.tsv --wordlist auto
 ```
+
+Pour les Chroniques, la même chaîne avec le titre et la note de la page de titre (« Orthographe
+modernisée : … ») : `sh livres/froissart-moderne.sh 13` (epub/…Tome_13-relu.epub →
+epub/…Tome_13-moderne.epub), puis `sh livres/froissart-lisible.sh 13`.
 
 - `dictionnaires/moyen_francais.py` : formes sûres (« prins » → « pris », « misrent » → « mirent »,
   « voulenté » → « volonté », « roiaulme » → « royaume ») ; `FORCE` pour les formes qui sont aussi
@@ -225,6 +287,10 @@ modernisée) à 94 %, environ 2 600 remplacements.
 sh livres/froissart-lisible.sh 13      # epub/…Tome_13-moderne.epub → epub/…Tome_13-lisible.epub
 ```
 
+- `epub_romains.py` : nombres en chiffres romains du récit en chiffres arabes, exposants compris
+  (« mil CCC. IIII<sup>xx</sup> et VIII » → 1388, « IIII<sup>xx</sup> et XII ans » → 92 ans,
+  « VII<sup>m</sup> lances » → 7 000 lances, « le XIX<sup>e</sup> jour » → « le 19<sup>e</sup>
+  jour ») ; gardés : Charles VI, Richard II, tome XIII, une lettre seule, l'apparat ;
 - `dictionnaires/lisible_froissart.py` : `LISIBLE`, formes de sens constant chez Froissart, appliquées
   d'office (« adont » → « alors », « sicomme » → « comme », « oncques » → « jamais », « tantôt »,
   « incontinent » → « aussitôt », « devers » → « vers », « siet » → « se trouve », « querre » →
@@ -256,9 +322,9 @@ choisir de dialecte (un texte n'emploie que les siennes) : anglo-normand (« ei 
 picard (« jou », « chou »). Chaîne, de l'EPUB relu :
 
 ```
-python3 epub_modernise.py relu.epub -o 1.epub --epoque ancien --mode cas --tsv livre-cas.tsv --wordlist auto
-python3 epub_modernise.py 1.epub -o 2.epub --epoque ancien --mode vocab --tsv livre-af.tsv --wordlist auto
-python3 epub_modernise.py 2.epub -o lisible.epub --epoque ancien --mode graphie --tsv livre-graphie.tsv --wordlist auto
+python3 scripts/epub_modernise.py relu.epub -o 1.epub --epoque ancien --mode cas --tsv livre-cas.tsv --wordlist auto
+python3 scripts/epub_modernise.py 1.epub -o 2.epub --epoque ancien --mode vocab --tsv livre-af.tsv --wordlist auto
+python3 scripts/epub_modernise.py 2.epub -o lisible.epub --epoque ancien --mode graphie --tsv livre-graphie.tsv --wordlist auto
 ```
 
 - `--mode cas` (d'abord) : déclinaison à deux cas après « li ». Cas sujet singulier : « li reis »,
@@ -313,7 +379,7 @@ python3 epub_modernise.py 2.epub -o lisible.epub --epoque ancien --mode graphie 
 chaîne de l'époque, puis se sert de la traduction comme témoin :
 
 ```
-python3 bilingue_lexique.py lancelot.pdf --pages 54-439 --ancien pair --epoque ancien -o lancelot
+python3 scripts/bilingue_lexique.py lancelot.pdf --pages 54-439 --ancien pair --epoque ancien -o lancelot
 ```
 
 - `lancelot-residus.tsv` : formes restées anciennes, par fréquence — la liste de travail pour
@@ -360,13 +426,13 @@ Quand Gallica n'a pas d'OCR (pas de couche texte, ALTO refusé), le texte vient 
 (Internet Archive) et les images Gallica servent de seconde lecture :
 
 ```
-python3 pdf_vers.py lhistoiredeguill01meyeuoft.pdf -o 1.epub --pages 1-383   # vers, numéros, manchettes, notes
+python3 scripts/pdf_vers.py lhistoiredeguill01meyeuoft.pdf -o 1.epub --pages 1-383   # vers, numéros, manchettes, notes
 python3 livres/guillaume-marechal-t1-finitions.py 1.epub 2.epub                # page de titre, titres
 python3 livres/guillaume-marechal-t1-errata.py 2.epub 2b.epub                  # errata de l'avant-propos (« lis. »)
-python3 pdf_tesseract.py gallica.pdf -o gallica-tesseract.txt                 # seconde lecture
-python3 epub_reference.py 2.epub gallica-tesseract.txt --prudent --apply ocr -o 3.epub
-python3 epub_typo.py 3.epub -o maitre.epub
-python3 epub_review.py maitre.epub --ancien --report relecture.html --mark a-relire.epub
+python3 scripts/pdf_tesseract.py gallica.pdf -o gallica-tesseract.txt                 # seconde lecture
+python3 scripts/epub_reference.py 2.epub gallica-tesseract.txt --prudent --apply ocr -o 3.epub
+python3 scripts/epub_typo.py 3.epub -o maitre.epub
+python3 scripts/epub_review.py maitre.epub --ancien --report relecture.html --mark a-relire.epub
 ```
 
 - `pdf_vers.py` garde une ligne imprimée par vers (pdf_to_epub.py les recollerait en paragraphes),
@@ -494,17 +560,17 @@ exemple, à copier pour un autre document du même genre :
 Après le s long, ajouter les listes de modernisation, à trancher dans les onglets de Prescel :
 
 ```
-python3 epub_modernise.py 2.epub -o 2b.epub --mode oi    --tsv livre-oi.tsv    --wordlist auto
-python3 epub_modernise.py 2b.epub -o 2c.epub --mode ez   --tsv livre-ez.tsv    --wordlist auto
-python3 epub_modernise.py 2c.epub -o 2d.epub --mode erent --tsv livre-erent.tsv --wordlist auto
-python3 epub_modernise.py 2d.epub -o 2e.epub --mode ants --tsv livre-ants.tsv  --wordlist auto
-python3 epub_modernise.py 2e.epub -o 2f.epub --mode vocab --tsv livre-moderne.tsv --wordlist auto
+python3 scripts/epub_modernise.py 2.epub -o 2b.epub --mode oi    --tsv livre-oi.tsv    --wordlist auto
+python3 scripts/epub_modernise.py 2b.epub -o 2c.epub --mode ez   --tsv livre-ez.tsv    --wordlist auto
+python3 scripts/epub_modernise.py 2c.epub -o 2d.epub --mode erent --tsv livre-erent.tsv --wordlist auto
+python3 scripts/epub_modernise.py 2d.epub -o 2e.epub --mode ants --tsv livre-ants.tsv  --wordlist auto
+python3 scripts/epub_modernise.py 2e.epub -o 2f.epub --mode vocab --tsv livre-moderne.tsv --wordlist auto
 ```
 
 et, si une autre édition existe, une passe de comparaison :
 
 ```
-python3 epub_reference.py relu.epub reference.pdf --from-page 118 \
+python3 scripts/epub_reference.py relu.epub reference.pdf --from-page 118 \
         --apply ocr,esperluette,apostrophes,casse,graphie,variante \
         --keep "Ptolémée,Européens" -o relu2.epub --report ecarts.html
 ```
@@ -531,9 +597,116 @@ python3 epub_reference.py relu.epub reference.pdf --from-page 118 \
 - [ ] page de titre et date conformes au scan ;
 - [ ] note de transcription : corrections faites, notes renumérotées, modernisation éventuelle ;
 - [ ] pour Gutenberg : droits validés sur https://copy.pglaf.org, `.html` sans erreur sur
-      https://validator.w3.org/, `.txt` à 72 caractères par ligne, puis dépôt sur
+      https://validator.w3.org/ aux lignes de 120 caractères au plus, `.txt` à 72 caractères par
+      ligne, puis dépôt sur
       https://upload.pglaf.org.
 
+
+## Maintenance : commandes courantes
+
+Commandes à lancer depuis la racine du dépôt, après une retouche d'un maître relu dans Sigil ou une
+mise à jour des scripts. Les fichiers de `epub/` sont écrasés : `git diff --stat` montre ensuite ce
+qui a changé, `git checkout -- epub/FICHIER` revient en arrière.
+
+### Refaire les fichiers Gutenberg
+
+```
+# Froissart, t. XII et XIII (variantes en fin de volume, numéros de page {12})
+for T in 12 13; do
+  python3 scripts/epub_gutenberg.py epub/Oeuvres_de_Froissart_Chroniques_Tome_$T-relu.epub \
+          -o epub/Oeuvres_de_Froissart_Chroniques_Tome_$T \
+          --note "Texte établi d'après le fac-similé publié sur Gallica."
+done
+
+# Chardin (page de titre dans PREMIERE-PARTIE, « & » → « et »)
+python3 scripts/epub_gutenberg.py epub/Jean-Chardin-Voyages_en_Perse-relu.epub \
+        -o epub/Chardin_Voyages_en_Perse --title-file PREMIERE --esperluette \
+        --note "Texte des Voyages de Chardin en Perse (Amsterdam, Jean-Louis de Lorme), d’après l’exemplaire numérisé par Google Livres. Orthographe modernisée (s long, imparfaits en -ait, pluriels, accents) et erreurs d’OCR corrigées."
+
+# Guillaume le Maréchal : chaîne complète par tome (contrôles d'après le PDF Google, folios,
+# finitions ; 1 à 3 minutes par tome), dans un dossier de travail ; comparer avant de copier (bash)
+T=1
+sh livres/guillaume-marechal-t$T-gutenberg.sh travail-guillaume-t$T
+diff <(tr -d '\r' < travail-guillaume-t$T/Guillaume_le_Marechal_T$T.txt) \
+     <(tr -d '\r' < epub/Guillaume_le_Marechal_T$T.txt)
+cp travail-guillaume-t$T/Guillaume_le_Marechal_T$T.{txt,html,epub} epub/
+```
+
+- Guillaume : la chaîne refait exactement les fichiers du dépôt pour les t. I et III ; pour le t. II,
+  le vocabulaire de fin de volume du dépôt porte une quinzaine de retouches à la main (« voy. ore »,
+  « lau ») que la chaîne ne refait pas : ne copier que si le `diff` ne montre que la correction
+  voulue, ou reporter celle-ci à la main ;
+- le script affiche la plus longue ligne du texte (72 au plus) et du HTML (100 par défaut,
+  `--html-width 120` au plus pour PG) ;
+- la même commande sur un autre livre : `--title-file` si la page de titre n'est pas `titre*.xhtml`,
+  `--note` (répétable) pour la note de transcription, `--esperluette`, `--apostrophes` ;
+- contrôle du HTML : https://validator.w3.org/ (ou `java -jar vnu.jar epub/Mon_livre.html`) ;
+- les `.txt` sont en CRLF ; après un `git pull`, un `.txt` resté en LF se refait par
+  `rm epub/*.txt && git checkout -- epub/`.
+
+### Refaire les versions modernisées de Froissart
+
+```
+sh livres/froissart-moderne.sh 13     # …Tome_13-relu.epub → …Tome_13-moderne.epub (listes dans travail-moderne-13/)
+sh livres/froissart-lisible.sh 13     # …Tome_13-moderne.epub → …Tome_13-lisible.epub (synonymes, chiffres arabes)
+sh livres/froissart-moderne.sh 12
+```
+
+À refaire après une correction du maître relu ou un ajout aux dictionnaires
+(`dictionnaires/moyen_francais.py`, `graphie_moyen.py`, `noms_froissart.py`,
+`lisible_froissart.py`). Les listes `travail-moderne-13/livre-*.tsv` donnent chaque remplacement :
+un mot mal modernisé se corrige dans le dictionnaire (ou ses `EXCEPTIONS`), pas dans l'EPUB.
+
+### Moderniser un autre texte
+
+Une passe à la fois, chaque liste relue avant la suivante (colonnes : `appliquer` 1/0, forme lue,
+correction, occurrences, remarque ; la liste corrigée à la main est reprise si l'on relance la même
+commande) :
+
+```
+# XVIIᵉ-XVIIIᵉ siècle (Chardin, Belon) : oi → ai, -ez → -és, -erent, -ans, vocabulaire
+python3 scripts/epub_modernise.py relu.epub -o 1.epub --mode oi    --tsv livre-oi.tsv    --wordlist auto
+python3 scripts/epub_modernise.py 1.epub   -o 2.epub --mode ez    --tsv livre-ez.tsv    --wordlist auto
+python3 scripts/epub_modernise.py 2.epub   -o 3.epub --mode erent --tsv livre-erent.tsv --wordlist auto
+python3 scripts/epub_modernise.py 3.epub   -o 4.epub --mode ants  --tsv livre-ants.tsv  --wordlist auto
+python3 scripts/epub_modernise.py 4.epub   -o moderne.epub --mode vocab --tsv livre-moderne.tsv --wordlist auto
+
+# moyen français (XIVᵉ-XVᵉ) : --epoque moyen, voir « Moderniser l'orthographe d'un texte en moyen
+# français » (pas de --mode ez) ; noms propres de l'auteur avec --dict
+python3 scripts/epub_modernise.py relu.epub -o 1.epub --epoque moyen --mode graphie --tsv livre-graphie.tsv --wordlist auto
+```
+
+Ne toucher qu'au récit, pas aux notes de l'éditeur : `--jusqua titre-4` (id du premier titre à
+laisser). Le titre et la page de titre doivent annoncer la modernisation (voir
+`livres/froissart-moderne.sh`).
+
+### Refaire l'EPUB à relire d'un tome à apparat (Froissart t. XIV)
+
+Après une retouche de `livres/froissart-t14-appels.py` (appels `DROP`/`ADD`, `REMPLACEMENTS`) ou de
+`livres/froissart-t14-apparat-lu.txt`, sur l'EPUB des témoins gardé en dossier de travail :
+
+```
+python3 scripts/epub_apparat_scan.py travail-t14/temoins.epub travail-t14/apparat.epub \
+        --scan travail-t14/scan.json --apparat livres/froissart-t14-apparat-lu.txt \
+        --corrections livres/froissart-t14-appels.py --google pdf/froissart-95OiiHRqQ9wC-14.pdf \
+        --rapport livres/froissart-t14-apparat.tsv
+python3 scripts/epub_guillemets.py travail-t14/apparat.epub \
+        -o epub/Oeuvres_de_Froissart_Chroniques_Tome_14-temoins-a-relire.epub
+python3 scripts/epub_appels.py epub/Oeuvres_de_Froissart_Chroniques_Tome_14-temoins-a-relire.epub --rapport appels.html
+```
+
+`scan.json` vient de `scan_apparat.py` (numérisation IA, `--decalage 14`) ; une page à vérifier se
+voit avec `scan_apparat.py … --planche-appels VUE -o vue.png` (appels repérés, numérotés en rouge),
+l'apparat avec `--planches-apparat DE A --echelle 0.65`.
+
+### Contrôles rapides
+
+```
+java -jar epubcheck.jar epub/Mon_livre-relu.epub                          # 0 erreur attendue
+python3 scripts/epub_review.py epub/Mon_livre-relu.epub --report relecture.html   # ce qui reste à voir
+python3 scripts/epub_appels.py epub/Mon_livre-relu.epub --rapport appels.html     # appels / variantes par page
+python3 scripts/epub_guillemets.py epub/Mon_livre-relu.epub --dry-run             # guillemets lus « u » / « n »
+```
 
 ## Installation et lancement
 
@@ -581,7 +754,9 @@ Facultatif :
 
 ## Les scripts
 
-Chaque script s'utilise aussi seul (`python3 script.py --help`).
+Les scripts sont dans le dossier `scripts/` ; chacun s'utilise aussi seul, lancé depuis la racine du
+dépôt (`python3 scripts/epub_review.py --help`) : les chemins `dictionnaires/…` et `livres/…` des
+exemples sont relatifs à la racine.
 
 | Script | Rôle |
 |---|---|
@@ -605,14 +780,18 @@ Chaque script s'utilise aussi seul (`python3 script.py --help`).
 | `epub_structure.py` | livres, chapitres, titres en capitales, dates d'un journal, sommaires, notes reliées, avertissement Google retiré, table des matières, liste des pages |
 | `epub_errata.py` | applique l'errata imprimé du livre (« P. 24, l. 30, sont — font ») à la page indiquée ; liste à relire dans `<livre>-errata.tsv` |
 | `epub_recolle.py` | recolle les mots coupés d'une espace (« Portin gal », « autre ment ») quand le mot entier est ailleurs dans le livre ; liste dans `<livre>-recolle.tsv` |
-| `epub_guillemets.py` | guillemets que l'OCR a lus « u » (« ) et « n » (») ; guillemets répétés en tête de ligne supprimés |
+| `epub_guillemets.py` | guillemets que l'OCR a lus « u » (« ) et « n » (») ; guillemets répétés en tête de ligne supprimés, y compris les vrais « restés au milieu d'une phrase citée ou d'un mot coupé (« Et « outre », « Cas« tille ») |
 | `epub_apparat.py` | numéros d'appel de l'apparat de variantes lus « U », déduits des numéros voisins |
 | `epub_appels.py` | appels de variantes contrôlés page par page (texte et apparat) ; appels et numéros mal lus restitués quand le compte tombe juste ; rapport des pages incohérentes |
 | `epub_typo.py` | typographie française de la ponctuation (insécables, espaces, « — », « … ») ; seules les espaces changent |
 | `epub_split_h1.py` | un fichier par livre / chapitre |
 | `epub_review.py` | rapport de relecture, copie surlignée, dictionnaire pour Sigil ; `--unmark`, `--fix-doctype`, `--sans` |
+| `scan_apparat.py` | lecture d'une numérisation (PDF d'images) d'une édition à apparat : mots du corps, appels en exposant repérés sur l'image, entrées de l'apparat ; planches pour relire l'apparat et contrôler les appels |
+| `epub_apparat_scan.py` | appels de variantes placés et blocs d'apparat refaits d'après `scan_apparat.py` et l'apparat relu à vue ; exposants des nombres romains ; modules dans `scripts/apparat/` |
+| `epub_romains.py` | nombres en chiffres romains (exposants compris : IIII<sup>xx</sup>, V<sup>c</sup>) en chiffres arabes, pour une édition de lecture |
+| `epub_temoins.py` | relecture ciblée : l'EPUB face à deux autres lectures de la même édition (et une autre édition, Wikisource, en indice) ; corrige ce que les lectures donnent d'accord, marque le reste, classe les pages à relire |
 | `bilingue_lexique.py` | édition bilingue (texte ancien en regard d'une traduction) → formes restées anciennes, candidats validés par la traduction, faux amis probables ; aucun passage écrit |
-| `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide |
+| `epub_gutenberg.py` | fichiers à déposer chez Project Gutenberg : texte UTF-8 (72 caractères par ligne) et HTML5 valide (lignes de 100 caractères) |
 | `epub_pages.py` | liste des pages du livre papier rétablie ou réparée ; `--purge` |
 
 Ordre des étapes : import PDF → nettoyage → s long → oi → ez → erent → ans → vocabulaire → référence → structure →
@@ -672,7 +851,7 @@ l'une est en graphie ancienne et l'autre modernisée — et compare les deux mot
 de note et repères de pagination de la référence sont écartés.
 
 ```
-python3 epub_reference.py livre.epub "Chardin voyages.pdf" --from-page 118 -o livre-corrige.epub
+python3 scripts/epub_reference.py livre.epub "Chardin voyages.pdf" --from-page 118 -o livre-corrige.epub
 ```
 
 Seules les catégories demandées (`--apply`) sont appliquées ; toutes sont listées dans le rapport
@@ -744,7 +923,7 @@ s'ajoute aux dictionnaires utilisateur de Sigil pour que l'orthographe ancienne 
 soulignée. Quand la relecture est finie : bouton « Retirer les marqueurs », ou
 
 ```
-python3 epub_review.py livre-a-relire.epub --unmark -o livre-relu.epub
+python3 scripts/epub_review.py livre-a-relire.epub --unmark -o livre-relu.epub
 ```
 
 ## Après des retouches dans Sigil
@@ -753,14 +932,14 @@ python3 epub_review.py livre-a-relire.epub --unmark -o livre-relu.epub
   du livre papier et alimentent la liste des pages du `toc.ncx`. Sigil la supprime quand il
   régénère la table des matières ; la relance ciblée la refait, ou :
   ```
-  python3 epub_pages.py livre-relu.epub -o livre-pages.epub            # rétablir / réparer
-  python3 epub_pages.py livre-relu.epub -o livre-sans-pages.epub --purge   # ou retirer les ancres
+  python3 scripts/epub_pages.py livre-relu.epub -o livre-pages.epub            # rétablir / réparer
+  python3 scripts/epub_pages.py livre-relu.epub -o livre-sans-pages.epub --purge   # ou retirer les ancres
   ```
   Si les ancres ont disparu du texte (purge, nettoyage dans Sigil), elles peuvent être reportées
   depuis une autre version du livre, même en graphie ancienne — typiquement l'EPUB de Google
   d'origine, dont la page-map donne aussi les numéros imprimés :
   ```
-  python3 epub_pages.py livre-relu.epub --from livre-google.epub -o livre-pages.epub
+  python3 scripts/epub_pages.py livre-relu.epub --from livre-google.epub -o livre-pages.epub
   ```
 - **Id en double** (couper un paragraphe dans Sigil recopie son `id`), **ancres disparues**
   encore visées par le `toc.ncx`, **playOrder identiques** : réparés par `epub_pages.py` et par la
@@ -770,7 +949,7 @@ python3 epub_review.py livre-a-relire.epub --unmark -o livre-relu.epub
   `epub_pages.py` et par la relance ciblée.
 - **DOCTYPE** : Google écrit en XHTML 1.0 Strict, refusé par epubcheck dans un EPUB 2 (`HTM-004`).
   Toutes les étapes le corrigent ; pour un fichier en cours de relecture :
-  `python3 epub_review.py livre-a-relire.epub --fix-doctype`.
+  `python3 scripts/epub_review.py livre-a-relire.epub --fix-doctype`.
 
 ## Publier sur Project Gutenberg
 
@@ -778,13 +957,19 @@ Project Gutenberg demande deux fichiers « maîtres » : un texte brut UTF-8 et 
 validateur du W3C (https://validator.w3.org/). Il ajoute lui-même son en-tête et sa licence.
 
 ```
-python3 epub_gutenberg.py livre-relu.epub -o Mon_livre      # → Mon_livre.txt, Mon_livre.html
+python3 scripts/epub_gutenberg.py livre-relu.epub -o Mon_livre      # → Mon_livre.txt, Mon_livre.html
+python3 scripts/epub_gutenberg.py livre-relu.epub -o Mon_livre --html-width 120   # lignes HTML plus longues
 ```
+
+Exemples réels (Froissart, Chardin, Guillaume le Maréchal) : [Maintenance](#maintenance--commandes-courantes).
 
 - texte : lignes de 72 caractères au plus, fins de ligne CRLF, paragraphes séparés par une ligne
   vide, quatre lignes vides avant chaque chapitre et deux après, italique en `_soulignés_`,
   notes `[1]` en fin de chapitre ;
-- HTML : une seule page, CSS intégrée, notes reliées dans les deux sens, aucun script ;
+- HTML : une seule page, CSS intégrée, notes reliées dans les deux sens, aucun script ; lignes de
+  100 caractères au plus (`--html-width N` ; PG en demande 120 au plus pour pouvoir reprendre le
+  fichier), coupées sur une espace ordinaire, jamais dans un attribut ni sur une espace insécable :
+  le rendu est le même ;
 - `--title-file NOM` désigne la page de titre de l'EPUB (défaut « titre ») ; `--apostrophes auto`
   garde une seule forme d'apostrophe (la plus fréquente) ; `--esperluette` remplace les « & » restants
   par « et » quand le reste du livre l'écrit ainsi ;

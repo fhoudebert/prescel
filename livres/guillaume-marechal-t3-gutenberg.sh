@@ -6,8 +6,8 @@
 set -e
 P=$(pwd); W=${1:-travail-guillaume-t3}; mkdir -p "$W"
 cd "$W"
-python3 "$P/epub_review.py" "$P/epub/Guillaume_le_Marechal_T3-a-relire.epub" --unmark -o t3-0.epub
+python3 "$P/scripts/epub_review.py" "$P/epub/Guillaume_le_Marechal_T3-a-relire.epub" --unmark -o t3-0.epub
 python3 "$P/livres/guillaume-marechal-t3-finitions.py" t3-0.epub Guillaume_le_Marechal_T3.epub
-python3 "$P/epub_review.py" Guillaume_le_Marechal_T3.epub --report t3-controle.html
-python3 "$P/epub_gutenberg.py" Guillaume_le_Marechal_T3.epub -o Guillaume_le_Marechal_T3
+python3 "$P/scripts/epub_review.py" Guillaume_le_Marechal_T3.epub --report t3-controle.html
+python3 "$P/scripts/epub_gutenberg.py" Guillaume_le_Marechal_T3.epub -o Guillaume_le_Marechal_T3
 echo "Fini : $W/Guillaume_le_Marechal_T3.epub, .txt, .html (contrôle : $W/t3-controle.html)"

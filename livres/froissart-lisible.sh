@@ -3,24 +3,29 @@
 # l'orthographe modernisée (chaîne « Moderniser l'orthographe d'un texte en moyen français » de
 # utilisation.md), les mots disparus ou trompeurs sont remplacés par un synonyme moderne
 # (dictionnaires/lisible_froissart.py), puis la passe de vocabulaire ordinaire (« cuida » → « pensa »,
-# « grant » → grand / grande). Les NOTES de l'éditeur (titre-4) et ce qui suit ne sont pas touchées.
+# « grant » → grand / grande), puis les nombres romains en chiffres arabes (scripts/epub_romains.py).
+# Les NOTES de l'éditeur (titre-4) et ce qui suit ne sont pas touchées.
 #   sh livres/froissart-lisible.sh 13 [dossier de travail]
 # → epub/Oeuvres_de_Froissart_Chroniques_Tome_13-lisible.epub
 set -e
 T=${1:?numéro du tome}; P=$(pwd); W=${2:-travail-lisible-$T}; mkdir -p "$W"
 SRC="$P/epub/Oeuvres_de_Froissart_Chroniques_Tome_$T-moderne.epub"
 OUT="$P/epub/Oeuvres_de_Froissart_Chroniques_Tome_$T-lisible.epub"
-python3 "$P/epub_modernise.py" "$SRC" -o "$W/1.epub" --epoque moyen --mode vocab \
+python3 "$P/scripts/epub_modernise.py" "$SRC" -o "$W/1.epub" --epoque moyen --mode vocab \
         --dict "$P/dictionnaires/lisible_froissart.py" --jusqua titre-4 --tsv "$W/lisible.tsv" --wordlist auto
-python3 "$P/epub_modernise.py" "$W/1.epub" -o "$W/2.epub" --epoque moyen --mode vocab \
+python3 "$P/scripts/epub_modernise.py" "$W/1.epub" -o "$W/2.epub" --epoque moyen --mode vocab \
         --jusqua titre-4 --tsv "$W/vocabulaire.tsv" --wordlist auto
+# nombres en chiffres romains → chiffres arabes (« mil CCC. IIII<sup>xx</sup> et VIII » → 1388,
+# « VII<sup>m</sup> lances » → 7 000 lances ; Charles VI, tome XIII gardés)
+python3 "$P/scripts/epub_romains.py" "$W/2.epub" -o "$W/3.epub" --jusqua titre-4 --tsv "$W/romains.tsv"
 # titre et note de la page de titre : « orthographe modernisée » → « lecture facilitée »
-python3 - "$W/2.epub" "$OUT" <<'PY'
+python3 - "$W/3.epub" "$OUT" <<'PY'
 import sys, zipfile
 src, out = sys.argv[1:]
 NOTE = ("<i>Lecture facilitée</i> : orthographe modernisée (graphies, formes verbales, noms propres) ; "
         "les mots disparus ou dont le sens a changé sont remplacés par un synonyme moderne "
         "(« adont » → « alors », « tantôt » → « aussitôt », « devers » → « vers ») ; "
+        "les nombres en chiffres romains sont donnés en chiffres arabes ; "
         "la syntaxe et les tournures sont celles de Froissart.")
 with zipfile.ZipFile(src) as zin, zipfile.ZipFile(out, "w") as zout:
     for info in sorted(zin.infolist(), key=lambda i: i.filename != "mimetype"):
@@ -34,4 +39,4 @@ with zipfile.ZipFile(src) as zin, zipfile.ZipFile(out, "w") as zout:
                 data = (t[:i] + NOTE + t[t.index("</p>", i):]).encode("utf-8")
         zout.writestr(info, data, compress_type=zipfile.ZIP_STORED if info.filename == "mimetype" else zipfile.ZIP_DEFLATED)
 PY
-echo "Fini : $OUT (listes des remplacements : $W/lisible.tsv, $W/vocabulaire.tsv)"
+echo "Fini : $OUT (listes des remplacements : $W/lisible.tsv, $W/vocabulaire.tsv, $W/romains.tsv)"
